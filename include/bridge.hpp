@@ -33,6 +33,7 @@ value_kind translate_type(const wabt::Type& type) {
         return value_kind::i64;
     default:
         undefined(type.GetName() + " is unsupported");
+        return value_kind::i32;
     }
 }
 
@@ -176,7 +177,9 @@ template <typename In, typename Out>
 instr_ptr translate_scope(const In& expr) {
     Out block;
     block.label = expr.block.label;
-    block.type = expr.block.decl.type_var.index();
+    if (expr.block.decl.has_func_type) {
+        block.type = expr.block.decl.type_var.index();
+    }
     for (const auto& ins : expr.block.exprs) {
         block.body.push_back(translate(ins));
     }

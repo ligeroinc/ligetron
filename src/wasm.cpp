@@ -34,10 +34,9 @@ int main(int argc, char *argv[]) {
 
     auto dummy_frame = std::make_unique<frame>();
     dummy_frame->module = &module;
-    exe.current_frame_ = dummy_frame.get();
+    exe.push_frame(std::move(dummy_frame));
 
-    exe.stack_push(u32(1));
-    exe.stack_push(u32(2));
+    exe.stack_push(u32(10));
     op::call start{0};
     start.run(exe);
 

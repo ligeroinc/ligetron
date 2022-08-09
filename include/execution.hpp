@@ -54,17 +54,32 @@ struct execution_context {
     }
 
     value_t local_get(index_t i) const {
-        return current_frame_->locals[i];
+        return current_frame()->locals[i];
     }
 
     template <typename T>
     void local_set(index_t i, T v) {
-        current_frame_->locals[i] = v;
+        current_frame()->locals[i] = v;
+    }
+
+    frame* current_frame() const {
+        return frames_.back();
+    }
+
+    frame* push_frame(frame_ptr&& ptr) {
+        frame *p = ptr.get();
+        frames_.push_back(p);
+        stack_push(std::move(ptr));
+        return p;
+    }
+
+    void pop_frame() {
+        frames_.pop_back();
     }
     
     const store_t *store_ = nullptr;
     module_instance *module_ = nullptr;
-    frame *current_frame_ = nullptr;
+    std::vector<frame*> frames_;
     std::vector<svalue_t> stack_;
 };
 
@@ -85,10 +100,15 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
     }
 
     result_t run(const op::block& block) override {
+        std::cout << "<block.entry> ";
+        show_stack();
         /* Entering block with Label L */
-        const auto& type = module_->types[block.type];
-        u32 m = type.params.size();
-        u32 n = type.returns.size();
+        u32 m = 0, n = 0;
+        if (block.type) {
+            const auto& type = module_->types[*block.type];
+            m = type.params.size();
+            n = type.returns.size();
+        }
 
         stack_.insert(stack_.rbegin().base() + m, label{ n });
 
@@ -107,37 +127,54 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             }
         }
 
-        /* Exiting block with Label L */
-        auto it = stack_.rbegin() + n;
+        show_stack();
+
+        /* Exiting block with Label L if no jump happended */
+        auto it = (stack_.rbegin() + n + 1).base();
         assert(std::holds_alternative<label>(*it));
-        stack_.erase(it.base());
+        stack_.erase(it);
+
+        std::cout << "<block.exit> ";
+        show_stack();
         return {};
     }
 
     result_t run(const op::loop& block) override {
+        std::cout << "<loop.entry> ";
+        show_stack();
         /* Entering block with Label L */
-        const auto& type = module_->types[block.type];
-        u32 m = type.params.size();
-        u32 n = type.returns.size();
+        u32 m = 0, n = 0;
+        if (block.type) {
+            const auto& type = module_->types[*block.type];
+            m = type.params.size();
+            n = type.returns.size();
+        }
 
         stack_.insert(stack_.rbegin().base() + m, label{ m });
 
-        for (;;) {
-            for (const auto& instr : block.body) {
-                auto ret = instr->run(*this);
+        for (const auto& instr : block.body) {
+            auto ret = instr->run(*this);
 
-                /* Return from nested block */
-                if (int *p = std::get_if<int>(&ret)) {
-                    assert(*p >= 0);
-                    if (*p == 0) {
-                        break;
-                    }
-                    else {
-                        return *p - 1;
-                    }
+            /* Return from nested block */
+            if (int *p = std::get_if<int>(&ret)) {
+                assert(*p >= 0);
+                if (*p == 0) {
+                    return run(block);
+                }
+                else {
+                    return *p - 1;
                 }
             }
         }
+
+        /* Exiting block with Label L if no jump happended */
+        auto it = (stack_.rbegin() + n + 1).base();
+        assert(std::holds_alternative<label>(*it));
+        stack_.erase(it);
+
+        std::cout << "<loop.exit> ";
+        show_stack();
+        return {};
     }
 
     result_t run(const op::if_then_else&) override {
@@ -148,9 +185,12 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
     result_t run(const op::br& b) override {
         const int l = b.label;
 
+        std::cout << "<br " << l << "> ";
+        show_stack();
+
         /* Find L-th label */
         int count = 0;
-        auto it = std::find_if(stack_.rbegin(), stack_.rend(), [&count, l](const auto& v) {
+        auto rit = std::find_if(stack_.rbegin(), stack_.rend(), [&count, l](const auto& v) {
             if (std::holds_alternative<label>(v)) {
                 count++;
                 if (count == l + 1) {
@@ -160,15 +200,19 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             return false;
         });
 
-        const size_t n = std::get<label>(*it).arity;
-        auto top = stack_.rend() + n;
-        stack_.erase(it.base(), top.base());
+        rit++;
+        auto it = rit.base();
         
+        assert(std::holds_alternative<label>(*it));
+        const size_t n = std::get<label>(*it).arity;
+        auto top = stack_.rbegin() + n;
+        stack_.erase(it, top.base());
         return l;
     }
 
     result_t run(const op::br_if& b) override {
         u32 cond = stack_pop<u32>();
+        std::cout << "<br_if> cond=" << cond << std::endl;
 
         if (cond != 0) {
             return run(op::br{ b.label });
@@ -182,7 +226,7 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
     }
 
     result_t run(const op::ret&) override {
-        const size_t arity = current_frame_->arity;
+        const size_t arity = current_frame()->arity;
         auto top = stack_.rbegin() + arity;
         auto it = top;
 
@@ -196,8 +240,10 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
     }
 
     result_t run(const op::call& c) override {
+        std::cout << "<call.entry> ";
         show_stack();
-        address_t addr = current_frame_->module->funcaddrs[c.func];
+        
+        address_t addr = current_frame()->module->funcaddrs[c.func];
         const function_instance& func = store_->functions[addr];
         u32 n = func.kind.params.size();
         u32 m = func.kind.returns.size();
@@ -219,15 +265,12 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
         stack_.erase((stack_.rbegin() + n).base(), stack_.end());
         
         auto fp = std::make_unique<frame>(m, std::move(arguments), module_);
-        current_frame_ = fp.get();
 
         for (const value_kind& type : func.code.locals) {
             fp->locals.emplace_back(static_cast<u64>(0));
         }
         
-        stack_emplace(std::move(fp));
-
-        show_stack();
+        push_frame(std::move(fp));
 
         for (const auto& instr : func.code.body) {
             auto ret = instr->run(*this);
@@ -237,11 +280,13 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             }
         }
 
-        show_stack();
-
         it = (stack_.rbegin() + m + 1).base();
         assert(std::holds_alternative<frame_ptr>(*it));
         stack_.erase(it);
+        pop_frame();
+
+        std::cout << "<call.exit> ";
+        show_stack();
         return {};
     }
 
@@ -260,24 +305,30 @@ struct basic_exe_variable : virtual execution_context, virtual VariableExecutor 
         auto local = local_get(x);
         if (std::holds_alternative<u32>(local)) {
             stack_emplace(std::get<u32>(local));
+            std::cout << "local.get[" << x << "]=" << std::get<u32>(local) << " ";
         }
         else {
             stack_emplace(std::get<u64>(local));
         }
+        show_stack();
         return {};
     }
 
     result_t run(const op::local_set& var) override {
         index_t x = var.local;
         u32 top = stack_pop<u32>();
+        std::cout << "local.set[" << x << "]=" << top << " ";
         local_set(x, top);
+        show_stack();
         return {};
     }
 
     result_t run(const op::local_tee& var) override {
         index_t x = var.local;
         u32 top = stack_peek<u32>();
+        std::cout << "local.tee[" << x << "]=" << top << " ";
         local_set(x, top);
+        show_stack();
         return {};
     }
 
@@ -332,6 +383,8 @@ struct basic_exe_numeric : virtual execution_context, virtual NumericExecutor {
             u32 y = stack_pop<u64>();
             stack_push(x + y);
         }
+        std::cout << "i32.add ";
+        show_stack();
         return {};
     }
 
@@ -400,18 +453,39 @@ struct basic_exe_numeric : virtual execution_context, virtual NumericExecutor {
         return {};
     }
 
-    result_t run(const op::inn_ne&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_ne& ins) override {
+        assert(ins.type == int_kind::i32);
+        u32 y = stack_pop<u32>();
+        u32 x = stack_pop<u32>();
+        stack_push(static_cast<u32>(x != y));
         return {};
     }
 
-    result_t run(const op::inn_lt_sx&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_lt_sx& ins) override {
+        assert(ins.type == int_kind::i32);
+        u32 y = stack_pop<u32>();
+        u32 x = stack_pop<u32>();
+        if (ins.sign == sign_kind::sign) {
+            u32 compare = static_cast<s32>(x) < static_cast<s32>(y);
+            stack_emplace(compare);
+        }
+        else {
+            stack_emplace(static_cast<u32>(x < y));
+        }
         return {};
     }
 
-    result_t run(const op::inn_gt_sx&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_gt_sx& ins) override {
+        assert(ins.type == int_kind::i32);
+        u32 y = stack_pop<u32>();
+        u32 x = stack_pop<u32>();
+        if (ins.sign == sign_kind::sign) {
+            u32 compare = static_cast<s32>(x) > static_cast<s32>(y);
+            stack_emplace(compare);
+        }
+        else {
+            stack_emplace(static_cast<u32>(x > y));
+        }
         return {};
     }
 

@@ -34,8 +34,11 @@ extern "C" {
 // __attribute__((import_module("env"), import_name("get_witness")))
 // int get_witness(int i);
 
-int program_main(int x, int y) {
-    return x + y + 1;
+int program_main(int x) {
+    if (x == 0 or x == 1)
+        return x;
+    else
+        return program_main(x-1) + program_main(x-2);
 }
 
 

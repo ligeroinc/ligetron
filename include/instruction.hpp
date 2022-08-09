@@ -455,7 +455,7 @@ struct block : virtual instr, enable_control<block> {
     block(index_t block_type) : type(block_type) { }
 
     name_t label;
-    index_t type;
+    std::optional<index_t> type;
     instr_vec body;
 };
 
@@ -464,7 +464,7 @@ struct loop : virtual instr, enable_control<loop> {
     loop(index_t block_type) : type(block_type) { }
 
     name_t label;
-    index_t type;
+    std::optional<index_t> type;
     instr_vec body;
 };
 

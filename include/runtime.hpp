@@ -8,57 +8,98 @@
 #include <instruction.hpp>
 #include <bridge.hpp>
 
+#include <string_view>
+
 #include <ir.h>
 
 namespace ligero::vm {
 
 // Reference
 /* ------------------------------------------------------------ */
-struct ref_t {
-    ref_kind kind;
-    address_t address;
-};
+// struct ref_t {
+//     ref_kind kind;
+//     address_t address;
+// };
 
 
 // Runtime Objects
 /* ------------------------------------------------------------ */
-union value_t {
-    u32 i32;
-    u64 i64;
-    // ref_t ref;
-};
+// struct externval_t {
+//     extern_kind kind;
+//     address_t address;
+// };
 
-struct externval_t {
-    extern_kind kind;
-    address_t address;
-};
-
-struct label_t {
-    u32 arity;
-    instr_vec continuation;
-};
+struct label { u32 arity; };
 
 struct module_instance;
-struct frame_t {
+struct frame;
+
+using frame_ptr = std::unique_ptr<frame>;
+using value_t = std::variant<u32, u64>;
+using svalue_t = std::variant<u32, u64, label, frame_ptr>;
+
+struct frame {
+    frame() = default;
+    frame(u32 arity, std::vector<value_t>&& local, module_instance *module)
+        : arity(arity), locals(std::move(local)), module(module) { }
+    
     u32 arity;
     std::vector<value_t> locals;
     module_instance *module;
 };
 
-// Trap
-/* ------------------------------------------------------------ */
-struct Trap;
+// struct stack_val_t {
+//     enum class kind {
+//         i32,
+//         i64,
+//         label,
+//         frame
+//     };
+
+//     stack_val_t(u32 i) : val{.i32=i}, tag(kind::i32) { }
+//     stack_val_t(u64 i) : val{.i64=i}, tag(kind::i64) { }
+//     stack_val_t(label_t label) : val{.label=label}, tag(kind::label) { }
+//     stack_val_t(frame_t *f) : val{.frame=f}, tag(kind::frame) { }
+
+//     u32 i32() const { return val.i32; }
+//     u64 i64() const { return val.i64; }
+//     label_t label() const { return val.label; }
+//     frame_t *frame() const { return val.frame; }
+
+//     std::string_view type_str() const {
+//         switch(tag) {
+//         case kind::i32:
+//             return "i32";
+//         case kind::i64:
+//             return "i64";
+//         case kind::label:
+//             return "label";
+//         case kind::frame:
+//             return "frame";
+//         default:
+//             return "<unknown>";
+//         }
+//     }
+
+//     union {
+//         u32 i32;
+//         u64 i64;
+//         label_t label;
+//         frame_t *frame;
+//     } val;
+//     kind tag;
+// };
 
 
 // Forward Declaration
 /* ------------------------------------------------------------ */
 struct function_instance;
-struct table_instance;
+// struct table_instance;
 struct memory_instance;
 struct global_instance;
-struct element_instance;
+// struct element_instance;
 struct data_instance;
-struct export_instance;
+// struct export_instance;
 
 // Store
 /* ------------------------------------------------------------ */
@@ -72,11 +113,11 @@ struct store_t {
             functions.emplace_back(std::forward<Args>(args)...);
             return index;
         }
-        else if constexpr (std::is_same_v<T, table_instance>) {
-            size_t index = tables.size();
-            tables.emplace_back(std::forward<Args>(args)...);
-            return index;
-        }
+        // else if constexpr (std::is_same_v<T, table_instance>) {
+        //     size_t index = tables.size();
+        //     tables.emplace_back(std::forward<Args>(args)...);
+        //     return index;
+        // }
         else if constexpr (std::is_same_v<T, memory_instance>) {
             size_t index = memorys.size();
             memorys.emplace_back(std::forward<Args>(args)...);
@@ -87,11 +128,11 @@ struct store_t {
             globals.emplace_back(std::forward<Args>(args)...);
             return index;
         }
-        else if constexpr (std::is_same_v<T, element_instance>) {
-            size_t index = elements.size();
-            elements.emplace_back(std::forward<Args>(args)...);
-            return index;
-        }
+        // else if constexpr (std::is_same_v<T, element_instance>) {
+        //     size_t index = elements.size();
+        //     elements.emplace_back(std::forward<Args>(args)...);
+        //     return index;
+        // }
         else if constexpr (std::is_same_v<T, data_instance>) {
             size_t index = datas.size();
             datas.emplace_back(std::forward<Args>(args)...);
@@ -104,10 +145,10 @@ struct store_t {
     }
     
     std::vector<function_instance> functions;
-    std::vector<table_instance> tables;
+    // std::vector<table_instance> tables;
     std::vector<memory_instance> memorys;
     std::vector<global_instance> globals;
-    std::vector<element_instance> elements;
+    // std::vector<element_instance> elements;
     std::vector<data_instance> datas;
 };
 
@@ -119,12 +160,12 @@ struct module_instance {
     
     std::vector<function_kind> types;
     std::vector<address_t> funcaddrs;
-    std::vector<address_t> tableaddrs;
+    // std::vector<address_t> tableaddrs;
     std::vector<address_t> memaddrs;
     std::vector<address_t> globaladdrs;
-    std::vector<address_t> elemaddrs;
+    // std::vector<address_t> elemaddrs;
     std::vector<address_t> dataaddrs;
-    std::vector<export_instance> exports;
+    // std::vector<export_instance> exports;
 };
 
 // Function Instance
@@ -149,10 +190,10 @@ struct function_instance {
 
 // Table Instance
 /* ------------------------------------------------------------ */
-struct table_instance {
-    table_kind kind;
-    std::vector<ref_t> elem;
-};
+// struct table_instance {
+//     table_kind kind;
+//     std::vector<ref_t> elem;
+// };
 
 // Memory Instance
 /* ------------------------------------------------------------ */
@@ -174,10 +215,10 @@ struct global_instance {
 
 // Element Instance
 /* ------------------------------------------------------------ */
-struct element_instance {
-    ref_kind type;
-    std::vector<ref_t> elem;
-};
+// struct element_instance {
+//     ref_kind type;
+//     std::vector<ref_t> elem;
+// };
 
 // Data Instance
 /* ------------------------------------------------------------ */
@@ -187,10 +228,10 @@ struct data_instance {
 
 // Export Instance
 /* ------------------------------------------------------------ */
-struct export_instance {
-    name_t name;
-    externval_t val;
-};
+// struct export_instance {
+//     name_t name;
+//     externval_t val;
+// };
 
 
 /* ------------------------------------------------------------ */
@@ -225,10 +266,10 @@ index_t allocate_function(store_t& store, const module_instance *inst, const wab
                                                  std::move(code));
 }
 
-index_t allocate_table(store_t& store, const wabt::Table& table) {
-    undefined("Undefined allocate_table");
-    return 0;
-}
+// index_t allocate_table(store_t& store, const wabt::Table& table) {
+//     undefined("Undefined allocate_table");
+//     return 0;
+// }
 
 index_t allocate_memory(store_t& store, const wabt::Memory& memory) {
     constexpr size_t page_size = 64 * 1024 * 1024;  // 64 KB
@@ -245,10 +286,10 @@ index_t allocate_global(store_t& store, const wabt::Global& g) {
     if (auto *p = dynamic_cast<const wabt::ConstExpr*>(&(*(g.init_expr.begin())))) {
         switch(p->const_.type()) {
         case wabt::Type::I32:
-            val.i32 = p->const_.u32();
+            val = p->const_.u32();
             break;
         case wabt::Type::I64:
-            val.i64 = p->const_.u64();
+            val = p->const_.u64();
             break;
         default:
             undefined("Unsopported initialization in global");

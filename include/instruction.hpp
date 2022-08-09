@@ -129,162 +129,164 @@ struct call_indirect;
 
 // Executor
 /* ------------------------------------------------------------ */
+using result_t = std::variant<std::monostate, int>;
+
 struct Executor {
     virtual ~Executor() = default;
 };
 
 struct NumericExecutor : virtual Executor {
-    virtual void run(const op::inn_const&) = 0;
-    virtual void run(const op::inn_clz&) = 0;
-    virtual void run(const op::inn_ctz&) = 0;
-    virtual void run(const op::inn_popcnt&) = 0;
-    virtual void run(const op::inn_add&) = 0;
-    virtual void run(const op::inn_sub&) = 0;
-    virtual void run(const op::inn_mul&) = 0;
-    virtual void run(const op::inn_div_sx&) = 0;
-    virtual void run(const op::inn_rem_sx&) = 0;
-    virtual void run(const op::inn_and&) = 0;
-    virtual void run(const op::inn_or&) = 0;
-    virtual void run(const op::inn_xor&) = 0;
-    virtual void run(const op::inn_shl&) = 0;
-    virtual void run(const op::inn_shr_sx&) = 0;
-    virtual void run(const op::inn_rotl&) = 0;
-    virtual void run(const op::inn_rotr&) = 0;
-    virtual void run(const op::inn_eqz&) = 0;
-    virtual void run(const op::inn_eq&) = 0;
-    virtual void run(const op::inn_ne&) = 0;
-    virtual void run(const op::inn_lt_sx&) = 0;
-    virtual void run(const op::inn_gt_sx&) = 0;
-    virtual void run(const op::inn_le_sx&) = 0;
-    virtual void run(const op::inn_ge_sx&) = 0;
-    virtual void run(const op::inn_extend8_s&) = 0;
-    virtual void run(const op::inn_extend16_s&) = 0;
-    virtual void run(const op::i64_extend32_s&) = 0;
-    virtual void run(const op::i64_extend_i32_sx&) = 0;
-    virtual void run(const op::i32_wrap_i64&) = 0;
+    virtual result_t run(const op::inn_const&) = 0;
+    virtual result_t run(const op::inn_clz&) = 0;
+    virtual result_t run(const op::inn_ctz&) = 0;
+    virtual result_t run(const op::inn_popcnt&) = 0;
+    virtual result_t run(const op::inn_add&) = 0;
+    virtual result_t run(const op::inn_sub&) = 0;
+    virtual result_t run(const op::inn_mul&) = 0;
+    virtual result_t run(const op::inn_div_sx&) = 0;
+    virtual result_t run(const op::inn_rem_sx&) = 0;
+    virtual result_t run(const op::inn_and&) = 0;
+    virtual result_t run(const op::inn_or&) = 0;
+    virtual result_t run(const op::inn_xor&) = 0;
+    virtual result_t run(const op::inn_shl&) = 0;
+    virtual result_t run(const op::inn_shr_sx&) = 0;
+    virtual result_t run(const op::inn_rotl&) = 0;
+    virtual result_t run(const op::inn_rotr&) = 0;
+    virtual result_t run(const op::inn_eqz&) = 0;
+    virtual result_t run(const op::inn_eq&) = 0;
+    virtual result_t run(const op::inn_ne&) = 0;
+    virtual result_t run(const op::inn_lt_sx&) = 0;
+    virtual result_t run(const op::inn_gt_sx&) = 0;
+    virtual result_t run(const op::inn_le_sx&) = 0;
+    virtual result_t run(const op::inn_ge_sx&) = 0;
+    virtual result_t run(const op::inn_extend8_s&) = 0;
+    virtual result_t run(const op::inn_extend16_s&) = 0;
+    virtual result_t run(const op::i64_extend32_s&) = 0;
+    virtual result_t run(const op::i64_extend_i32_sx&) = 0;
+    virtual result_t run(const op::i32_wrap_i64&) = 0;
 };
 
 
 struct RefExecutor : virtual Executor {
-    virtual void run(const op::ref_null&) = 0;
-    virtual void run(const op::ref_is_null&) = 0;
-    virtual void run(const op::ref_func&) = 0;
+    virtual result_t run(const op::ref_null&) = 0;
+    virtual result_t run(const op::ref_is_null&) = 0;
+    virtual result_t run(const op::ref_func&) = 0;
 };
 
 
 struct ParametricExecutor : virtual Executor {
-    virtual void run(const op::drop&) = 0;
-    virtual void run(const op::select&) = 0;
+    virtual result_t run(const op::drop&) = 0;
+    virtual result_t run(const op::select&) = 0;
 };
 
 
 struct VariableExecutor : virtual Executor {
-    virtual void run(const op::local_get&) = 0;
-    virtual void run(const op::local_set&) = 0;
-    virtual void run(const op::local_tee&) = 0;
-    virtual void run(const op::global_get&) = 0;
-    virtual void run(const op::global_set&) = 0;
+    virtual result_t run(const op::local_get&) = 0;
+    virtual result_t run(const op::local_set&) = 0;
+    virtual result_t run(const op::local_tee&) = 0;
+    virtual result_t run(const op::global_get&) = 0;
+    virtual result_t run(const op::global_set&) = 0;
 };
 
 
 struct TableExecutor : virtual Executor {
-    virtual void run(const op::table_get&) = 0;
-    virtual void run(const op::table_set&) = 0;
-    virtual void run(const op::table_size&) = 0;
-    virtual void run(const op::table_grow&) = 0;
-    virtual void run(const op::table_fill&) = 0;
-    virtual void run(const op::table_copy&) = 0;
-    virtual void run(const op::table_init&) = 0;
-    virtual void run(const op::elem_drop&) = 0;
+    virtual result_t run(const op::table_get&) = 0;
+    virtual result_t run(const op::table_set&) = 0;
+    virtual result_t run(const op::table_size&) = 0;
+    virtual result_t run(const op::table_grow&) = 0;
+    virtual result_t run(const op::table_fill&) = 0;
+    virtual result_t run(const op::table_copy&) = 0;
+    virtual result_t run(const op::table_init&) = 0;
+    virtual result_t run(const op::elem_drop&) = 0;
 };
 
 
 struct MemoryExecutor : virtual Executor {
-    virtual void run(const op::memory_size&) = 0;
-    virtual void run(const op::memory_grow&) = 0;
-    virtual void run(const op::memory_fill&) = 0;
-    virtual void run(const op::memory_copy&) = 0;
-    virtual void run(const op::memory_init&) = 0;
-    virtual void run(const op::data_drop&) = 0;
-    virtual void run(const op::inn_load&) = 0;
-    virtual void run(const op::inn_store&) = 0;
-    virtual void run(const op::inn_load8_sx&) = 0;
-    virtual void run(const op::inn_load16_sx&) = 0;
-    virtual void run(const op::i64_load32_sx&) = 0;
-    virtual void run(const op::inn_store8&) = 0;
-    virtual void run(const op::inn_store16&) = 0;
-    virtual void run(const op::i64_store32&) = 0;
+    virtual result_t run(const op::memory_size&) = 0;
+    virtual result_t run(const op::memory_grow&) = 0;
+    virtual result_t run(const op::memory_fill&) = 0;
+    virtual result_t run(const op::memory_copy&) = 0;
+    virtual result_t run(const op::memory_init&) = 0;
+    virtual result_t run(const op::data_drop&) = 0;
+    virtual result_t run(const op::inn_load&) = 0;
+    virtual result_t run(const op::inn_store&) = 0;
+    virtual result_t run(const op::inn_load8_sx&) = 0;
+    virtual result_t run(const op::inn_load16_sx&) = 0;
+    virtual result_t run(const op::i64_load32_sx&) = 0;
+    virtual result_t run(const op::inn_store8&) = 0;
+    virtual result_t run(const op::inn_store16&) = 0;
+    virtual result_t run(const op::i64_store32&) = 0;
 };
 
 
 struct ControlExecutor : virtual Executor {
-    virtual void run(const op::nop&) = 0;
-    virtual void run(const op::unreachable&) = 0;
-    virtual void run(const op::block&) = 0;
-    virtual void run(const op::loop&) = 0;
-    virtual void run(const op::if_then_else&) = 0;
-    virtual void run(const op::br&) = 0;
-    virtual void run(const op::br_if&) = 0;
-    virtual void run(const op::br_table&) = 0;
-    virtual void run(const op::ret&) = 0;
-    virtual void run(const op::call&) = 0;
-    virtual void run(const op::call_indirect&) = 0;
+    virtual result_t run(const op::nop&) = 0;
+    virtual result_t run(const op::unreachable&) = 0;
+    virtual result_t run(const op::block&) = 0;
+    virtual result_t run(const op::loop&) = 0;
+    virtual result_t run(const op::if_then_else&) = 0;
+    virtual result_t run(const op::br&) = 0;
+    virtual result_t run(const op::br_if&) = 0;
+    virtual result_t run(const op::br_table&) = 0;
+    virtual result_t run(const op::ret&) = 0;
+    virtual result_t run(const op::call&) = 0;
+    virtual result_t run(const op::call_indirect&) = 0;
 };
 
 
 /* ------------------------------------------------------------ */
 struct instr {
-    virtual void run(Executor& exe) const = 0;
+    virtual result_t run(Executor& exe) const = 0;
 };
 
 namespace op {
 
 template <typename Derive>
 struct enable_numeric : virtual public instr {
-    void run(Executor& exe) const override {
-        dynamic_cast<NumericExecutor&>(exe).run(static_cast<const Derive&>(*this));
+    result_t run(Executor& exe) const override {
+        return dynamic_cast<NumericExecutor&>(exe).run(static_cast<const Derive&>(*this));
     }
 };
 
 template <typename Derive>
 struct enable_ref : virtual public instr {
-    void run(Executor& exe) const override {
-        dynamic_cast<RefExecutor&>(exe).run(static_cast<const Derive&>(*this));
+    result_t run(Executor& exe) const override {
+        return dynamic_cast<RefExecutor&>(exe).run(static_cast<const Derive&>(*this));
     }
 };
 
 template <typename Derive>
 struct enable_parametric : virtual public instr {
-    void run(Executor& exe) const override {
-        dynamic_cast<ParametricExecutor&>(exe).run(static_cast<const Derive&>(*this));
+    result_t run(Executor& exe) const override {
+        return dynamic_cast<ParametricExecutor&>(exe).run(static_cast<const Derive&>(*this));
     }
 };
 
 template <typename Derive>
 struct enable_variable : virtual public instr {
-    void run(Executor& exe) const override {
-        dynamic_cast<VariableExecutor&>(exe).run(static_cast<const Derive&>(*this));
+    result_t run(Executor& exe) const override {
+        return dynamic_cast<VariableExecutor&>(exe).run(static_cast<const Derive&>(*this));
     }
 };
 
 template <typename Derive>
 struct enable_table : virtual public instr {
-    void run(Executor& exe) const override {
-        dynamic_cast<TableExecutor&>(exe).run(static_cast<const Derive&>(*this));
+    result_t run(Executor& exe) const override {
+        return dynamic_cast<TableExecutor&>(exe).run(static_cast<const Derive&>(*this));
     }
 };
 
 template <typename Derive>
 struct enable_memory : virtual public instr {
-    void run(Executor& exe) const override {
-        dynamic_cast<MemoryExecutor&>(exe).run(static_cast<const Derive&>(*this));
+    result_t run(Executor& exe) const override {
+        return dynamic_cast<MemoryExecutor&>(exe).run(static_cast<const Derive&>(*this));
     }
 };
 
 template <typename Derive>
 struct enable_control : virtual public instr {
-    void run(Executor& exe) const override {
-        dynamic_cast<ControlExecutor&>(exe).run(static_cast<const Derive&>(*this));
+    result_t run(Executor& exe) const override {
+        return dynamic_cast<ControlExecutor&>(exe).run(static_cast<const Derive&>(*this));
     }
 };
 
@@ -445,33 +447,29 @@ struct i64_store32 : virtual instr, enable_memory<i64_store32> {
 
 // Control
 /* ------------------------------------------------------------ */
-struct empty_block_t { };
-constexpr empty_block_t empty_block;
-using block_type = std::variant<empty_block_t, value_kind, index_t>;
-
 struct nop : virtual instr, enable_control<nop> { };
 struct unreachable : virtual instr, enable_control<unreachable> { };
 
 struct block : virtual instr, enable_control<block> {
-    block() : type(empty_block) { }
-    block(block_type t) : type(t) { }
+    block() = default;
+    block(index_t block_type) : type(block_type) { }
 
     name_t label;
-    block_type type;
+    index_t type;
     instr_vec body;
 };
 
 struct loop : virtual instr, enable_control<loop> {
-    loop() : type(empty_block) { }
-    loop(block_type t) : type(t) { }
+    loop() = default;
+    loop(index_t block_type) : type(block_type) { }
 
     name_t label;
-    block_type type;
+    index_t type;
     instr_vec body;
 };
 
 struct if_then_else : virtual instr, enable_control<if_then_else> {
-    block_type type;
+    index_t type;
     instr_vec then_body;
     std::optional<instr_vec> else_body;
 };

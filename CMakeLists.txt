@@ -4,8 +4,8 @@ project(LigeroVM C CXX)
 
 add_subdirectory(depends/wabt)
 
-# add_compile_options(--target=wasm64-unknown-unknown-wasm -O0)
-add_compile_options(-std=c++20 -O3 -static)
+# add_compile_options(--target=wasm32-unknown-unknown-wasm -c -Wl,--allow-undefined)
+add_compile_options(-std=c++20 -Og -g -static)
 # add_compile_options(-sSTANDALONE_WASM -sALLOW_MEMORY_GROWTH -fno-exceptions -mbulk-memory -msimd128 -march=native)
 add_link_options(-static)
 

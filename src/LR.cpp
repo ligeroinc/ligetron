@@ -14,21 +14,28 @@ extern "C" {
 // #if defined(__EMSCRIPTEN__)
 // EMSCRIPTEN_KEEPALIVE
 // #endif
-int program_main(int argc, int *argv[]) {
-    const int size = argv[0][0];
-    const int *beta = argv[1];
-    const int *konst = argv[2];
-    const int *input = argv[2];
+// int program_main(int argc, int *argv[]) {
+//     const int size = argv[0][0];
+//     const int *beta = argv[1];
+//     const int *konst = argv[2];
+//     const int *input = argv[2];
 
-    int acc = 0;
-    for (auto i = 0; i < size; i++) {
-        int tmp = input[i];
-        tmp *= beta[i];
-        tmp += konst[i];
-        acc += tmp;
-    }
+//     int acc = 0;
+//     for (auto i = 0; i < size; i++) {
+//         int tmp = input[i];
+//         tmp *= beta[i];
+//         tmp += konst[i];
+//         acc += tmp;
+//     }
 
-    return acc;
+//     return acc;
+// }
+
+// __attribute__((import_module("env"), import_name("get_witness")))
+// int get_witness(int i);
+
+int program_main(int x, int y) {
+    return x + y + 1;
 }
 
 

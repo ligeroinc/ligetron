@@ -4,6 +4,7 @@
 #include <sstream>
 #include <fstream>
 #include <runtime.hpp>
+#include <execution.hpp>
 
 using namespace wabt;
 using namespace ligero::vm;
@@ -26,6 +27,22 @@ int main(int argc, char *argv[]) {
     allocate_module(store, module, m);
 
     std::cout << module.funcaddrs.size() << std::endl;
+
+    basic_executor exe;
+    exe.store_ = &store;
+    exe.module_ = &module;
+
+    auto dummy_frame = std::make_unique<frame>();
+    dummy_frame->module = &module;
+    exe.current_frame_ = dummy_frame.get();
+
+    exe.stack_push(u32(1));
+    exe.stack_push(u32(2));
+    op::call start{0};
+    start.run(exe);
+
+    std::cout << "Result: ";
+    exe.show_stack();
 
     // if (r != Result::Error) {
     //     std::cout << "success" << std::endl;

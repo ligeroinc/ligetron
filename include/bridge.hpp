@@ -15,7 +15,7 @@ inline void undefined(const wabt::Expr& expr) {
     throw undefined_error(std::string("Undefined ") + wabt::GetExprTypeName(expr));
 }
 
-inline void undefined(const std::string& str) {
+inline void undefined(const std::string& str = "") {
     throw undefined_error(std::string("Undefined ") + str);
 }
 
@@ -118,6 +118,7 @@ instr_ptr translate_ternaryexpr(const wabt::TernaryExpr& expr) {
     // default:
     //     undefined(expr);
     // }
+    undefined(expr);
     return nullptr;
 }
 
@@ -300,7 +301,7 @@ instr_ptr translate(const wabt::Expr& expr) {
     }
 
     if (auto *p = dynamic_cast<const wabt::StoreExpr*>(&expr)) {
-        return nullptr;
+        return translate_store(*p);
     }
 
     /* ------------------------------------------------------------ */

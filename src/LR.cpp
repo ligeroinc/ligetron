@@ -6,6 +6,8 @@
 // // #include <runtime.hpp>
 // #include <instruction.hpp>
 
+#define LIGEROVM_EXTERN(ENV, NAME) __attribute__((import_module(#ENV), import_name(#NAME))) extern
+
 extern "C" {
 
 // constexpr size_t size = 32;
@@ -31,14 +33,27 @@ extern "C" {
 //     return acc;
 // }
 
-// __attribute__((import_module("env"), import_name("get_witness")))
-// int get_witness(int i);
 
-int program_main(int x) {
-    if (x == 0 or x == 1)
-        return x;
-    else
-        return program_main(x-1) + program_main(x-2);
+LIGEROVM_EXTERN(env, get_witness)
+int get_witness(int i);
+LIGEROVM_EXTERN(env, get_witness_size)
+int get_witness_size(void);
+
+void bubbleSort() {
+    const int N = get_witness_size();
+    int arr[N];
+
+    for (int i = 0; i < N; i++) {
+        arr[i] = get_witness(i);
+    }
+    
+    for (int i = 0; i < N - 1; i++)
+        for (int j = 0; j < N - i - 1; j++)
+            if (arr[j] > arr[j + 1]) {
+                int tmp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = tmp;
+            }
 }
 
 

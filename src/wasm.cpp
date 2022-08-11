@@ -26,7 +26,8 @@ int main(int argc, char *argv[]) {
     module_instance module;
     allocate_module(store, module, m);
 
-    std::cout << module.funcaddrs.size() << std::endl;
+    std::cout << module.memaddrs.size() << std::endl;
+    std::cout << store.memorys[0].data.size() << std::endl;
 
     basic_executor exe;
     exe.store_ = &store;
@@ -36,12 +37,30 @@ int main(int argc, char *argv[]) {
     dummy_frame->module = &module;
     exe.push_frame(std::move(dummy_frame));
 
-    exe.stack_push(u32(10));
+    auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
+    v[0] = 5;
+    v[1] = 4;
+    v[2] = 3;
+    v[3] = 2;
+    v[4] = 1;
+    std::cout << "Mem: ";
+    for (auto i = 0; i < 10; i++) {
+        std::cout << *(v + i) << " ";
+    }
+    std::cout << std::endl;
+
+    exe.stack_push(u32(0));
     op::call start{0};
     start.run(exe);
 
     std::cout << "Result: ";
     exe.show_stack();
+
+    std::cout << "Mem: ";
+    for (auto i = 0; i < 10; i++) {
+        std::cout << *(v + i) << " ";
+    }
+    std::cout << std::endl;
 
     // if (r != Result::Error) {
     //     std::cout << "success" << std::endl;

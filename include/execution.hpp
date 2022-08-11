@@ -28,7 +28,7 @@ struct execution_context {
     }
 
     template <typename T>
-    T stack_peek() {
+    T stack_peek() const {
         const svalue_t& top = stack_.back();
         return std::get<T>(top);
     }
@@ -38,6 +38,12 @@ struct execution_context {
         svalue_t top = std::move(stack_.back());
         stack_.pop_back();
         return std::get<T>(top);
+    }
+
+    svalue_t stack_pop_raw() {
+        svalue_t top = std::move(stack_.back());
+        stack_.pop_back();
+        return top;
     }
 
     void show_stack() const {
@@ -76,6 +82,8 @@ struct execution_context {
     void pop_frame() {
         frames_.pop_back();
     }
+
+    const store_t& store() const { return *store_; }
     
     const store_t *store_ = nullptr;
     module_instance *module_ = nullptr;
@@ -112,7 +120,7 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
 
         stack_.insert(stack_.rbegin().base() + m, label{ n });
 
-        for (const auto& instr : block.body) {
+        for (const instr_ptr& instr : block.body) {
             auto ret = instr->run(*this);
 
             /* Return from nested block */
@@ -489,8 +497,17 @@ struct basic_exe_numeric : virtual execution_context, virtual NumericExecutor {
         return {};
     }
 
-    result_t run(const op::inn_le_sx&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_le_sx& ins) override {
+        assert(ins.type == int_kind::i32);
+        u32 y = stack_pop<u32>();
+        u32 x = stack_pop<u32>();
+        if (ins.sign == sign_kind::sign) {
+            u32 compare = static_cast<s32>(x) <= static_cast<s32>(y);
+            stack_emplace(compare);
+        }
+        else {
+            stack_emplace(static_cast<u32>(x <= y));
+        }
         return {};
     }
 
@@ -525,14 +542,140 @@ struct basic_exe_numeric : virtual execution_context, virtual NumericExecutor {
     }
 };
 
+
+struct basic_exe_memory : virtual execution_context, virtual MemoryExecutor {
+    basic_exe_memory() = default;
+
+    result_t run(const op::memory_size&) override {
+        frame *f = current_frame();
+        address_t a = f->module->memaddrs[0];
+        const auto& mem = store().memorys[a];
+        u32 sz = mem.data.size() / memory_instance::page_size;
+        stack_push(sz);
+        return {};
+    }
+
+    result_t run(const op::memory_grow&) override {
+        undefined("Undefined");
+        return {};
+    }
+
+    result_t run(const op::memory_fill&) override {
+        undefined("Undefined");
+        return {};
+    }
+
+    result_t run(const op::memory_copy&) override {
+        undefined("Undefined");
+        return {};
+    }
+
+    result_t run(const op::memory_init&) override {
+        undefined("Undefined");
+        return {};
+    }
+
+    result_t run(const op::data_drop&) override {
+        undefined("Undefined");
+        return {};
+    }
+
+    result_t run(const op::inn_load& ins) override {
+        frame *f = current_frame();
+        address_t a = f->module->memaddrs[0];
+        const auto& mem = store().memorys[a];
+        
+        u32 i = stack_pop<u32>();
+        u32 ea = i + ins.offset;
+
+        u32 n = (ins.type == int_kind::i32) ? 4 : 8;
+        if (ea + n > mem.data.size()) {
+            throw wasm_trap("Invalid memory address");
+        }
+
+        if (ins.type == int_kind::i32) {
+            u32 c = *reinterpret_cast<const u32*>(mem.data.data() + ea);
+            stack_push(c);
+        }
+        else {
+            u64 c = *reinterpret_cast<const u64*>(mem.data.data() + ea);
+            stack_push(c);
+        }
+        return {};
+    }
+
+    result_t run(const op::inn_load8_sx& ins) override {
+        undefined();
+        return {};
+    }
+
+    result_t run(const op::inn_load16_sx& ins) override {
+        undefined();
+        return {};
+    }
+
+    result_t run(const op::i64_load32_sx& ins) override {
+        undefined();
+        return {};
+    }
+
+    result_t run(const op::inn_store& ins) override {
+        frame *f = current_frame();
+        address_t a = f->module->memaddrs[0];
+        auto& mem = store().memorys[a];
+        
+        svalue_t sc = stack_pop_raw();
+        u32 i = stack_pop<u32>();
+        u32 ea = i + ins.offset;
+
+        u32 n = (ins.type == int_kind::i32) ? 4 : 8;
+        if (ea + n > mem.data.size()) {
+            throw wasm_trap("Invalid memory address");
+        }
+
+        if (ins.type == int_kind::i32) {
+            u32 c = std::get<u32>(sc);
+            std::copy(mem.data.data() + ea,
+                      mem.data.data() + ea + n,
+                      reinterpret_cast<uint8_t*>(&c));
+            std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;
+        }
+        else {
+            u64 c = std::get<u64>(sc);
+            std::copy(mem.data.data() + ea,
+                      mem.data.data() + ea + n,
+                      reinterpret_cast<uint8_t*>(&c));
+            std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;
+        }
+        return {};
+    }
+
+    result_t run(const op::inn_store8& ins) override {
+        undefined();
+        return {};
+    }
+
+    result_t run(const op::inn_store16& ins) override {
+        undefined();
+        return {};
+    }
+
+    result_t run(const op::i64_store32& ins) override {
+        undefined();
+        return {};
+    }
+};
+
 struct basic_executor :
         public basic_exe_control,
         public basic_exe_variable,
-        public basic_exe_numeric
+        public basic_exe_numeric,
+        public basic_exe_memory
 {
     using basic_exe_control::run;
     using basic_exe_variable::run;
     using basic_exe_numeric::run;
+    using basic_exe_memory::run;
 };
 
 }  // namespace ligero::vm

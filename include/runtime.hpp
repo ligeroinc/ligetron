@@ -91,6 +91,7 @@ struct frame {
 // };
 
 
+
 // Forward Declaration
 /* ------------------------------------------------------------ */
 struct function_instance;
@@ -198,6 +199,7 @@ struct function_instance {
 // Memory Instance
 /* ------------------------------------------------------------ */
 struct memory_instance {
+    constexpr static size_t page_size = 65536;  /* 64KB */
     memory_instance(memory_kind k, size_t mem_size) : kind(k), data(mem_size, 0) { }
     
     memory_kind kind;
@@ -223,6 +225,12 @@ struct global_instance {
 // Data Instance
 /* ------------------------------------------------------------ */
 struct data_instance {
+    data_instance(const std::vector<u8>& d, instr_vec&& expr, index_t mem)
+        : offset_expr(std::move(expr)), memory(mem), data(d) { }
+
+    bool is_active = true;
+    instr_vec offset_expr = nullptr;
+    index_t memory = 0;
     std::vector<u8> data;
 };
 
@@ -272,13 +280,12 @@ index_t allocate_function(store_t& store, const module_instance *inst, const wab
 // }
 
 index_t allocate_memory(store_t& store, const wabt::Memory& memory) {
-    constexpr size_t page_size = 64 * 1024 * 1024;  // 64 KB
-
     limits limit{ memory.page_limits.initial };
-    if (memory.page_limits.has_max)
+    if (memory.page_limits.hasm_ax)
         limit.max.emplace(memory.page_limits.max);
 
-    return store.emplace_back<memory_instance>(memory_kind{ limit }, page_size * limit.min);
+    return store.emplace_back<memory_instance>(memory_kind{ limit },
+                                               memory_instance::page_size * (limit.min > 0 ? limit.min : 1));
 }
 
 index_t allocate_global(store_t& store, const wabt::Global& g) {
@@ -300,6 +307,14 @@ index_t allocate_global(store_t& store, const wabt::Global& g) {
     }
     global_kind kind{ translate_type(g.type), g.mutable_ };
     return store.emplace_back<global_instance>(std::move(kind), std::move(val));
+}
+
+index_t allocate_data(store_t& store, const wabt::DataSegment& seg) {
+    instr_vec exprs;
+    for (const auto& expr : seg.offset) {
+        exprs.push_back(translate(expr));
+    }
+    return store.emplace_back<data_instance>(seg.data, std::move(exprs), memory_var.index());
 }
 
 void allocate_module(store_t& store, module_instance& mins, const wabt::Module& module) {
@@ -340,12 +355,19 @@ void allocate_module(store_t& store, module_instance& mins, const wabt::Module& 
     // TODO: Elements
 
 
-    // TODO: Datas
+    for (const auto *p : module.data_segments) {
+        mins.dataaddrs.push_back(allocate_data(store, *p));
+    }
 
 
     // TODO: Exports
     
     return;
+}
+
+void instantiate(const store_t& store, const wabt::Module& module) {
+    module_instance minst;
+    
 }
 
 }  // namespace ligero::vm

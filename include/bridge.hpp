@@ -19,6 +19,10 @@ inline void undefined(const std::string& str = "") {
     throw undefined_error(std::string("Undefined ") + str);
 }
 
+inline void undefined(const instr& ins) {
+    throw undefined_error(std::string("Undefined ") + ins.name());
+}
+
 template <typename T, typename... Args>
 instr_ptr make_instr(Args&&... args) {
     return std::make_unique<T>(std::forward<Args>(args)...);
@@ -126,7 +130,7 @@ instr_ptr translate_compareexpr(const wabt::CompareExpr& expr) {
     const wabt::Opcode::Enum op = expr.opcode;
     switch(op) {
     case wabt::Opcode::I32Eq:
-        return make_instr<op::inn_eqz>(int_kind::i32);
+        return make_instr<op::inn_eq>(int_kind::i32);
     case wabt::Opcode::I32Ne:
         return make_instr<op::inn_ne>(int_kind::i32);
     case wabt::Opcode::I32LtS:
@@ -283,7 +287,7 @@ instr_ptr translate(const wabt::Expr& expr) {
         return make_instr<op::local_tee>(p->var.index());
     }
 
-    if (auto *p = dynamic_cast<const wabt::GlobalSetExpr*>(&expr)) {
+    if (auto *p = dynamic_cast<const wabt::GlobalGetExpr*>(&expr)) {
         return make_instr<op::global_get>(p->var.index());
     }
 

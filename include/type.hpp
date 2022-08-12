@@ -25,6 +25,28 @@ enum class sign_kind : bool {
     unsign
 };
 
+std::string to_string(int_kind k) {
+    switch(k) {
+    case int_kind::i32:
+        return "i32";
+    case int_kind::i64:
+        return "i64";
+    default:
+        return "<error>";
+    }
+}
+
+std::string to_string(sign_kind k) {
+    switch(k) {
+    case sign_kind::sign:
+        return "s";
+    case sign_kind::unsign:
+        return "u";
+    default:
+        return "<error>";
+    }
+}
+
 // Vector Type
 /* ------------------------------------------------------------ */
 enum class vec_kind : uint8_t {

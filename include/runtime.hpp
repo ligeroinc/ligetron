@@ -171,22 +171,31 @@ struct module_instance {
 
 // Function Instance
 /* ------------------------------------------------------------ */
+using import_name_t = std::pair<std::string, std::string>;
+
 struct function_instance {
-    struct code_t {
+    struct func_code {
         index_t type_index;
         std::vector<value_kind> locals;
         instr_vec body;
     };
 
+    struct host_code {
+        index_t type_index;
+        import_name_t host_name;
+    };
+
     function_instance(function_kind k) : kind(k) { }
     function_instance(function_kind k, const module_instance *module) : kind(k), module(module) { }
-    function_instance(name_t name, function_kind k, const module_instance *module, code_t&& code)
+
+    template <typename T>
+    function_instance(name_t name, function_kind k, const module_instance *module, T&& code)
         : name(name), kind(k), module(module), code(std::move(code)) { }
 
     name_t name;
     function_kind kind;
     const module_instance *module = nullptr;
-    code_t code;
+    std::variant<func_code, host_code> code;
 };
 
 // Table Instance
@@ -229,7 +238,7 @@ struct data_instance {
         : offset_expr(std::move(expr)), memory(mem), data(d) { }
 
     bool is_active = true;
-    instr_vec offset_expr = nullptr;
+    instr_vec offset_expr;
     index_t memory = 0;
     std::vector<u8> data;
 };
@@ -243,7 +252,10 @@ struct data_instance {
 
 
 /* ------------------------------------------------------------ */
-index_t allocate_function(store_t& store, const module_instance *inst, const wabt::Func& func) {
+index_t allocate_function(store_t& store,
+                          const module_instance *inst,
+                          const wabt::Func& func,
+                          const std::unordered_map<std::string, import_name_t>& import_map) {
     std::vector<value_kind> local_type;
     for (const auto& type : func.local_types) {
         local_type.push_back(translate_type(type));
@@ -263,11 +275,22 @@ index_t allocate_function(store_t& store, const module_instance *inst, const wab
         result.push_back(translate_type(type));
     }
 
-    function_instance::code_t code{
-        func.decl.type_var.index(),
-        std::move(local_type),
-        std::move(body)
-    };
+    std::variant<function_instance::func_code, function_instance::host_code> code;
+    /* A function without body is an external function */
+    if (body.empty()) {
+        code = function_instance::host_code {
+            func.decl.type_var.index(),
+            import_map.at(func.name)
+        };
+    }
+    else {
+        code = function_instance::func_code {
+            func.decl.type_var.index(),
+            std::move(local_type),
+            std::move(body)
+        };
+    }
+
     return store.emplace_back<function_instance>(func.name,
                                                  function_kind{ std::move(param), std::move(result) },
                                                  inst,
@@ -281,7 +304,7 @@ index_t allocate_function(store_t& store, const module_instance *inst, const wab
 
 index_t allocate_memory(store_t& store, const wabt::Memory& memory) {
     limits limit{ memory.page_limits.initial };
-    if (memory.page_limits.hasm_ax)
+    if (memory.page_limits.has_max)
         limit.max.emplace(memory.page_limits.max);
 
     return store.emplace_back<memory_instance>(memory_kind{ limit },
@@ -314,7 +337,7 @@ index_t allocate_data(store_t& store, const wabt::DataSegment& seg) {
     for (const auto& expr : seg.offset) {
         exprs.push_back(translate(expr));
     }
-    return store.emplace_back<data_instance>(seg.data, std::move(exprs), memory_var.index());
+    return store.emplace_back<data_instance>(seg.data, std::move(exprs), seg.memory_var.index());
 }
 
 void allocate_module(store_t& store, module_instance& mins, const wabt::Module& module) {
@@ -335,8 +358,17 @@ void allocate_module(store_t& store, module_instance& mins, const wabt::Module& 
     }
 
     // Functions
-    for (const auto *p : module.funcs) {
-        mins.funcaddrs.push_back(allocate_function(store, &mins, *p));
+    {
+        std::unordered_map<std::string, import_name_t> map;
+        for (const auto *imp : module.imports) {
+            if (auto *p = dynamic_cast<const wabt::FuncImport*>(imp)) {
+                map.insert({ p->func.name, { imp->module_name, imp->field_name }});
+            }
+        }
+        
+        for (const auto *p : module.funcs) {
+            mins.funcaddrs.push_back(allocate_function(store, &mins, *p, map));
+        }
     }
 
     
@@ -365,9 +397,11 @@ void allocate_module(store_t& store, module_instance& mins, const wabt::Module& 
     return;
 }
 
-void instantiate(const store_t& store, const wabt::Module& module) {
+void instantiate(store_t& store, const wabt::Module& module) {
     module_instance minst;
-    
+    allocate_module(store, minst, module);
+
+
 }
 
 }  // namespace ligero::vm

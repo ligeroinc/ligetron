@@ -2,6 +2,7 @@
 
 #include <runtime.hpp>
 #include <instruction.hpp>
+#include <prelude.hpp>
 #include <stack>
 #include <exception>
 #include <tuple>
@@ -83,12 +84,51 @@ struct execution_context {
         frames_.pop_back();
     }
 
-    const store_t& store() const { return *store_; }
-    
-    const store_t *store_ = nullptr;
+    store_t& store() { return *store_; }
+    void store(store_t *s) { store_ = s; }
+
+    const module_instance& module() const { return *module_; }
+    void module(module_instance *m) { module_ = m; }
+
+    const auto& args() { return argv_; }
+    void args(const std::vector<uint8_t>& data) { argv_ = data; }
+
+    result_t call_host(const import_name_t& name, const std::vector<value_t>& args) {
+        if (name.second == "get_witness_size") {
+            return builtin_get_witness_size();
+        }
+        else if (name.second == "get_witness") {
+            return builtin_get_witness(args);
+        }
+        else {
+            undefined("Undefined host function");
+            return {};
+        }
+    }
+
+private:
+    result_t builtin_get_witness_size() {
+        u32 size = argv_.size() / sizeof(u32);
+        stack_push(size);
+        return {};
+    }
+
+    result_t builtin_get_witness(const std::vector<value_t>& args) {
+        assert(args.size() == 1);
+        u32 index = std::get<u32>(args[0]);
+        u32 val = reinterpret_cast<const u32*>(argv_.data())[index];
+        stack_push(val);
+        return {};
+    }
+
+/* ------------------------------------------------------------ */
+protected:    
+    store_t *store_ = nullptr;
     module_instance *module_ = nullptr;
     std::vector<frame*> frames_;
     std::vector<svalue_t> stack_;
+
+    std::vector<uint8_t> argv_;
 };
 
 struct wasm_trap : std::runtime_error {
@@ -108,8 +148,9 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
     }
 
     result_t run(const op::block& block) override {
-        std::cout << "<block.entry> ";
-        show_stack();
+        // std::cout << "<block.entry> ";
+        // show_stack();
+        
         /* Entering block with Label L */
         u32 m = 0, n = 0;
         if (block.type) {
@@ -118,7 +159,7 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             n = type.returns.size();
         }
 
-        stack_.insert(stack_.rbegin().base() + m, label{ n });
+        stack_.insert((stack_.rbegin() + m).base(), label{ n });
 
         for (const instr_ptr& instr : block.body) {
             auto ret = instr->run(*this);
@@ -135,6 +176,7 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             }
         }
 
+        std::cout << "Before bug: ";
         show_stack();
 
         /* Exiting block with Label L if no jump happended */
@@ -142,14 +184,15 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
         assert(std::holds_alternative<label>(*it));
         stack_.erase(it);
 
-        std::cout << "<block.exit> ";
-        show_stack();
+        // std::cout << "<block.exit> ";
+        // show_stack();
         return {};
     }
 
     result_t run(const op::loop& block) override {
-        std::cout << "<loop.entry> ";
-        show_stack();
+        // std::cout << "<loop.entry> ";
+        // show_stack();
+    loop:
         /* Entering block with Label L */
         u32 m = 0, n = 0;
         if (block.type) {
@@ -158,7 +201,7 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             n = type.returns.size();
         }
 
-        stack_.insert(stack_.rbegin().base() + m, label{ m });
+        stack_.insert((stack_.rbegin() + m).base(), label{ n });
 
         for (const auto& instr : block.body) {
             auto ret = instr->run(*this);
@@ -167,7 +210,7 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             if (int *p = std::get_if<int>(&ret)) {
                 assert(*p >= 0);
                 if (*p == 0) {
-                    return run(block);
+                    goto loop;
                 }
                 else {
                     return *p - 1;
@@ -180,8 +223,8 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
         assert(std::holds_alternative<label>(*it));
         stack_.erase(it);
 
-        std::cout << "<loop.exit> ";
-        show_stack();
+        // std::cout << "<loop.exit> ";
+        // show_stack();
         return {};
     }
 
@@ -193,45 +236,44 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
     result_t run(const op::br& b) override {
         const int l = b.label;
 
-        std::cout << "<br " << l << "> ";
-        show_stack();
-
         /* Find L-th label */
-        int count = 0;
+        int count = -1;
         auto rit = std::find_if(stack_.rbegin(), stack_.rend(), [&count, l](const auto& v) {
             if (std::holds_alternative<label>(v)) {
                 count++;
-                if (count == l + 1) {
+                if (count == l) {
                     return true;
                 }
             }
             return false;
         });
 
-        rit++;
-        auto it = rit.base();
+        auto it = (++rit).base();
         
         assert(std::holds_alternative<label>(*it));
         const size_t n = std::get<label>(*it).arity;
         auto top = stack_.rbegin() + n;
         stack_.erase(it, top.base());
+
+        std::cout << "<br " << l << "> ";
+        show_stack();
         return l;
     }
 
     result_t run(const op::br_if& b) override {
         u32 cond = stack_pop<u32>();
-        std::cout << "<br_if> cond=" << cond << std::endl;
+        std::cout << "<br_if> cond=" << cond << " ";
 
-        if (cond != 0) {
+        if (cond) {
             return run(op::br{ b.label });
         }
         return {};
     }
 
-    result_t run(const op::br_table&) override {
-        undefined("Undefined");
-        return {};
-    }
+    // result_t run(const op::br_table&) override {
+    //     undefined("Undefined");
+    //     return {};
+    // }
 
     result_t run(const op::ret&) override {
         const size_t arity = current_frame()->arity;
@@ -242,20 +284,22 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
             it++;
         }
 
-        stack_.erase(it.base(), top.base());
+        stack_.erase((++it).base(), top.base());
 
         return std::numeric_limits<int>::max();
     }
 
-    result_t run(const op::call& c) override {
-        std::cout << "<call.entry> ";
-        show_stack();
-        
+    result_t run(const op::call& c) override {        
         address_t addr = current_frame()->module->funcaddrs[c.func];
         const function_instance& func = store_->functions[addr];
         u32 n = func.kind.params.size();
         u32 m = func.kind.returns.size();
 
+        std::cout << "<call[" << addr << "].entry>";
+        show_stack();
+
+        /* Push arguments */
+        /* -------------------------------------------------- */
         auto it = (stack_.rbegin() + n).base();
         std::vector<value_t> arguments;
         for (auto i = it; i != stack_.end(); i++) {
@@ -269,39 +313,49 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
                 undefined("Invalid stack value");
             }
         }
-
         stack_.erase((stack_.rbegin() + n).base(), stack_.end());
-        
-        auto fp = std::make_unique<frame>(m, std::move(arguments), module_);
 
-        for (const value_kind& type : func.code.locals) {
-            fp->locals.emplace_back(static_cast<u64>(0));
-        }
-        
-        push_frame(std::move(fp));
+        /* Invoke the function (native function) */
+        /* -------------------------------------------------- */
+        if (auto *pcode = std::get_if<function_instance::func_code>(&func.code)) {
+            auto fp = std::make_unique<frame>(m, std::move(arguments), module_);
 
-        for (const auto& instr : func.code.body) {
-            auto ret = instr->run(*this);
-            
-            if (int *p = std::get_if<int>(&ret)) {
-                break;
+            for (const value_kind& type : pcode->locals) {
+                fp->locals.emplace_back(static_cast<u64>(0));
             }
+        
+            push_frame(std::move(fp));
+
+            for (const auto& instr : pcode->body) {
+                auto ret = instr->run(*this);
+            
+                if (int *p = std::get_if<int>(&ret)) {
+                    break;
+                }
+            }
+
+            it = (stack_.rbegin() + m + 1).base();
+            assert(std::holds_alternative<frame_ptr>(*it));
+            stack_.erase(it);
+            pop_frame();
+        }
+        /* Invoke the function (host function) */
+        /* -------------------------------------------------- */
+        else {
+            const auto& hostc = std::get<function_instance::host_code>(func.code);
+            call_host(hostc.host_name, arguments);
         }
 
-        it = (stack_.rbegin() + m + 1).base();
-        assert(std::holds_alternative<frame_ptr>(*it));
-        stack_.erase(it);
-        pop_frame();
 
-        std::cout << "<call.exit> ";
+        std::cout << "<call[" << addr << "].exit>";
         show_stack();
         return {};
     }
 
-    result_t run(const op::call_indirect&) override {
-        undefined("undefined");
-        return {};
-    }
+    // result_t run(const op::call_indirect&) override {
+    //     undefined("undefined");
+    //     return {};
+    // }
 };
 
 
@@ -340,13 +394,13 @@ struct basic_exe_variable : virtual execution_context, virtual VariableExecutor 
         return {};
     }
 
-    result_t run(const op::global_get&) override {
-        undefined("Undefined");
+    result_t run(const op::global_get& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::global_set&) override {
-        undefined("Undefined");
+    result_t run(const op::global_set& ins) override {
+        undefined(ins);
         return {};
     }
 };
@@ -365,179 +419,197 @@ struct basic_exe_numeric : virtual execution_context, virtual NumericExecutor {
         return {};
     }
 
-    result_t run(const op::inn_clz&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_clz& ins) override {
+        undefined(ins);
         return {};        
     }
 
-    result_t run(const op::inn_ctz&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_ctz& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::inn_popcnt&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_popcnt& ins) override {
+        undefined(ins);
         return {};
     }
 
     result_t run(const op::inn_add& ins) override {
-        if (ins.type == int_kind::i32) {
-            u32 x = stack_pop<u32>();
-            u32 y = stack_pop<u32>();
-            stack_push(x + y);
+        std::cout << ins.name();
+        return run_binop<std::plus<>>(ins.type);
+    }
+
+    result_t run(const op::inn_sub& ins) override {
+        std::cout << ins.name();
+        return run_binop<std::minus<>>(ins.type);
+    }
+
+    result_t run(const op::inn_mul& ins) override {
+        std::cout << ins.name();
+        return run_binop<std::multiplies<>>(ins.type);
+    }
+
+    result_t run(const op::inn_div_sx& ins) override {
+        std::cout << ins.name();
+        if (ins.sign == sign_kind::sign) {
+            return run_binop<std::divides<>, s32, s64>(ins.type);
         }
         else {
-            u32 x = stack_pop<u64>();
-            u32 y = stack_pop<u64>();
-            stack_push(x + y);
+            return run_binop<std::divides<>>(ins.type);
         }
-        std::cout << "i32.add ";
-        show_stack();
+    }
+
+    result_t run(const op::inn_rem_sx& ins) override {
+        std::cout << ins.name();
+        if (ins.sign == sign_kind::sign) {
+            return run_binop<std::modulus<>, s32, s64>(ins.type);
+        }
+        else {
+            return run_binop<std::modulus<>>(ins.type);
+        }
+    }
+
+    result_t run(const op::inn_and& ins) override {
+        std::cout << ins.name();
+        return run_binop<std::bit_and<>>(ins.type);
+    }
+
+    result_t run(const op::inn_or& ins) override {
+        std::cout << ins.name();
+        return run_binop<std::bit_or<>>(ins.type);
+    }
+
+    result_t run(const op::inn_xor& ins) override {
+        std::cout << ins.name();
+        return run_binop<std::bit_xor<>>(ins.type);
+    }
+
+    result_t run(const op::inn_shl& ins) override {
+        std::cout << ins.name();
+        return run_binop<prelude::shiftl<>>(ins.type);
+    }
+
+    result_t run(const op::inn_shr_sx& ins) override {
+        std::cout << ins.name();
+        return run_binop<prelude::shiftr<>>(ins.type);
+    }
+
+    result_t run(const op::inn_rotl& ins) override {
+        std::cout << ins.name();
+        return run_binop<prelude::rotl<>>(ins.type);
+    }
+
+    result_t run(const op::inn_rotr& ins) override {
+        std::cout << ins.name();
+        return run_binop<prelude::rotr<>>(ins.type);
+    }
+
+    result_t run(const op::inn_eqz& ins) override {
+        std::cout << ins.name();
+        if (ins.type == int_kind::i32) {
+            u32 c = stack_pop<u32>();
+            stack_push(static_cast<u32>(c == 0));
+        }
+        else {
+            u64 c = stack_pop<u64>();
+            stack_push(static_cast<u64>(c == 0));
+        }
         return {};
     }
 
-    result_t run(const op::inn_sub&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_mul&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_div_sx&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_rem_sx&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_and&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_or&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_xor&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_shl&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_shr_sx&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_rotl&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_rotr&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_eqz&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::inn_eq&) override {
-        undefined("Undefined");
-        return {};
+    result_t run(const op::inn_eq& ins) override {
+        std::cout << ins.name();
+        return run_binop<std::equal_to<>>(ins.type);
     }
 
     result_t run(const op::inn_ne& ins) override {
-        assert(ins.type == int_kind::i32);
-        u32 y = stack_pop<u32>();
-        u32 x = stack_pop<u32>();
-        stack_push(static_cast<u32>(x != y));
-        return {};
+        std::cout << ins.name();
+        return run_binop<std::not_equal_to<>>(ins.type);
     }
 
     result_t run(const op::inn_lt_sx& ins) override {
-        assert(ins.type == int_kind::i32);
-        u32 y = stack_pop<u32>();
-        u32 x = stack_pop<u32>();
+        std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
-            u32 compare = static_cast<s32>(x) < static_cast<s32>(y);
-            stack_emplace(compare);
+            return run_binop<std::less<>, s32, s64>(ins.type);
         }
         else {
-            stack_emplace(static_cast<u32>(x < y));
+            return run_binop<std::less<>>(ins.type);
         }
-        return {};
     }
 
     result_t run(const op::inn_gt_sx& ins) override {
-        assert(ins.type == int_kind::i32);
-        u32 y = stack_pop<u32>();
-        u32 x = stack_pop<u32>();
+        std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
-            u32 compare = static_cast<s32>(x) > static_cast<s32>(y);
-            stack_emplace(compare);
+            return run_binop<std::greater<>, s32, s64>(ins.type);
         }
         else {
-            stack_emplace(static_cast<u32>(x > y));
+            return run_binop<std::greater<>>(ins.type);
         }
-        return {};
     }
 
     result_t run(const op::inn_le_sx& ins) override {
-        assert(ins.type == int_kind::i32);
-        u32 y = stack_pop<u32>();
-        u32 x = stack_pop<u32>();
+        std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
-            u32 compare = static_cast<s32>(x) <= static_cast<s32>(y);
-            stack_emplace(compare);
+            return run_binop<std::less_equal<>, s32, s64>(ins.type);
         }
         else {
-            stack_emplace(static_cast<u32>(x <= y));
+            return run_binop<std::less_equal<>>(ins.type);
         }
+    }
+
+    result_t run(const op::inn_ge_sx& ins) override {
+        std::cout << ins.name();
+        if (ins.sign == sign_kind::sign) {
+            return run_binop<std::greater_equal<>, s32, s64>(ins.type);
+        }
+        else {
+            return run_binop<std::greater_equal<>>(ins.type);
+        }
+    }
+
+    result_t run(const op::inn_extend8_s& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::inn_ge_sx&) override {
-        undefined("Undefined");
+    result_t run(const op::inn_extend16_s& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::inn_extend8_s&) override {
-        undefined("Undefined");
+    result_t run(const op::i64_extend32_s& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::inn_extend16_s&) override {
-        undefined("Undefined");
+    result_t run(const op::i64_extend_i32_sx& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::i64_extend32_s&) override {
-        undefined("Undefined");
+    result_t run(const op::i32_wrap_i64& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::i64_extend_i32_sx&) override {
-        undefined("Undefined");
-        return {};
-    }
-
-    result_t run(const op::i32_wrap_i64&) override {
-        undefined("Undefined");
+private:
+    template <typename Operator, typename T32 = u32, typename T64 = u64>
+    result_t run_binop(int_kind k) {
+        if (k == int_kind::i32) {
+            T32 y = stack_pop<u32>();
+            T32 x = stack_pop<u32>();
+            u32 result = static_cast<u32>(Operator{}(x, y));
+            stack_push(result);
+            std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+        }
+        else {
+            T64 y = stack_pop<u64>();
+            T64 x = stack_pop<u64>();
+            u64 result = static_cast<u64>(Operator{}(x, y));
+            stack_push(result);
+            std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+        }
+        show_stack();
         return {};
     }
 };
@@ -555,28 +627,28 @@ struct basic_exe_memory : virtual execution_context, virtual MemoryExecutor {
         return {};
     }
 
-    result_t run(const op::memory_grow&) override {
-        undefined("Undefined");
+    result_t run(const op::memory_grow& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::memory_fill&) override {
-        undefined("Undefined");
+    result_t run(const op::memory_fill& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::memory_copy&) override {
-        undefined("Undefined");
+    result_t run(const op::memory_copy& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::memory_init&) override {
-        undefined("Undefined");
+    result_t run(const op::memory_init& ins) override {
+        undefined(ins);
         return {};
     }
 
-    result_t run(const op::data_drop&) override {
-        undefined("Undefined");
+    result_t run(const op::data_drop& ins) override {
+        undefined(ins);
         return {};
     }
 
@@ -595,12 +667,21 @@ struct basic_exe_memory : virtual execution_context, virtual MemoryExecutor {
 
         if (ins.type == int_kind::i32) {
             u32 c = *reinterpret_cast<const u32*>(mem.data.data() + ea);
+            std::cout << "i32.load mem[" << ea << "]=" << c << std::endl;
             stack_push(c);
         }
         else {
             u64 c = *reinterpret_cast<const u64*>(mem.data.data() + ea);
+            std::cout << "i64.load mem[" << ea << "]=" << c << std::endl;
             stack_push(c);
         }
+
+        auto *v = reinterpret_cast<const u32*>(mem.data.data());
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 16; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
         return {};
     }
 
@@ -622,7 +703,7 @@ struct basic_exe_memory : virtual execution_context, virtual MemoryExecutor {
     result_t run(const op::inn_store& ins) override {
         frame *f = current_frame();
         address_t a = f->module->memaddrs[0];
-        auto& mem = store().memorys[a];
+        memory_instance& mem = store().memorys[a];
         
         svalue_t sc = stack_pop_raw();
         u32 i = stack_pop<u32>();
@@ -635,18 +716,22 @@ struct basic_exe_memory : virtual execution_context, virtual MemoryExecutor {
 
         if (ins.type == int_kind::i32) {
             u32 c = std::get<u32>(sc);
-            std::copy(mem.data.data() + ea,
-                      mem.data.data() + ea + n,
-                      reinterpret_cast<uint8_t*>(&c));
+            u8 *ptr = reinterpret_cast<u8*>(&c);
+            std::copy(ptr, ptr + n, mem.data.data() + ea);
             std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;
         }
         else {
             u64 c = std::get<u64>(sc);
-            std::copy(mem.data.data() + ea,
-                      mem.data.data() + ea + n,
-                      reinterpret_cast<uint8_t*>(&c));
-            std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;
+            u8 *ptr = reinterpret_cast<u8*>(&c);
+            std::copy(ptr, ptr + n, mem.data.data() + ea);
+            std::cout << "i64.store mem[" << ea << "]=" << c << std::endl;
         }
+        auto *v = reinterpret_cast<u32*>(mem.data.data());
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 16; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
         return {};
     }
 

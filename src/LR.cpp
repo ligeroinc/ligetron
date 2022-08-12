@@ -39,21 +39,24 @@ int get_witness(int i);
 LIGEROVM_EXTERN(env, get_witness_size)
 int get_witness_size(void);
 
-void bubbleSort() {
+int* bubbleSort(int *arr) {
     const int N = get_witness_size();
-    int arr[N];
+    // int arr[N];
 
     for (int i = 0; i < N; i++) {
         arr[i] = get_witness(i);
     }
     
-    for (int i = 0; i < N - 1; i++)
-        for (int j = 0; j < N - i - 1; j++)
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N - i - 1; j++) {
             if (arr[j] > arr[j + 1]) {
                 int tmp = arr[j];
                 arr[j] = arr[j+1];
                 arr[j+1] = tmp;
             }
+        }
+    }
+    return arr;
 }
 
 

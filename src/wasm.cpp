@@ -22,27 +22,42 @@ int main(int argc, char *argv[]) {
 
     assert(r != Result::Error);
 
+    std::cout << "Imports: " << m.imports.size() << std::endl;
+    for (const auto *imp : m.imports) {
+        if (auto *p = dynamic_cast<const FuncImport*>(imp)) {
+            std::cout << imp->module_name << "." << imp->field_name << " => " << p->func.name << std::endl;
+        }
+    }
+
     store_t store;
     module_instance module;
     allocate_module(store, module, m);
 
-    std::cout << module.memaddrs.size() << std::endl;
-    std::cout << store.memorys[0].data.size() << std::endl;
+    std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+    for (const auto& f : store.functions) {
+        std::cout << "Func: " << f.name << std::endl;
+    }
 
     basic_executor exe;
-    exe.store_ = &store;
-    exe.module_ = &module;
+    exe.store(&store);
+    exe.module(&module);
+
+    {
+        std::vector<u8> arg(32);
+        u32 *p = reinterpret_cast<u32*>(arg.data());
+        for (auto i = 0; i < 8; i++) {
+            p[i] = 8-i;
+        }
+        std::vector<u8> data(arg);
+        exe.args(data);
+    }
+    
 
     auto dummy_frame = std::make_unique<frame>();
     dummy_frame->module = &module;
     exe.push_frame(std::move(dummy_frame));
 
     auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
-    v[0] = 5;
-    v[1] = 4;
-    v[2] = 3;
-    v[3] = 2;
-    v[4] = 1;
     std::cout << "Mem: ";
     for (auto i = 0; i < 10; i++) {
         std::cout << *(v + i) << " ";
@@ -50,7 +65,7 @@ int main(int argc, char *argv[]) {
     std::cout << std::endl;
 
     exe.stack_push(u32(0));
-    op::call start{0};
+    op::call start{ std::stoul(argv[2]) };
     start.run(exe);
 
     std::cout << "Result: ";

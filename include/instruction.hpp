@@ -60,9 +60,9 @@ struct i32_wrap_i64;
 
 // Reference
 /* ------------------------------------------------------------ */
-struct ref_null;
-struct ref_is_null;
-struct ref_func;
+// struct ref_null;
+// struct ref_is_null;
+// struct ref_func;
 
 
 // Parametric
@@ -119,10 +119,10 @@ struct loop;
 struct if_then_else;
 struct br;
 struct br_if;
-struct br_table;
+// struct br_table;
 struct ret;
 struct call;
-struct call_indirect;
+// struct call_indirect;
 
 }  // namespace instr
 
@@ -167,11 +167,11 @@ struct NumericExecutor : virtual Executor {
 };
 
 
-struct RefExecutor : virtual Executor {
-    virtual result_t run(const op::ref_null&) = 0;
-    virtual result_t run(const op::ref_is_null&) = 0;
-    virtual result_t run(const op::ref_func&) = 0;
-};
+// struct RefExecutor : virtual Executor {
+//     virtual result_t run(const op::ref_null&) = 0;
+//     virtual result_t run(const op::ref_is_null&) = 0;
+//     virtual result_t run(const op::ref_func&) = 0;
+// };
 
 
 struct ParametricExecutor : virtual Executor {
@@ -227,16 +227,17 @@ struct ControlExecutor : virtual Executor {
     virtual result_t run(const op::if_then_else&) = 0;
     virtual result_t run(const op::br&) = 0;
     virtual result_t run(const op::br_if&) = 0;
-    virtual result_t run(const op::br_table&) = 0;
+    // virtual result_t run(const op::br_table&) = 0;
     virtual result_t run(const op::ret&) = 0;
     virtual result_t run(const op::call&) = 0;
-    virtual result_t run(const op::call_indirect&) = 0;
+    // virtual result_t run(const op::call_indirect&) = 0;
 };
 
 
 /* ------------------------------------------------------------ */
 struct instr {
     virtual result_t run(Executor& exe) const = 0;
+    virtual std::string name() const = 0;
 };
 
 namespace op {
@@ -248,12 +249,12 @@ struct enable_numeric : virtual public instr {
     }
 };
 
-template <typename Derive>
-struct enable_ref : virtual public instr {
-    result_t run(Executor& exe) const override {
-        return dynamic_cast<RefExecutor&>(exe).run(static_cast<const Derive&>(*this));
-    }
-};
+// template <typename Derive>
+// struct enable_ref : virtual public instr {
+//     result_t run(Executor& exe) const override {
+//         return dynamic_cast<RefExecutor&>(exe).run(static_cast<const Derive&>(*this));
+//     }
+// };
 
 template <typename Derive>
 struct enable_parametric : virtual public instr {
@@ -294,21 +295,29 @@ struct enable_control : virtual public instr {
 
 // Numeric
 /* ------------------------------------------------------------ */
-#define DECLARE_NUMERIC(NAME)                           \
-    struct NAME : virtual instr, enable_numeric<NAME> { \
-        NAME(int_kind k) : type(k) { }                  \
-        int_kind type;                                  \
+#define DECLARE_NUMERIC(NAME)                                           \
+    struct NAME : virtual instr, enable_numeric<NAME> {                 \
+        NAME(int_kind k) : type(k) { }                                  \
+        int_kind type;                                                  \
+        std::string name() const override { return to_string(type) + "." + #NAME; } \
     };
-#define DECLARE_NUMERIC_SX(NAME)                                    \
-    struct NAME : virtual instr, enable_numeric<NAME> {             \
-        NAME(int_kind ik, sign_kind sk) : type(ik), sign(sk) { }    \
-        int_kind type;                                              \
-        sign_kind sign;                                             \
+#define DECLARE_NUMERIC_SX(NAME)                                        \
+    struct NAME : virtual instr, enable_numeric<NAME> {                 \
+        NAME(int_kind ik, sign_kind sk) : type(ik), sign(sk) { }        \
+        int_kind type;                                                  \
+        sign_kind sign;                                                 \
+        std::string name() const override {                             \
+            return to_string(type) + "." + #NAME + "_" + to_string(sign); \
+        }                                                               \
     };
 
 
 struct inn_const : virtual instr, enable_numeric<inn_const> {
     inn_const(u64 val, int_kind k) : val(val), type(k) { }
+
+    std::string name() const override {
+        return to_string(type) + ".const " + std::to_string(val);
+    }
     
     u64 val;
     int_kind type;
@@ -342,42 +351,52 @@ DECLARE_NUMERIC_SX(inn_ge_sx)
 DECLARE_NUMERIC(inn_extend8_s)
 DECLARE_NUMERIC(inn_extend16_s)
 
-struct i64_extend32_s : virtual instr, enable_numeric<i64_extend32_s> { };
+struct i64_extend32_s : virtual instr, enable_numeric<i64_extend32_s> {
+    std::string name() const override { return "i64.extend32_s"; }
+};
 
 struct i64_extend_i32_sx : virtual instr, enable_numeric<i64_extend_i32_sx> {
     i64_extend_i32_sx(sign_kind sx) : sign(sx) { }
+    std::string name() const override { return "i64.extend_i32_" + to_string(sign); }
+    
     sign_kind sign;
 };
 
-struct i32_wrap_i64 : virtual instr, enable_numeric<i32_wrap_i64> { };
+struct i32_wrap_i64 : virtual instr, enable_numeric<i32_wrap_i64> {
+    std::string name() const override { return "i32.wrap_i64"; }
+};
 
 
 // Reference
 /* ------------------------------------------------------------ */
-struct ref_null    : virtual instr, enable_ref<ref_null> {
-    ref_kind type;
-};
-struct ref_is_null : virtual instr, enable_ref<ref_is_null> { };
-struct ref_func    : virtual instr, enable_ref<ref_func> {
-    index_t func;
-};
+// struct ref_null    : virtual instr, enable_ref<ref_null> {
+//     ref_kind type;
+// };
+// struct ref_is_null : virtual instr, enable_ref<ref_is_null> { };
+// struct ref_func    : virtual instr, enable_ref<ref_func> {
+//     index_t func;
+// };
 
 
 // Parametric
 /* ------------------------------------------------------------ */
-struct drop : virtual instr, enable_parametric<drop> { };
+struct drop : virtual instr, enable_parametric<drop> {
+    std::string name() const override { return "drop"; }
+};
 struct select : virtual instr, enable_parametric<select> {
     select(std::vector<value_kind>&& type) : types(std::move(type)) { }
+    std::string name() const override { return "select"; }
     std::vector<value_kind> types;
 };
 
 
 // Variable
 /* ------------------------------------------------------------ */
-#define DECLARE_OP_VARIABLE(NAME)\
-    struct NAME : virtual instr, enable_variable<NAME> {\
-        NAME(index_t i) : local(i) { }                  \
-        index_t local;                                  \
+#define DECLARE_OP_VARIABLE(NAME)                           \
+    struct NAME : virtual instr, enable_variable<NAME> {    \
+        NAME(index_t i) : local(i) { }                      \
+        std::string name() const override { return #NAME; } \
+        index_t local;                                      \
     };
 
 DECLARE_OP_VARIABLE(local_get)
@@ -394,33 +413,45 @@ DECLARE_OP_VARIABLE(global_set)
 
 // Memory
 /* ------------------------------------------------------------ */
-#define DECLARE_MEM(NAME)                               \
-    struct NAME : virtual instr, enable_memory<NAME> {  \
-        NAME(int_kind k, u32 align, u32 offset)         \
-            : type(k), align(align), offset(offset) { } \
-        int_kind type;                                  \
-        u32 align;                                      \
-        u32 offset;                                     \
+#define DECLARE_MEM(NAME)                                               \
+    struct NAME : virtual instr, enable_memory<NAME> {                  \
+        NAME(int_kind k, u32 align, u32 offset)                         \
+            : type(k), align(align), offset(offset) { }                 \
+        std::string name() const override { return to_string(type) + "." + #NAME; } \
+        int_kind type;                                                  \
+        u32 align;                                                      \
+        u32 offset;                                                     \
     };
 
 #define DECLARE_MEM_SX(NAME)\
-    struct NAME : virtual instr, enable_memory<NAME> {              \
-        NAME(int_kind k, sign_kind sx, u32 align, u32 offset)       \
-            : type(k), sign(sx), align(align), offset(offset) { }   \
-        int_kind type;                                              \
-        sign_kind sign;                                             \
-        u32 align;                                                  \
-        u32 offset;                                                 \
+    struct NAME : virtual instr, enable_memory<NAME> {                  \
+        NAME(int_kind k, sign_kind sx, u32 align, u32 offset)           \
+            : type(k), sign(sx), align(align), offset(offset) { }       \
+        std::string name() const override { return to_string(type) + "." + #NAME; } \
+        int_kind type;                                                  \
+        sign_kind sign;                                                 \
+        u32 align;                                                      \
+        u32 offset;                                                     \
     };
 
-struct memory_size : virtual instr, enable_memory<memory_size> { };
-struct memory_grow : virtual instr, enable_memory<memory_grow> { };
-struct memory_fill : virtual instr, enable_memory<memory_fill> { };
-struct memory_copy : virtual instr, enable_memory<memory_copy> { };
+struct memory_size : virtual instr, enable_memory<memory_size> {
+    std::string name() const override { return "memory_size"; }
+};
+struct memory_grow : virtual instr, enable_memory<memory_grow> {
+    std::string name() const override { return "memory_grow"; }
+};
+struct memory_fill : virtual instr, enable_memory<memory_fill> {
+    std::string name() const override { return "memory_fill"; }
+};
+struct memory_copy : virtual instr, enable_memory<memory_copy> {
+    std::string name() const override { return "memory_copy"; }
+};
 struct memory_init : virtual instr, enable_memory<memory_init> {
+    std::string name() const override { return "memory_init"; }
     index_t data_index;
 };
 struct data_drop : virtual instr, enable_memory<data_drop> {
+    std::string name() const override { return "data_drop"; }
     index_t data_index;
 };
 
@@ -433,6 +464,7 @@ DECLARE_MEM(inn_store16)
 
 struct i64_load32_sx : virtual instr, enable_memory<i64_load32_sx> {
     i64_load32_sx(sign_kind sign, u32 align, u32 offset) : sign(sign), align(align), offset(offset) { }
+    std::string name() const override { return "i64.load32_sx"; }
     sign_kind sign;
     u32 align;
     u32 offset;
@@ -440,6 +472,7 @@ struct i64_load32_sx : virtual instr, enable_memory<i64_load32_sx> {
 
 struct i64_store32 : virtual instr, enable_memory<i64_store32> {
     i64_store32(u32 align, u32 offset) : align(align), offset(offset) { }
+    std::string name() const override { return "i64_store32"; }
     u32 align;
     u32 offset;
 };
@@ -447,12 +480,17 @@ struct i64_store32 : virtual instr, enable_memory<i64_store32> {
 
 // Control
 /* ------------------------------------------------------------ */
-struct nop : virtual instr, enable_control<nop> { };
-struct unreachable : virtual instr, enable_control<unreachable> { };
+struct nop : virtual instr, enable_control<nop> {
+    std::string name() const override { return "nop"; }
+};
+struct unreachable : virtual instr, enable_control<unreachable> {
+    std::string name() const override { return "unreachable"; }
+};
 
 struct block : virtual instr, enable_control<block> {
     block() = default;
     block(index_t block_type) : type(block_type) { }
+    std::string name() const override { return "block"; }
 
     name_t label;
     std::optional<index_t> type;
@@ -462,6 +500,7 @@ struct block : virtual instr, enable_control<block> {
 struct loop : virtual instr, enable_control<loop> {
     loop() = default;
     loop(index_t block_type) : type(block_type) { }
+    std::string name() const override { return "loop"; }
 
     name_t label;
     std::optional<index_t> type;
@@ -469,6 +508,8 @@ struct loop : virtual instr, enable_control<loop> {
 };
 
 struct if_then_else : virtual instr, enable_control<if_then_else> {
+    if_then_else() = default;
+    std::string name() const override { return "if_then_else"; }
     index_t type;
     instr_vec then_body;
     std::optional<instr_vec> else_body;
@@ -476,29 +517,34 @@ struct if_then_else : virtual instr, enable_control<if_then_else> {
 
 struct br : virtual instr, enable_control<br> {
     br(index_t i) : label(i) { }
+    std::string name() const override { return "br"; }
     index_t label;
 };
 
 struct br_if : virtual instr, enable_control<br_if> {
     br_if(index_t i) : label(i) { }
+    std::string name() const override { return "br_if"; }
     index_t label;
 };
 
-struct br_table : virtual instr, enable_control<br_table> {
-    std::vector<index_t> labels;
-    index_t label;
-};
+// struct br_table : virtual instr, enable_control<br_table> {
+//     std::vector<index_t> labels;
+//     index_t label;
+// };
 
-struct ret : virtual instr, enable_control<ret> { };
+struct ret : virtual instr, enable_control<ret> {
+    std::string name() const override { return "return"; }
+};
 struct call : virtual instr, enable_control<call> {
     call(index_t i) : func(i) { }
+    std::string name() const override { return "call"; }
     index_t func;
 };
 
-struct call_indirect : virtual instr, enable_control<call_indirect> {
-    index_t type_index;
-    index_t table_index;
-};
+// struct call_indirect : virtual instr, enable_control<call_indirect> {
+//     index_t type_index;
+//     index_t table_index;
+// };
 
 }// namespace instr
 

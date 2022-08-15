@@ -4,6 +4,11 @@
 
 namespace ligero::prelude {
 
+/// Helper function for std::visit
+template <typename... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;  // deduction guide
+
 #define PRELUDE_DECLARE_HELPER(NAME)                                    \
     template <>                                                         \
     struct NAME<void> {                                                 \

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <stdexcept>
 
 namespace ligero::vm {
 
@@ -21,5 +22,9 @@ using s64 = int64_t;
 
 using index_t = u32;
 using address_t = u64;
+
+struct wasm_trap : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 
 }  // namespace ligero::vm

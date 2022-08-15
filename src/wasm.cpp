@@ -30,17 +30,15 @@ int main(int argc, char *argv[]) {
     }
 
     store_t store;
-    module_instance module;
-    allocate_module(store, module, m);
+    basic_executor exe;
+    exe.store(&store);
+    auto module = instantiate(store, m, exe);
+    exe.module(&module);
 
     std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
     for (const auto& f : store.functions) {
         std::cout << "Func: " << f.name << std::endl;
     }
-
-    basic_executor exe;
-    exe.store(&store);
-    exe.module(&module);
 
     {
         std::vector<u8> arg(32);

@@ -7,14 +7,9 @@
 #include <exception>
 #include <tuple>
 #include <limits>
+#include <bit>
 
 namespace ligero::vm {
-
-/// Helper function for std::visit
-template <typename... Ts>
-struct _overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> _overloaded(Ts...) -> _overloaded<Ts...>;  // deduction guide
-
 
 struct execution_context {
     execution_context() = default;
@@ -28,10 +23,12 @@ struct execution_context {
         stack_.emplace_back(std::forward<Args>(args)...);
     }
 
+    svalue_t& stack_top() { return stack_.back(); }
+    const svalue_t& stack_top() const { return stack_.back(); }
+
     template <typename T>
     T stack_peek() const {
-        const svalue_t& top = stack_.back();
-        return std::get<T>(top);
+        return std::get<T>(stack_top());
     }
 
     template <typename T>
@@ -50,7 +47,7 @@ struct execution_context {
     void show_stack() const {
         std::cout << "stack: ";
         for (const auto& v : stack_) {
-            std::visit(_overloaded {
+            std::visit(prelude::overloaded {
                     [](u32 x) { std::cout << "(" << x << " : i32) "; },
                     [](u64 x) { std::cout << "(" << x << " : i64) "; },
                     [](label l) { std::cout << "Label<" << l.arity << "> "; },
@@ -131,10 +128,6 @@ protected:
     std::vector<uint8_t> argv_;
 };
 
-struct wasm_trap : std::runtime_error {
-    using std::runtime_error::runtime_error;
-};
-
 struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
     basic_exe_control() = default;
 
@@ -175,9 +168,6 @@ struct basic_exe_control : virtual execution_context, virtual ControlExecutor {
                 }
             }
         }
-
-        std::cout << "Before bug: ";
-        show_stack();
 
         /* Exiting block with Label L if no jump happended */
         auto it = (stack_.rbegin() + n + 1).base();
@@ -395,12 +385,26 @@ struct basic_exe_variable : virtual execution_context, virtual VariableExecutor 
     }
 
     result_t run(const op::global_get& ins) override {
-        undefined(ins);
+        index_t x = ins.local;
+        address_t a = current_frame()->module->globaladdrs[x];
+        const global_instance& glob = store().globals[a];
+        stack_push(std::visit(prelude::overloaded {
+                    [](u32 v) -> svalue_t { return v; },
+                    [](u64 v) -> svalue_t { return v; }
+                }, glob.val));
         return {};
     }
 
     result_t run(const op::global_set& ins) override {
-        undefined(ins);
+        index_t x = ins.local;
+        address_t a = current_frame()->module->globaladdrs[x];
+        global_instance& glob = store().globals[a];
+        svalue_t val = stack_pop_raw();
+        std::visit(prelude::overloaded {
+                [&glob](u32 v) { glob.val = v; },
+                [&glob](u64 v) { glob.val = v; },
+                [](const auto& v) { throw wasm_trap("Invalid stack value"); }
+            }, val);
         return {};
     }
 };
@@ -420,17 +424,44 @@ struct basic_exe_numeric : virtual execution_context, virtual NumericExecutor {
     }
 
     result_t run(const op::inn_clz& ins) override {
-        undefined(ins);
-        return {};        
+        if (ins.type == int_kind::i32) {
+            u32 c = stack_pop<u32>();
+            u32 count = std::countl_zero(c);
+            stack_push(count);
+        }
+        else {
+            u64 c = stack_pop<u64>();
+            u64 count = std::countl_zero(c);
+            stack_push(count);
+        }
+        return {};
     }
 
     result_t run(const op::inn_ctz& ins) override {
-        undefined(ins);
+        if (ins.type == int_kind::i32) {
+            u32 c = stack_pop<u32>();
+            u32 count = std::countr_zero(c);
+            stack_push(count);
+        }
+        else {
+            u64 c = stack_pop<u64>();
+            u64 count = std::countr_zero(c);
+            stack_push(count);
+        }
         return {};
     }
 
     result_t run(const op::inn_popcnt& ins) override {
-        undefined(ins);
+        if (ins.type == int_kind::i32) {
+            u32 c = stack_pop<u32>();
+            u32 count = std::popcount(c);
+            stack_push(count);
+        }
+        else {
+            u64 c = stack_pop<u64>();
+            u64 count = std::popcount(c);
+            stack_push(count);
+        }
         return {};
     }
 
@@ -583,12 +614,19 @@ struct basic_exe_numeric : virtual execution_context, virtual NumericExecutor {
     }
 
     result_t run(const op::i64_extend_i32_sx& ins) override {
-        undefined(ins);
+        if (ins.sign == sign_kind::sign) {
+            u32 sv = stack_peek<u32>();
+            u64 c = static_cast<u64>(static_cast<s64>(static_cast<s32>(sv)));
+            stack_top() = c;
+        }
+        else {
+            stack_top() = static_cast<u64>(stack_peek<u32>());
+        }
         return {};
     }
 
     result_t run(const op::i32_wrap_i64& ins) override {
-        undefined(ins);
+        stack_top() = static_cast<u32>(stack_peek<u64>());
         return {};
     }
 

@@ -7,6 +7,7 @@
 #include <base.hpp>
 #include <instruction.hpp>
 #include <bridge.hpp>
+#include <prelude.hpp>
 
 #include <string_view>
 
@@ -311,26 +312,32 @@ index_t allocate_memory(store_t& store, const wabt::Memory& memory) {
                                                memory_instance::page_size * (limit.min > 0 ? limit.min : 1));
 }
 
-index_t allocate_global(store_t& store, const wabt::Global& g) {
-    value_t val;
-    if (auto *p = dynamic_cast<const wabt::ConstExpr*>(&(*(g.init_expr.begin())))) {
-        switch(p->const_.type()) {
-        case wabt::Type::I32:
-            val = p->const_.u32();
-            break;
-        case wabt::Type::I64:
-            val = p->const_.u64();
-            break;
-        default:
-            undefined("Unsopported initialization in global");
-        }        
-    }
-    else {
-        undefined("Unsopported initialization in global");
-    }
-    global_kind kind{ translate_type(g.type), g.mutable_ };
-    return store.emplace_back<global_instance>(std::move(kind), std::move(val));
-}
+// index_t allocate_global(store_t& store, const wabt::Global& g) {
+//     // value_t val;
+//     // if (auto *p = dynamic_cast<const wabt::ConstExpr*>(&(*(g.init_expr.begin())))) {
+//     //     switch(p->const_.type()) {
+//     //     case wabt::Type::I32:
+//     //         val = p->const_.u32();
+//     //         break;
+//     //     case wabt::Type::I64:
+//     //         val = p->const_.u64();
+//     //         break;
+//     //     default:
+//     //         undefined("Unsopported initialization in global");
+//     //     }        
+//     // }
+//     // else {
+//     //     undefined("Unsopported initialization in global");
+//     // }
+//     instr_vec init;
+//     std::transform(g.init_expr.begin(), g.init_expr.end(),
+//                    std::back_inserter(init),
+//                    [](const auto& expr) {
+//                        return translate(expr);
+//                    });
+//     global_kind kind{ translate_type(g.type), g.mutable_ };
+//     return store.emplace_back<global_instance>(std::move(kind), std::move(init));
+// }
 
 index_t allocate_data(store_t& store, const wabt::DataSegment& seg) {
     instr_vec exprs;
@@ -370,38 +377,54 @@ void allocate_module(store_t& store, module_instance& mins, const wabt::Module& 
             mins.funcaddrs.push_back(allocate_function(store, &mins, *p, map));
         }
     }
-
     
-    // TODO: Tables
-    
-
     // Memorys
     for (const auto *p : module.memories) {
         mins.memaddrs.push_back(allocate_memory(store, *p));
     }
 
-
-    // TODO: Globals
-
-
-    // TODO: Elements
-
-
     for (const auto *p : module.data_segments) {
         mins.dataaddrs.push_back(allocate_data(store, *p));
     }
-
 
     // TODO: Exports
     
     return;
 }
 
-void instantiate(store_t& store, const wabt::Module& module) {
+template <typename Executor>
+module_instance instantiate(store_t& store, const wabt::Module& module, Executor& exe) {
     module_instance minst;
     allocate_module(store, minst, module);
 
+    /* Initialize globals */
+    {
+        auto frame_init = std::make_unique<frame>();
 
+        // TODO: make a frame only contain imported globals and functions
+        frame_init->module = &minst;
+        exe.push_frame(std::move(frame_init));
+
+        for (const auto *p : module.globals) {
+            std::cout << "Initializing global " << p->name;
+            for (const auto& expr : p->init_expr) {
+                translate(expr)->run(exe);
+            }
+
+            value_t v = std::visit(prelude::overloaded {
+                    [](u32 v) -> value_t { return v; },
+                    [](u64 v) -> value_t { return v; },
+                    [](const auto& v) -> value_t { throw wasm_trap("Invalid global init value"); }
+                }, exe.stack_pop_raw());
+
+            global_kind k{ translate_type(p->type), p->mutable_ };
+            index_t gi = store.emplace_back<global_instance>(k, std::move(v));
+            minst.globaladdrs.push_back(gi);
+        }
+        
+    }
+
+    return minst;
 }
 
 }  // namespace ligero::vm

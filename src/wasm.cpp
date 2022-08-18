@@ -5,6 +5,7 @@
 #include <fstream>
 #include <runtime.hpp>
 #include <execution.hpp>
+#include <zkp/circuit.hpp>
 
 using namespace wabt;
 using namespace ligero::vm;

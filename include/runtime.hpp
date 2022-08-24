@@ -49,6 +49,21 @@ struct frame {
     module_instance *module;
 };
 
+value_t to_value(const svalue_t& sv) {
+    return std::visit(prelude::overloaded {
+            [](u32 v) -> value_t { return v; },
+            [](u64 v) -> value_t { return v; },
+            [](const auto& v) -> value_t { throw wasm_trap("Invalid conversion"); }
+        }, sv);
+}
+
+svalue_t to_svalue(const value_t& v) {
+    return std::visit(prelude::overloaded {
+            [](u32 v) -> svalue_t { return v; },
+            [](u64 v) -> svalue_t { return v; },
+        }, v);
+}
+
 // struct stack_val_t {
 //     enum class kind {
 //         i32,
@@ -403,7 +418,7 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
 
         // TODO: make a frame only contain imported globals and functions
         frame_init->module = &minst;
-        exe.push_frame(std::move(frame_init));
+        exe.context().push_frame(std::move(frame_init));
 
         for (const auto *p : module.globals) {
             std::cout << "Initializing global " << p->name;
@@ -415,7 +430,7 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
                     [](u32 v) -> value_t { return v; },
                     [](u64 v) -> value_t { return v; },
                     [](const auto& v) -> value_t { throw wasm_trap("Invalid global init value"); }
-                }, exe.stack_pop_raw());
+                }, exe.context().stack_pop_raw());
 
             global_kind k{ translate_type(p->type), p->mutable_ };
             index_t gi = store.emplace_back<global_instance>(k, std::move(v));

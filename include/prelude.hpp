@@ -31,17 +31,17 @@ struct shiftr {
 PRELUDE_DECLARE_HELPER(shiftr)
 
 template <typename T = void>
-struct rotl {
+struct rotatel {
     constexpr T operator()(const T& num, const T& by) { return std::rotl(num, by); }
 };
 
-PRELUDE_DECLARE_HELPER(rotl)
+PRELUDE_DECLARE_HELPER(rotatel)
 
 template <typename T = void>
-struct rotr {
+struct rotater {
     constexpr T operator()(const T& num, const T& by) { return std::rotr(num, by); }
 };
 
-PRELUDE_DECLARE_HELPER(rotr)
+PRELUDE_DECLARE_HELPER(rotater)
 
 }  // namespace ligero::prelude

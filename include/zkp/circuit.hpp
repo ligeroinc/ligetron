@@ -1,5 +1,7 @@
 #pragma once
 
+#include <concepts>
+
 #include <instruction.hpp>
 #include <base.hpp>
 #include <zkp/prime_field.hpp>
@@ -13,29 +15,34 @@ T bit_of(T num, size_t index) {
     return (num >> index) & static_cast<T>(1);
 }
 
-// template <typename Fp>
-// class prover_interface {
-//     using field_type = Fp;
-    
-//     ~prover_interface() = default;
-//     virtual void push_linear(Fp, Fp, Fp) = 0;
-//     virtual void push_quadratic(Fp, Fp, Fp) = 0;
+// template <template <typename> typename Prover, typename Fp>
+// concept IsProver = requires(Prover<Fp> prover, Fp field) {
+//     { prover.push_linear(field, field, field) };
+//     { prover.push_quadratic(field, field, field) };
 // };
 
-template <template <typename> typename Prover, typename Fp>
-concept IsProver = requires(Prover<Fp> prover, Fp field) {
-    { prover.push_linear(field, field, field) };
-    { prover.push_quadratic(field, field, field) };
+template <typename Row>
+concept WitnessRow = requires(Row row, u32 val) {
+    { row = val };
+    { row + row } -> std::convertible_to<Row>;
+    { row - row } -> std::convertible_to<Row>;
+    { row * row } -> std::convertible_to<Row>;
+    { row / row } -> std::convertible_to<Row>;
 };
 
 
-template <typename Derive, typename Fp>
-// requires std::derived_from<Derive<Fp>, prover_interface<Fp>>
-struct prover_extension {
-    using field = Fp;
+template <typename Derive, WitnessRow Fp>
+struct prover_extension : virtual NumericExecutor {
+    using row_type = Fp;
     
     prover_extension() : derive_(static_cast<Derive&>(*this)) { }
     ~prover_extension() = default;
+
+    result_t run(const op::inn_const& i) override {
+        row_type r = i.val;
+        derive_.push_witness(r);
+        return {};
+    }
 
     /* Unary operators */
     /* -------------------------------------------------- */
@@ -54,7 +61,8 @@ struct prover_extension {
 
     /* Binary operators */
     /* -------------------------------------------------- */
-    void push_cs(const op::inn_add&, field x, field y) {
+    result_t run(const op::inn_add& i) {
+        row_type x = derive_.pop_witness()
         field z = x + y;
         derive_.push_linear(x, y, z);
     }

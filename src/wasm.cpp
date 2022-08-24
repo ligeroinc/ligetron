@@ -5,7 +5,8 @@
 #include <fstream>
 #include <runtime.hpp>
 #include <execution.hpp>
-#include <zkp/circuit.hpp>
+// #include <zkp/circuit.hpp>
+#include <context.hpp>
 
 using namespace wabt;
 using namespace ligero::vm;
@@ -31,10 +32,11 @@ int main(int argc, char *argv[]) {
     }
 
     store_t store;
-    basic_executor exe;
-    exe.store(&store);
+    standard_context ctx;
+    ctx.store(&store);
+    basic_executor exe(ctx);
     auto module = instantiate(store, m, exe);
-    exe.module(&module);
+    ctx.module(&module);
 
     std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
     for (const auto& f : store.functions) {
@@ -48,13 +50,13 @@ int main(int argc, char *argv[]) {
             p[i] = 8-i;
         }
         std::vector<u8> data(arg);
-        exe.args(data);
+        ctx.set_args(data);
     }
     
 
     auto dummy_frame = std::make_unique<frame>();
     dummy_frame->module = &module;
-    exe.push_frame(std::move(dummy_frame));
+    exe.context().push_frame(std::move(dummy_frame));
 
     auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
     std::cout << "Mem: ";
@@ -63,12 +65,12 @@ int main(int argc, char *argv[]) {
     }
     std::cout << std::endl;
 
-    exe.stack_push(u32(0));
+    exe.context().stack_push(u32(0));
     op::call start{ std::stoul(argv[2]) };
     start.run(exe);
 
     std::cout << "Result: ";
-    exe.show_stack();
+    exe.context().show_stack();
 
     std::cout << "Mem: ";
     for (auto i = 0; i < 10; i++) {

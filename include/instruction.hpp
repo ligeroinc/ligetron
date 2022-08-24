@@ -166,6 +166,37 @@ struct NumericExecutor : virtual Executor {
     virtual result_t run(const op::i32_wrap_i64&) = 0;
 };
 
+template <typename T, typename V>
+struct combined_numeric_executor : public T, public V {
+    result_t run(const op::inn_const& i)   { T::run(i); return V::run(i); }
+    result_t run(const op::inn_clz& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_ctz& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_popcnt& i)  { T::run(i); return V::run(i); }
+    result_t run(const op::inn_add& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_sub& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_mul& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_div_sx& i)  { T::run(i); return V::run(i); }
+    result_t run(const op::inn_rem_sx& i)  { T::run(i); return V::run(i); }
+    result_t run(const op::inn_and& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_or& i)      { T::run(i); return V::run(i); }
+    result_t run(const op::inn_xor& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_shl& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_shr_sx& i)  { T::run(i); return V::run(i); }
+    result_t run(const op::inn_rotl& i)    { T::run(i); return V::run(i); }
+    result_t run(const op::inn_rotr& i)    { T::run(i); return V::run(i); }
+    result_t run(const op::inn_eqz& i)     { T::run(i); return V::run(i); }
+    result_t run(const op::inn_eq& i)      { T::run(i); return V::run(i); }
+    result_t run(const op::inn_ne& i)      { T::run(i); return V::run(i); }
+    result_t run(const op::inn_lt_sx& i)   { T::run(i); return V::run(i); }
+    result_t run(const op::inn_gt_sx& i)   { T::run(i); return V::run(i); }
+    result_t run(const op::inn_le_sx& i)   { T::run(i); return V::run(i); }
+    result_t run(const op::inn_ge_sx& i)   { T::run(i); return V::run(i); }
+    result_t run(const op::inn_extend8_s& i) { T::run(i); return V::run(i); }
+    result_t run(const op::inn_extend16_s& i) { T::run(i); return V::run(i); }
+    result_t run(const op::i64_extend32_s& i) { T::run(i); return V::run(i); }
+    result_t run(const op::i64_extend_i32_sx& i) { T::run(i); return V::run(i); }
+    result_t run(const op::i32_wrap_i64& i) { T::run(i); return V::run(i); }
+};
 
 // struct RefExecutor : virtual Executor {
 //     virtual result_t run(const op::ref_null&) = 0;

@@ -16,6 +16,7 @@ template <typename> struct poly_base { };
 template <uint64_t Modulus>
 struct primitive_poly : public poly_base<primitive_poly<Modulus>> {
     using value_type = uint64_t;
+    using field_type = prime_field<Fp64<Modulus>>;
 
     constexpr static value_type modulus = Modulus;
 

@@ -180,10 +180,10 @@ struct primitive_modulus {
     constexpr static T modulus = Prime;
 };
 
-template <int32_t Prime>
+template <uint32_t Prime>
 using Fp32 = primitive_modulus<int32_t, Prime>;
 
-template <int64_t Prime>
+template <uint64_t Prime>
 using Fp64 = primitive_modulus<int64_t, Prime>;
 
 }  // namespace ligero::zkp

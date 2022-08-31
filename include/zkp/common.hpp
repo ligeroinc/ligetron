@@ -1,6 +1,6 @@
 #pragma once
 
-namespace ligero::zkp {
+namespace ligero::vm::zkp {
 
 template <typename Number>
 Number modulo(const Number& x, const Number& m) {

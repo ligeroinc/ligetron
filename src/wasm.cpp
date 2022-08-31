@@ -7,9 +7,15 @@
 #include <execution.hpp>
 // #include <zkp/circuit.hpp>
 #include <context.hpp>
+#include <zkp/prover_context.hpp>
+#include <zkp/prover_execution.hpp>
+#include <zkp/poly_field.hpp>
 
 using namespace wabt;
 using namespace ligero::vm;
+
+constexpr uint64_t modulus = 23;
+using poly_t = zkp::primitive_poly<23>;
 
 int main(int argc, char *argv[]) {
     const char *file = argv[1];
@@ -31,10 +37,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    zkp::reed_solomon64 lrs(modulus, 1024, 2048, 4096);
+    zkp::reed_solomon64 qrs(modulus, 1024, 4096, 4096);
+
     store_t store;
-    standard_context ctx;
+    zkp::stage1_prover_context<zkp::sha256, poly_t> ctx(lrs, qrs);
     ctx.store(&store);
-    basic_executor exe(ctx);
+    zkp::zkp_executor exe(ctx);
     auto module = instantiate(store, m, exe);
     ctx.module(&module);
 

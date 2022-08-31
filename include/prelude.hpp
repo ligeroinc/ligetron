@@ -9,6 +9,15 @@ template <typename... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;  // deduction guide
 
+template <typename InputIt, typename UnaryPredicate>
+InputIt find_if_n(InputIt first, InputIt last, size_t n, UnaryPredicate p) {
+    auto it = first;
+    for (size_t i = 0; i < n; i++) {
+        it = std::find_if(it, last, p);
+    }
+    return it;
+}
+
 #define PRELUDE_DECLARE_HELPER(NAME)                                    \
     template <>                                                         \
     struct NAME<void> {                                                 \

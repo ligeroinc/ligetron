@@ -54,7 +54,16 @@ public:
         }
 
         /* Exiting block with Label L if no jump happended */
-        ctx_.block_exit(n);
+        {
+            std::vector<svalue_t> ret;
+            for (size_t i = 0; i < n; i++) {
+                ret.emplace_back(ctx_.stack_pop_raw());
+            }
+            ctx_.template stack_pop<label>();
+            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+                ctx_.stack_push(std::move(*it));
+            }
+        }
         return {};
     }
 
@@ -87,7 +96,16 @@ public:
         }
 
         /* Exiting block with Label L if no jump happended */
-        ctx_.block_exit(n);
+        {
+            std::vector<svalue_t> ret;
+            for (size_t i = 0; i < n; i++) {
+                ret.emplace_back(ctx_.stack_pop_raw());
+            }
+            ctx_.template stack_pop<label>();
+            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+                ctx_.stack_push(std::move(*it));
+            }
+        }
         return {};
     }
 
@@ -100,24 +118,27 @@ public:
         const int l = b.label;
 
         /* Find L-th label */
-        auto it = ctx_.template find_nth<label>(l);
-        // int count = -1;
-        // auto rit = std::find_if(stack_.rbegin(), stack_.rend(), [&count, l](const auto& v) {
-        //     if (std::holds_alternative<label>(v)) {
-        //         count++;
-        //         if (count == l) {
-        //             return true;
-        //         }
-        //     }
-        //     return false;
-        // });
+        auto it = prelude::find_if_n(ctx_.stack_top(), ctx_.stack_bottom(), l, [](const auto& v) {
+            return std::holds_alternative<label>(v);
+        });
+        assert(it != ctx_.stack_bottom());
+        size_t distance = std::distance(ctx_.stack_top(), it);
 
-        // auto it = (++rit).base();
-
-        const size_t n = std::get<label>(*it).arity;
-        ctx_.stack_pops(it, ctx_.stack_top() + n);
-        // auto top = stack_.rbegin() + n;
-        // stack_.erase(it, top.base());
+        /* Pop unused stack values */
+        {
+            const size_t n = std::get<label>(*it).arity;
+            std::vector<svalue_t> ret;
+            for (size_t i = 0; i < n; i++) {
+                ret.emplace_back(ctx_.stack_pop_raw());
+            }
+            for (size_t i = 0; i < distance - n; i++) {
+                ctx_.stack_pop_raw();
+            }
+            ctx_.template stack_pop<label>();  // Discard label
+            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+                ctx_.stack_push(std::move(*it));
+            }
+        }
 
         std::cout << "<br " << l << "> ";
         ctx_.show_stack();
@@ -144,13 +165,25 @@ public:
         // auto top = stack_.rbegin() + arity;
         // auto it = top;
 
-        auto frm = ctx_.template find_nth<frame_ptr>(1);
-        ctx_.template stack_pops(frm, ctx_.template stack_top() + arity);
-        // while (!std::holds_alternative<frame_ptr>(*it)) {
-        //     it++;
-        // }
-
-        // stack_.erase((++it).base(), top.base());
+        auto frm = std::find_if(ctx_.stack_top(), ctx_.stack_bottom(), [](const auto& v) {
+            return std::holds_alternative<frame_ptr>(v);
+        });
+        assert(frm != ctx_.stack_bottom());
+        size_t distance = std::distance(ctx_.stack_top(), frm);
+        
+        {
+            std::vector<svalue_t> ret;
+            for (size_t i = 0; i < arity; i++) {
+                ret.emplace_back(ctx_.stack_pop_raw());
+            }
+            for (size_t i = 0; i < distance - arity; i++) {
+                ctx_.stack_pop_raw();
+            }
+            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+                ctx_.stack_push(std::move(*it));
+            }
+            ctx_.template stack_pop<frame_ptr>();
+        }
 
         return std::numeric_limits<int>::max();
     }
@@ -167,21 +200,11 @@ public:
         /* Push arguments */
         /* -------------------------------------------------- */
         std::vector<value_t> arguments;
-        for (auto it = ctx_.template stack_top(); it != ctx_.template stack_top() + n; it++) {
-            arguments.push_back(to_value(*it));
-            // if (std::holds_alternative<u32>(*i)) {
-            //     arguments.emplace_back(std::get<u32>(*i));
-            // }
-            // else if (std::holds_alternative<u64>(*i)) {
-            //     arguments.emplace_back(std::get<u64>(*i));
-            // }
-            // else {
-            //     undefined("Invalid stack value");
-            // }
+        for (size_t i = 0; i < n; i++) {
+            svalue_t sv = ctx_.stack_pop_raw();
+            arguments.push_back(to_value(std::move(sv)));
         }
-        ctx_.template stack_pops(ctx_.template stack_top() + n - 1, ctx_.template stack_top());
         std::reverse(arguments.begin(), arguments.end());
-        // stack_.erase((stack_.rbegin() + n).base(), stack_.end());
 
         /* Invoke the function (native function) */
         /* -------------------------------------------------- */
@@ -202,7 +225,19 @@ public:
                 }
             }
 
-            ctx_.pop_frame(m);
+            // ctx_.pop_frame(m);
+            {
+                std::vector<svalue_t> ret;
+                for (size_t i = 0; i < m; i++) {
+                    ret.emplace_back(ctx_.stack_pop_raw());
+                }
+                
+                ctx_.template stack_pop<frame_ptr>();
+                
+                for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+                    ctx_.stack_push(std::move(*it));
+                }
+            }
         }
         /* Invoke the function (host function) */
         /* -------------------------------------------------- */

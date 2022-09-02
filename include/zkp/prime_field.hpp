@@ -38,12 +38,18 @@ struct prime_field : prime_field_expr {
     constexpr prime_field() : element_() { }
     constexpr prime_field(const value_type& e) : element_(modulo(e, modulus)) { }
     constexpr prime_field(value_type&& e) : element_(modulo(std::move(e), modulus)) { }
+    
     constexpr prime_field(const prime_field& fp) : element_(fp.element_) { }
     constexpr prime_field(prime_field&& fp) : element_(std::move(fp.element_)) { }
 
     template <IsPrimeFieldExpr Expr>
     prime_field(const Expr& expr) : element_(expr.data()) { }
 
+    prime_field& operator=(const prime_field& pf) {
+        element_ = pf.element_;
+        return *this;
+    }
+    
     prime_field& operator=(const value_type& e) {
         element_ = modulo(e, modulus);
         return *this;
@@ -180,10 +186,10 @@ struct primitive_modulus {
     constexpr static T modulus = Prime;
 };
 
-template <uint32_t Prime>
+template <int32_t Prime>
 using Fp32 = primitive_modulus<int32_t, Prime>;
 
-template <uint64_t Prime>
+template <int64_t Prime>
 using Fp64 = primitive_modulus<int64_t, Prime>;
 
 }  // namespace ligero::zkp

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <poly_field.hpp>
-#include <relation.hpp>
+#include <zkp/poly_field.hpp>
+// #include <relation.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
-namespace ligero::zkp {
+namespace ligero::vm::zkp {
 
 using namespace boost;
 
@@ -19,43 +19,47 @@ struct quasi_argument {
           rc_(seed), rl_(seed), rq_(seed)
         { }
 
-    quasi_argument& dispatch(const relation<Poly> *r) {
-        if (auto *p = dynamic_cast<const linear_relation<Poly>*>(r); p != nullptr) {
-            return dispatch(p);
-        }
-        else if (auto *p = dynamic_cast<const quadratic_relation<Poly>*>(r); p != nullptr) {
-            return dispatch(p);
-        }
-        else {
-            throw std::runtime_error("Unexpected relation type");
-        }
-    }
+    // quasi_argument& dispatch(const relation<Poly> *r) {
+    //     if (auto *p = dynamic_cast<const linear_relation<Poly>*>(r); p != nullptr) {
+    //         return dispatch(p);
+    //     }
+    //     else if (auto *p = dynamic_cast<const quadratic_relation<Poly>*>(r); p != nullptr) {
+    //         return dispatch(p);
+    //     }
+    //     else {
+    //         throw std::runtime_error("Unexpected relation type");
+    //     }
+    // }
     
-    quasi_argument& dispatch(const linear_relation<Poly>* p) {
-        return dispatch_code(*p).dispatch_linear(*p);
-    }
+    // quasi_argument& dispatch(const linear_relation<Poly>* p) {
+    //     return dispatch_code(*p).dispatch_linear(*p);
+    // }
 
-    quasi_argument& dispatch(const quadratic_relation<Poly> *p) {
-        return dispatch_code(*p).dispatch_quadratic(*p);
-    }
+    // quasi_argument& dispatch(const quadratic_relation<Poly> *p) {
+    //     return dispatch_code(*p).dispatch_quadratic(*p);
+    // }
     
-    quasi_argument& dispatch_code(const binary_relation<Poly>& r) {
+    quasi_argument& update_code(const Poly& x) {
         static random::uniform_int_distribution<value_type> dist(value_type{0}, Poly::modulus - value_type{1});
-        code_.fma_mod(r.a(), dist(rc_));
-        code_.fma_mod(r.b(), dist(rc_));
-        code_.fma_mod(r.c(), dist(rc_));
+        code_.fma_mod(x, dist(rc_));
         return *this;
     }
 
-    quasi_argument& dispatch_linear(const linear_relation<Poly>& r) {
+    quasi_argument& update_linear(const Poly& a, const Poly& b, const Poly& c) {
         static random::uniform_int_distribution<value_type> dist(value_type{0}, Poly::modulus - value_type{1});
-        linear_.fma_mod(r.eval(), dist(rl_));
+        Poly r = a;
+        r += b;
+        r -= c;
+        linear_.fma_mod(r, dist(rl_));
         return *this;
     }
 
-    quasi_argument& dispatch_quadratic(const quadratic_relation<Poly>& r) {
+    quasi_argument& update_quadratic(const Poly& a, const Poly& b, const Poly& c) {
         static random::uniform_int_distribution<value_type> dist(value_type{0}, Poly::modulus - value_type{1});
-        quad_.fma_mod(r.eval(), dist(rq_));
+        Poly r = a;
+        r *= b;
+        r -= c;
+        quad_.fma_mod(r, dist(rq_));
         return *this;
     }
 

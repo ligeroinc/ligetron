@@ -14,8 +14,15 @@
 using namespace wabt;
 using namespace ligero::vm;
 
-constexpr uint64_t modulus = 23;
-using poly_t = zkp::primitive_poly<23>;
+void show_hash(const typename zkp::sha256::digest& d) {
+    std::cout << std::hex;
+    for (auto i = 0; i < zkp::sha256::digest_size; i++)
+        std::cout << (int)d.data[i];
+    std::cout << std::endl << std::dec;
+}
+
+constexpr uint64_t modulus = 4611686018326724609ULL;
+using poly_t = zkp::primitive_poly<modulus>;
 
 int main(int argc, char *argv[]) {
     const char *file = argv[1];
@@ -37,73 +44,115 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    zkp::reed_solomon64 lrs(modulus, 1024, 2048, 4096);
-    zkp::reed_solomon64 qrs(modulus, 1024, 4096, 4096);
+    zkp::reed_solomon64 encoder(modulus, 128, 256, 512);
 
-    store_t store;
-    zkp::stage1_prover_context<zkp::sha256, poly_t> ctx(lrs, qrs);
-    ctx.store(&store);
-    zkp::zkp_executor exe(ctx);
-    auto module = instantiate(store, m, exe);
-    ctx.module(&module);
-
-    std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
-    for (const auto& f : store.functions) {
-        std::cout << "Func: " << f.name << std::endl;
-    }
-
+    zkp::stage1_prover_context<poly_t, zkp::sha256> ctx(encoder);
     {
-        std::vector<u8> arg(32);
-        u32 *p = reinterpret_cast<u32*>(arg.data());
-        for (auto i = 0; i < 8; i++) {
-            p[i] = 8-i;
+        store_t store;
+        ctx.store(&store);
+        zkp::zkp_executor exe(ctx);
+        auto module = instantiate(store, m, exe);
+        ctx.module(&module);
+
+        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+        for (const auto& f : store.functions) {
+            std::cout << "Func: " << f.name << std::endl;
         }
-        std::vector<u8> data(arg);
-        ctx.set_args(data);
-    }
+
+        {
+            std::vector<u8> arg(32);
+            u32 *p = reinterpret_cast<u32*>(arg.data());
+            for (auto i = 0; i < 8; i++) {
+                p[i] = 8-i;
+            }
+            std::vector<u8> data(arg);
+            ctx.set_args(data);
+        }
     
 
-    auto dummy_frame = std::make_unique<frame>();
-    dummy_frame->module = &module;
-    exe.context().push_frame(std::move(dummy_frame));
+        auto dummy_frame = std::make_unique<frame>();
+        dummy_frame->module = &module;
+        exe.context().push_frame(std::move(dummy_frame));
 
-    auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
-    std::cout << "Mem: ";
-    for (auto i = 0; i < 10; i++) {
-        std::cout << *(v + i) << " ";
+        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
+
+        exe.context().stack_push(u32(0));
+        op::call start{ std::stoul(argv[2]) };
+        start.run(exe);
+
+        std::cout << "Result: ";
+        exe.context().show_stack();
+
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
 
-    exe.context().stack_push(u32(0));
-    op::call start{ std::stoul(argv[2]) };
-    start.run(exe);
+    auto hash = ctx.root_hash();
+    std::cout << "----------------------------------------" << std::endl << std::endl;
+    show_hash(hash);
+    std::cout << "----------------------------------------" << std::endl;
 
-    std::cout << "Result: ";
-    exe.context().show_stack();
+    zkp::stage2_prover_context<poly_t> ctx2(encoder, hash);
+    {
+        store_t store;
+        ctx2.store(&store);
+        zkp::zkp_executor exe(ctx2);
+        auto module = instantiate(store, m, exe);
+        ctx2.module(&module);
 
-    std::cout << "Mem: ";
-    for (auto i = 0; i < 10; i++) {
-        std::cout << *(v + i) << " ";
+        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+        for (const auto& f : store.functions) {
+            std::cout << "Func: " << f.name << std::endl;
+        }
+
+        {
+            std::vector<u8> arg(32);
+            u32 *p = reinterpret_cast<u32*>(arg.data());
+            for (auto i = 0; i < 8; i++) {
+                p[i] = 8-i;
+            }
+            std::vector<u8> data(arg);
+            ctx2.set_args(data);
+        }
+    
+
+        auto dummy_frame = std::make_unique<frame>();
+        dummy_frame->module = &module;
+        exe.context().push_frame(std::move(dummy_frame));
+
+        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
+
+        exe.context().stack_push(u32(0));
+        op::call start{ std::stoul(argv[2]) };
+        start.run(exe);
+
+        std::cout << "Result: ";
+        exe.context().show_stack();
+
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
 
-    // if (r != Result::Error) {
-    //     std::cout << "success" << std::endl;
-    //     // for (const auto& exp : m.exports) {
-    //     //     std::cout << exp->name << ", " << exp->var.index() << std::endl;
-    //     // }
-    //     for (Func* func: m.funcs) {
-    //         std::cout << "In Function: " << func->name << std::endl;
-    //         for (const auto& expr : func->exprs) {
-    //             std::cout << GetExprTypeName(expr.type()) << std::endl;
-    //             if (const auto *ref = dynamic_cast<const BlockExpr*>(&expr); ref != nullptr) {
-    //                 for (const auto& exp : ref->block.exprs) {
-    //                     std::cout << GetExprTypeName(exp.type()) << std::endl;
-    //                 }
-    //             }
-    //             instr_ptr p = translate(expr);
-    //         }
-    //     }
-    // }
+    std::cout << "----------------------------------------" << std::endl
+              << "validation of linear: " << ctx2.validate_linear() << std::endl
+              << "validation of quadratic: " << ctx2.validate_quadratic() << std::endl
+              << "----------------------------------------" << std::endl;
+
     return 0;
 }

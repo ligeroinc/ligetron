@@ -147,7 +147,6 @@ public:
 
     result_t run(const op::br_if& b) override {
         u32 cond = ctx_.template stack_pop<u32>();
-        std::cout << "<br_if> cond=" << cond << " ";
 
         if (cond) {
             return run(op::br{ b.label });
@@ -161,6 +160,7 @@ public:
     // }
 
     result_t run(const op::ret&) override {
+        std::cout << "Ret" << std::endl;
         const size_t arity = ctx_.current_frame()->arity;
         // auto top = stack_.rbegin() + arity;
         // auto it = top;
@@ -184,6 +184,8 @@ public:
             }
             ctx_.template stack_pop<frame_ptr>();
         }
+
+        ctx_.show_stack();
 
         return std::numeric_limits<int>::max();
     }
@@ -630,17 +632,17 @@ public:
 
         if (ins.type == int_kind::i32) {
             u32 c = *reinterpret_cast<const u32*>(mem.data.data() + ea);
-            std::cout << "i32.load mem[" << ea << "]=" << c << std::endl;
+            std::cout << "i32.load mem[" << ea << "]=" << c;
             ctx_.template stack_push(c);
         }
         else {
             u64 c = *reinterpret_cast<const u64*>(mem.data.data() + ea);
-            std::cout << "i64.load mem[" << ea << "]=" << c << std::endl;
+            std::cout << "i64.load mem[" << ea << "]=" << c;
             ctx_.template stack_push(c);
         }
 
         auto *v = reinterpret_cast<const u32*>(mem.data.data());
-        std::cout << "Mem: ";
+        std::cout << " Mem: ";
         for (auto i = 0; i < 16; i++) {
             std::cout << *(v + i) << " ";
         }
@@ -681,16 +683,16 @@ public:
             u32 c = std::get<u32>(sc);
             u8 *ptr = reinterpret_cast<u8*>(&c);
             std::copy(ptr, ptr + n, mem.data.data() + ea);
-            std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;
+            std::cout << "i32.store mem[" << ea << "]=" << c;
         }
         else {
             u64 c = std::get<u64>(sc);
             u8 *ptr = reinterpret_cast<u8*>(&c);
             std::copy(ptr, ptr + n, mem.data.data() + ea);
-            std::cout << "i64.store mem[" << ea << "]=" << c << std::endl;
+            std::cout << "i64.store mem[" << ea << "]=" << c;
         }
         auto *v = reinterpret_cast<u32*>(mem.data.data());
-        std::cout << "Mem: ";
+        std::cout << " Mem: ";
         for (auto i = 0; i < 16; i++) {
             std::cout << *(v + i) << " ";
         }

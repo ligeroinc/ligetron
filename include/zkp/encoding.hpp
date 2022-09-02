@@ -25,7 +25,7 @@ struct reed_solomon64 {
 
     template <typename Poly>
     Poly& encode(Poly& poly) {
-        poly.pad_random(d_);
+        poly.pad(d_);
         ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
         poly.pad(n_);
         ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
@@ -49,12 +49,23 @@ struct reed_solomon64 {
         }
     }
 
+    // template <typename Poly>
+    // void decode(Poly& poly) {
+    //     ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
+    //     ntt_message_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
+    //     poly.data().erase(poly.begin() + l_, poly.end());
+    // }
+
     template <typename Poly>
     void decode(Poly& poly) {
+        assert(d_ * 2 == n_);
+        assert(poly.size() == n_);
         ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
+        for (size_t i = 0; i < d_; i++) {
+            poly[i] -= poly[i + d_];
+        }
         ntt_message_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
         poly.data().erase(poly.begin() + l_, poly.end());
-        // poly.resize(l_);
     }
 
     size_t plain_size() const { return l_; }

@@ -22,12 +22,12 @@ namespace ligero::vm::zkp {
 //     bool secret_shared = false;
 // };
 
-template <typename Poly>
+template <typename Field>
 struct zkp_context_base : public context_base {
     using Base = context_base;
-    using poly_type = Poly;
+    using poly_type = Field;
     // using tagged_poly = shared_tag<poly_type>;
-    using field_type = typename Poly::field_type;
+    using field_type = typename Field::field_type;
     using operator_type = standard_op;
 
     zkp_context_base(reed_solomon64& encoder) : encoder_(encoder) { }
@@ -56,23 +56,6 @@ struct zkp_context_base : public context_base {
         return std::get<T>(stack_pop_raw());
     }
 
-    void show_stack() {
-        Base::show_stack();
-        // std::cout << "zstack: ";
-        // for (auto& v : zstack_) {
-        //     lrs_.decode(v);
-        //     std::cout << v[0] << " ";
-        //     // std::visit(prelude::overloaded {
-        //     //         [](u32 x) { std::cout << "(" << x << " : i32) "; },
-        //     //         [](u64 x) { std::cout << "(" << x << " : i64) "; },
-        //     //         [](label l) { std::cout << "Label<" << l.arity << "> "; },
-        //     //         [](const frame_ptr& f) { std::cout << "Frame<" << f->arity << "> "; }
-        //     //     }, v);
-        //     lrs_.encode(v);
-        // }
-        // std::cout << std::endl;
-    }
-
     // const auto& zstack() const { return zstack_; }
     // auto& zstack() { return zstack_; }
     auto& zstack(size_t n) { return *(zstack_.rbegin() + n); }
@@ -86,13 +69,13 @@ struct zkp_context_base : public context_base {
         return std::get<T>(Base::stack_pop_raw());
     }
 
-    void zstack_push(const field_type& f) {
+    virtual void zstack_push(const field_type& f) {
         poly_type p(1, f);
         encoder_.encode(p);
         zstack_.push_back(std::move(p));
     }
 
-    void zstack_push(poly_type&& tp) {
+    virtual void zstack_push(poly_type&& tp) {
         zstack_.push_back(std::move(tp));
     }
 
@@ -101,13 +84,13 @@ struct zkp_context_base : public context_base {
         ((zstack_push(std::forward<Args>(args))), ...);
     }
 
-    poly_type zstack_pop() {
+    virtual poly_type zstack_pop() {
         auto x = zstack_.back();
         zstack_.pop_back();
         return x;
     }
 
-    void zstack_drop(size_t count) {
+    virtual void zstack_drop(size_t count) {
         zstack_.erase((zstack_.rbegin() + count).base(), zstack_.end());
     }
     
@@ -139,42 +122,15 @@ struct stage1_prover_context : public zkp_context<Field> {
         auto& x = this->zstack(a);
         auto& y = this->zstack(b);
         auto& z = this->zstack(c);
-        // if (!x) {
-        //     lrs_.encode(*x);
-        //     x.secret_shared = true;
-        // }
-        // if (!y) {
-        //     lrs_.encode(*y);
-        //     y.secret_shared = true;
-        // }
-        // if (!z) {
-        //     lrs_.encode(*z);
-        //     z.secret_shared = true;
-        // }
-        builder_ << x << y << z;
-    }
 
-    void bound_boolean(size_t a) {
-        auto& x = this->zstack(a);
-        builder_ << x << x << x;
+        builder_ << x << y << z;
     }
 
     void bound_quadratic(size_t a, size_t b, size_t c) {
         auto& x = this->zstack(a);
         auto& y = this->zstack(b);
         auto& z = this->zstack(c);
-        // if (!x) {
-        //     qrs_.encode(*x);
-        //     x.secret_shared = true;
-        // }
-        // if (!y) {
-        //     qrs_.encode(*y);
-        //     y.secret_shared = true;
-        // }
-        // if (!z) {
-        //     qrs_.encode(*z);
-        //     z.secret_shared = true;
-        // }
+
         builder_ << x << y << z;
     }
 
@@ -205,18 +161,6 @@ struct stage2_prover_context : public zkp_context<Field> {
         auto& x = this->zstack(a);
         auto& y = this->zstack(b);
         auto& z = this->zstack(c);
-        // if (!x) {
-        //     lrs_.encode(*x);
-        //     x.secret_shared = true;
-        // }
-        // if (!y) {
-        //     lrs_.encode(*y);
-        //     y.secret_shared = true;
-        // }
-        // if (!z) {
-        //     lrs_.encode(*z);
-        //     z.secret_shared = true;
-        // }        
         
         arg_.update_code(x)
             .update_code(y)
@@ -224,60 +168,10 @@ struct stage2_prover_context : public zkp_context<Field> {
             .update_linear(x, y, z);
     }
 
-    void bound_boolean(size_t a) {
-        auto& x = this->zstack(a);
-
-        arg_.update_code(x)
-            .update_quadratic(x, x, x);
-    }
-
     void bound_quadratic(size_t a, size_t b, size_t c) {
         auto& x = this->zstack(a);
         auto& y = this->zstack(b);
         auto& z = this->zstack(c);
-        // if (!x) {
-        //     qrs_.encode(*x);
-        //     x.secret_shared = true;
-        // }
-        // if (!y) {
-        //     qrs_.encode(*y);
-        //     y.secret_shared = true;
-        // }
-        // if (!z) {
-        //     qrs_.encode(*z);
-        //     z.secret_shared = true;
-        // }
-
-        // std::cout << "encoded x: ";
-        // for (auto i = 0; i < 64; i++) {
-        //     std::cout << (*x)[i] << " ";
-        // }
-        // std::cout << std::endl;
-
-        // this->lrs_.decode_doubled(x);
-        // std::cout << "x: ";
-        // for (auto i = 0; i < 1; i++) {
-        //     std::cout << x[i] << " ";
-        // }
-        // std::cout << std::endl;
-
-        // this->lrs_.decode_doubled(y);
-        // std::cout << "y: ";
-        // for (auto i = 0; i < 1; i++) {
-        //     std::cout << y[i] << " ";
-        // }
-        // std::cout << std::endl;
-
-        // this->lrs_.decode_doubled(z);
-        // std::cout << "z: ";
-        // for (auto i = 0; i < 1; i++) {
-        //     std::cout << z[i] << " ";
-        // }
-        // std::cout << std::endl;
-
-        // this->lrs_.encode(x);
-        // this->lrs_.encode(y);
-        // this->lrs_.encode(z);
         
         arg_.update_code(x)
             .update_code(y)
@@ -296,9 +190,86 @@ struct stage2_prover_context : public zkp_context<Field> {
         this->encoder_.decode(row);
         return std::all_of(row.begin(), row.end(), [](auto v) { return v == 0; });
     }
+
+    const auto& get_argument() const { return arg_; }
     
 protected:
     quasi_argument<Field, RandomEngine> arg_;
+};
+
+
+template <typename Field>
+struct stage3_prover_context : public zkp_context<Field>
+{
+    using Base = zkp_context<Field>;
+    using poly_type = Field;
+    using field_type = typename Field::field_type;
+    using operator_type = standard_op;
+
+    stage3_prover_context(reed_solomon64& encoder, const std::vector<size_t>& si)
+        : Base(encoder), sample_index_(si) { }
+
+    void zstack_push(const field_type& f) override {
+        poly_type p(1, f);
+        this->encoder_.encode(p);
+        
+        poly_type sp(sample_index_.size());
+        #pragma omp parallel for
+        for (size_t i = 0; i < sample_index_.size(); i++) {
+            sp[i] = p[sample_index_[i]];
+        }
+        
+        this->zstack_.push_back(sp);
+        samples_.push_back(std::move(sp));
+    }
+
+    void zstack_push(poly_type&& tp) override {
+        assert(tp.size() == sample_index_.size());
+        Base::zstack_push(std::move(tp));
+    }
+
+    void bound_linear(size_t, size_t, size_t) {
+        // Nothing to check
+    }
+
+    void bound_quadratic(size_t, size_t, size_t) {
+        // Nothing to check
+    }
+
+    const auto& get_sample() const { return samples_; }
+
+protected:
+    std::vector<size_t> sample_index_;
+    std::vector<poly_type> samples_;
+};
+
+
+template <typename Field, typename RandomEngine = hash_random_engine<sha256>>
+struct verifier_context : public stage2_prover_context<Field> {
+    using Base = stage2_prover_context<Field, RandomEngine>;
+    using poly_type = Field;
+    using field_type = typename Field::field_type;
+    using operator_type = standard_op;
+
+    verifier_context(reed_solomon64& e,
+                     const typename RandomEngine::seed_type& seed,
+                     const std::vector<poly_type>& sv)
+        : Base(e, seed), sampled_val_(sv)
+        {
+            std::reverse(sampled_val_.begin(), sampled_val_.end());
+        }
+
+    void zstack_push(const field_type&) override {
+        assert(!sampled_val_.empty());
+        poly_type p = sampled_val_.back();
+        sampled_val_.pop_back();
+        this->zstack_.push_back(std::move(p));
+    }
+
+    using Base::zstack_push;
+
+protected:
+    std::vector<poly_type> sampled_val_;
 };
 
 }  // namespace ligero::vm::zkp

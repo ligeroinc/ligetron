@@ -132,11 +132,11 @@ public:
             field t = c * k;
 
             ctx_.zstack_push(a);
-            ctx_.bound_boolean(0);              // quadratic: a * a = a
+            ctx_.bound_quadratic(0, 0, 0);              // quadratic: a * a = a
             ctx_.zstack_push(b);
-            ctx_.bound_boolean(0);              // quadratic: b * b = b
+            ctx_.bound_quadratic(0, 0, 0);              // quadratic: b * b = b
             ctx_.zstack_push(c);
-            ctx_.bound_quadratic(2, 1, 0);      // quadratic: a * b = c
+            ctx_.bound_quadratic(2, 1, 0);              // quadratic: a * b = c
             ctx_.zstack_push(k);
             ctx_.zstack_push(t);
             ctx_.bound_quadratic(2, 1, 0);
@@ -153,16 +153,60 @@ public:
         }
         
         auto top = ctx_.zstack_pop();         // save z
-        for (size_t i = 0; i < (32 * 5) + (31 * 2) - 1; i++) {
-            ctx_.zstack_pop();
-        }
+        ctx_.zstack_drop((32 * 5) + (31 * 2) - 1);
         ctx_.zstack_pop();                    // pop y
         ctx_.zstack_pop();                    // pop x
         ctx_.zstack_push(std::move(top));     // push z back
     }
 
     result_t run(const op::inn_or& ins) override {
-        undefined();
+        assert(ins.type == int_kind::i32);
+        std::cout << ins.name() << std::endl;
+        
+        u32 y = ctx_.template vstack_pop<u32>();
+        u32 x = ctx_.template vstack_pop<u32>();
+        ctx_.vstack_push(x | y);
+
+        field acc = 0;
+        for (size_t i = 0; i < 32; i++) {
+            field a = bit_of(x, i);
+            field b = bit_of(y, i);
+            field pa = a + b;
+            field pb = a * b;
+            field c = pa - pb;
+            field k = 1 << i;
+            field t = c * k;
+
+            ctx_.zstack_push(a);
+            ctx_.bound_quadratic(0, 0, 0);              // quadratic: a * a = a
+            ctx_.zstack_push(b);
+            ctx_.bound_quadratic(0, 0, 0);              // quadratic: b * b = b
+            ctx_.zstack_push(pa);
+            ctx_.bound_linear(2, 1, 0);
+            ctx_.zstack_push(pb);
+            ctx_.bound_quadratic(3, 2, 0);
+            ctx_.zstack_push(c);
+            ctx_.bound_quadratic(0, 1, 2);              // quadratic: a * b = c
+            ctx_.zstack_push(k);
+            ctx_.zstack_push(t);
+            ctx_.bound_quadratic(2, 1, 0);
+
+            if (i == 0) {
+                acc = t;
+            }
+            else {
+                ctx_.zstack_push(acc);
+                acc = acc + t;
+                ctx_.zstack_push(acc);
+                ctx_.bound_linear(2, 1, 0);
+            }
+        }
+        
+        auto top = ctx_.zstack_pop();         // save z
+        ctx_.zstack_drop((32 * 7) + (31 * 2) - 1);
+        ctx_.zstack_pop();                    // pop y
+        ctx_.zstack_pop();                    // pop x
+        ctx_.zstack_push(std::move(top));     // push z back
     }
 
     result_t run(const op::inn_xor& ins) override {

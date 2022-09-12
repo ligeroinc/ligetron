@@ -61,6 +61,7 @@ struct reed_solomon64 {
         assert(d_ * 2 == n_);
         assert(poly.size() == n_);
         ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
+        #pragma omp simd
         for (size_t i = 0; i < d_; i++) {
             poly[i] -= poly[i + d_];
         }

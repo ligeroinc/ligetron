@@ -19,6 +19,9 @@ struct quasi_argument {
           rc_(seed), rl_(seed), rq_(seed)
         { }
 
+    bool operator==(const quasi_argument& other) const {
+        return code_ == other.code_ && linear_ == other.linear_ && quad_ == other.quad_;
+    }
     // quasi_argument& dispatch(const relation<Poly> *r) {
     //     if (auto *p = dynamic_cast<const linear_relation<Poly>*>(r); p != nullptr) {
     //         return dispatch(p);

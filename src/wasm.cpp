@@ -22,6 +22,7 @@ void show_hash(const typename zkp::sha256::digest& d) {
 }
 
 constexpr uint64_t modulus = 4611686018326724609ULL;
+constexpr size_t l = 128, d = 256, n = 512;
 using poly_t = zkp::primitive_poly<modulus>;
 
 int main(int argc, char *argv[]) {
@@ -44,7 +45,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    zkp::reed_solomon64 encoder(modulus, 128, 256, 512);
+    zkp::reed_solomon64 encoder(modulus, l, d, n);
 
     zkp::stage1_prover_context<poly_t, zkp::sha256> ctx(encoder);
     {
@@ -154,5 +155,132 @@ int main(int argc, char *argv[]) {
               << "validation of quadratic: " << ctx2.validate_quadratic() << std::endl
               << "----------------------------------------" << std::endl;
 
+    constexpr size_t sample_size = 80;
+    zkp::hash_random_engine<zkp::sha256> engine(zkp::hash<zkp::sha256>(ctx2.get_argument()));
+    std::vector<size_t> indexes(n), sample_index;
+    std::iota(indexes.begin(), indexes.end(), 0);
+    std::sample(indexes.cbegin(), indexes.cend(),
+                std::back_inserter(sample_index),
+                sample_size,
+                engine);
+    std::cout << "Sampled indexes: ";
+    for (auto i = 0; i < sample_size; i++) {
+        std::cout << sample_index[i] << " ";
+    }
+    std::cout << std::endl;
+    
+    zkp::stage3_prover_context<poly_t> ctx3(encoder, sample_index);
+    {
+        store_t store;
+        ctx3.store(&store);
+        zkp::zkp_executor exe(ctx3);
+        auto module = instantiate(store, m, exe);
+        ctx3.module(&module);
+
+        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+        for (const auto& f : store.functions) {
+            std::cout << "Func: " << f.name << std::endl;
+        }
+
+        {
+            std::vector<u8> arg(32);
+            u32 *p = reinterpret_cast<u32*>(arg.data());
+            for (auto i = 0; i < 8; i++) {
+                p[i] = 8-i;
+            }
+            std::vector<u8> data(arg);
+            ctx3.set_args(data);
+        }
+    
+
+        auto dummy_frame = std::make_unique<frame>();
+        dummy_frame->module = &module;
+        exe.context().push_frame(std::move(dummy_frame));
+
+        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
+
+        exe.context().stack_push(u32(0));
+        op::call start{ std::stoul(argv[2]) };
+        start.run(exe);
+
+        std::cout << "Result: ";
+        exe.context().show_stack();
+
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    std::cout << "Saved samples: " << ctx3.get_sample().size() << std::endl;
+
+    zkp::verifier_context<poly_t> vctx(encoder, hash, ctx3.get_sample());
+    {
+        store_t store;
+        vctx.store(&store);
+        zkp::zkp_executor exe(vctx);
+        auto module = instantiate(store, m, exe);
+        vctx.module(&module);
+
+        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+        for (const auto& f : store.functions) {
+            std::cout << "Func: " << f.name << std::endl;
+        }
+
+        {
+            std::vector<u8> arg(32);
+            u32 *p = reinterpret_cast<u32*>(arg.data());
+            for (auto i = 0; i < 8; i++) {
+                p[i] = 8-i;
+            }
+            std::vector<u8> data(arg);
+            vctx.set_args(data);
+        }
+    
+
+        auto dummy_frame = std::make_unique<frame>();
+        dummy_frame->module = &module;
+        exe.context().push_frame(std::move(dummy_frame));
+
+        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
+
+        exe.context().stack_push(u32(0));
+        op::call start{ std::stoul(argv[2]) };
+        start.run(exe);
+
+        std::cout << "Result: ";
+        exe.context().show_stack();
+
+        std::cout << "Mem: ";
+        for (auto i = 0; i < 10; i++) {
+            std::cout << *(v + i) << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    const auto& prover_arg = ctx2.get_argument();
+    const auto& verifier_arg = vctx.get_argument();
+
+    bool verify_result = true;
+    for (size_t i = 0; i < sample_size; i++) {
+        verify_result = verify_result &&
+            (prover_arg.code()[sample_index[i]] == verifier_arg.code()[i]) &&
+            (prover_arg.linear()[sample_index[i]] == verifier_arg.linear()[i]) &&
+            (prover_arg.quadratic()[sample_index[i]] == verifier_arg.quadratic()[i]);
+    }
+    
+    std::cout << "Check result: " << verify_result << std::endl;
+    
     return 0;
 }

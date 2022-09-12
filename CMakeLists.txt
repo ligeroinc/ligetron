@@ -30,7 +30,7 @@ include_directories(${WABT_BINARY_DIR})
 
 macro (link_binaries)
   foreach(BINARY IN ITEMS ${ARGN})
-	target_link_libraries(${BINARY} ${Boost_LIBRARIES} GMP::gmpxx_static HEXL::hexl OpenSSL::SSL OpenSSL::Crypto Sodium::sodium_static wabt)
+	target_link_libraries(${BINARY} ${Boost_LIBRARIES} GMP::gmpxx_static HEXL::hexl OpenSSL::SSL OpenSSL::Crypto Sodium::sodium_static wabt tbb)
   endforeach()
 endmacro()
 

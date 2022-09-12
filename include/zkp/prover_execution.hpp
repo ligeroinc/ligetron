@@ -24,7 +24,6 @@ public:
 
     result_t run(const op::inn_const& i) override {
         assert(i.type == int_kind::i32);
-        std::cout << "const" << std::endl;
 
         ctx_.vstack_push(static_cast<u32>(i.val));
         field k = static_cast<s32>(i.val);
@@ -53,9 +52,6 @@ public:
     result_t run(const op::inn_add& ins) override {
         assert(ins.type == int_kind::i32);
         std::cout << ins.name() << std::endl;
-
-        std::cout << ">>> Add <<< " << std::endl;
-        ctx_.show_stack();
         
         u32 y = ctx_.template vstack_pop<u32>();
         u32 x = ctx_.template vstack_pop<u32>();

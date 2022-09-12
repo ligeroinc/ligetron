@@ -69,11 +69,6 @@ int main(int argc, char *argv[]) {
             std::vector<u8> data(arg);
             ctx.set_args(data);
         }
-    
-
-        auto dummy_frame = std::make_unique<frame>();
-        dummy_frame->module = &module;
-        exe.context().push_frame(std::move(dummy_frame));
 
         auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
         std::cout << "Mem: ";
@@ -82,12 +77,7 @@ int main(int argc, char *argv[]) {
         }
         std::cout << std::endl;
 
-        exe.context().stack_push(u32(0));
-        op::call start{ std::stoul(argv[2]) };
-        start.run(exe);
-
-        std::cout << "Result: ";
-        exe.context().show_stack();
+        invoke(module, exe, std::stoi(argv[2]), 0);
 
         std::cout << "Mem: ";
         for (auto i = 0; i < 10; i++) {
@@ -123,11 +113,6 @@ int main(int argc, char *argv[]) {
             std::vector<u8> data(arg);
             ctx2.set_args(data);
         }
-    
-
-        auto dummy_frame = std::make_unique<frame>();
-        dummy_frame->module = &module;
-        exe.context().push_frame(std::move(dummy_frame));
 
         auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
         std::cout << "Mem: ";
@@ -136,12 +121,7 @@ int main(int argc, char *argv[]) {
         }
         std::cout << std::endl;
 
-        exe.context().stack_push(u32(0));
-        op::call start{ std::stoul(argv[2]) };
-        start.run(exe);
-
-        std::cout << "Result: ";
-        exe.context().show_stack();
+        invoke(module, exe, std::stoi(argv[2]), 0);
 
         std::cout << "Mem: ";
         for (auto i = 0; i < 10; i++) {
@@ -191,11 +171,6 @@ int main(int argc, char *argv[]) {
             std::vector<u8> data(arg);
             ctx3.set_args(data);
         }
-    
-
-        auto dummy_frame = std::make_unique<frame>();
-        dummy_frame->module = &module;
-        exe.context().push_frame(std::move(dummy_frame));
 
         auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
         std::cout << "Mem: ";
@@ -204,12 +179,7 @@ int main(int argc, char *argv[]) {
         }
         std::cout << std::endl;
 
-        exe.context().stack_push(u32(0));
-        op::call start{ std::stoul(argv[2]) };
-        start.run(exe);
-
-        std::cout << "Result: ";
-        exe.context().show_stack();
+        invoke(module, exe, std::stoi(argv[2]), 0);
 
         std::cout << "Mem: ";
         for (auto i = 0; i < 10; i++) {
@@ -242,11 +212,6 @@ int main(int argc, char *argv[]) {
             std::vector<u8> data(arg);
             vctx.set_args(data);
         }
-    
-
-        auto dummy_frame = std::make_unique<frame>();
-        dummy_frame->module = &module;
-        exe.context().push_frame(std::move(dummy_frame));
 
         auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
         std::cout << "Mem: ";
@@ -255,13 +220,8 @@ int main(int argc, char *argv[]) {
         }
         std::cout << std::endl;
 
-        exe.context().stack_push(u32(0));
-        op::call start{ std::stoul(argv[2]) };
-        start.run(exe);
-
-        std::cout << "Result: ";
-        exe.context().show_stack();
-
+        invoke(module, exe, std::stoi(argv[2]), 0);
+        
         std::cout << "Mem: ";
         for (auto i = 0; i < 10; i++) {
             std::cout << *(v + i) << " ";

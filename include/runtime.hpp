@@ -442,4 +442,18 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
     return minst;
 }
 
+template <typename Executor, typename... Args>
+void invoke(module_instance& m, Executor& exe, index_t funcaddr, Args&&... args) {
+    auto dummy = std::make_unique<frame>();
+    dummy->module = &m;
+    exe.context().push_frame(std::move(dummy));
+
+    ((exe.context().stack_push(u32(args))), ...);
+
+    op::call{funcaddr}.run(exe);
+    std::cout << "Result: ";
+    exe.context().show_stack();
+    std::cout << std::endl;
+}
+
 }  // namespace ligero::vm

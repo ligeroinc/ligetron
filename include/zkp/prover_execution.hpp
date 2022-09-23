@@ -51,7 +51,6 @@ public:
 
     result_t run(const op::inn_add& ins) override {
         assert(ins.type == int_kind::i32);
-        std::cout << ins.name() << std::endl;
         
         u32 y = ctx_.template vstack_pop<u32>();
         u32 x = ctx_.template vstack_pop<u32>();
@@ -84,6 +83,7 @@ public:
         ctx_.zstack_pop();                 // pop y
         ctx_.zstack_pop();                 // pop x
         ctx_.zstack_push(std::move(top));  // push z back
+        return {};
     }
 
     result_t run(const op::inn_mul& ins) override {
@@ -101,6 +101,7 @@ public:
         ctx_.zstack_pop();                    // pop y
         ctx_.zstack_pop();                    // pop x
         ctx_.zstack_push(std::move(top));     // push z back
+        return {};
     }
 
     result_t run(const op::inn_div_sx& ins) override {
@@ -113,7 +114,6 @@ public:
 
     result_t run(const op::inn_and& ins) override {
         assert(ins.type == int_kind::i32);
-        std::cout << ins.name() << std::endl;
         
         u32 y = ctx_.template vstack_pop<u32>();
         u32 x = ctx_.template vstack_pop<u32>();
@@ -153,16 +153,17 @@ public:
         ctx_.zstack_pop();                    // pop y
         ctx_.zstack_pop();                    // pop x
         ctx_.zstack_push(std::move(top));     // push z back
+        return {};
     }
 
     result_t run(const op::inn_or& ins) override {
         assert(ins.type == int_kind::i32);
-        std::cout << ins.name() << std::endl;
         
         u32 y = ctx_.template vstack_pop<u32>();
         u32 x = ctx_.template vstack_pop<u32>();
         ctx_.vstack_push(x | y);
 
+        /* Analytical representation: f(x) = a + b - a * b */
         field acc = 0;
         for (size_t i = 0; i < 32; i++) {
             field a = bit_of(x, i);
@@ -177,12 +178,16 @@ public:
             ctx_.bound_quadratic(0, 0, 0);              // quadratic: a * a = a
             ctx_.zstack_push(b);
             ctx_.bound_quadratic(0, 0, 0);              // quadratic: b * b = b
+            
             ctx_.zstack_push(pa);
-            ctx_.bound_linear(2, 1, 0);
+            ctx_.bound_linear(2, 1, 0);                 // a + b = pa
+            
             ctx_.zstack_push(pb);
-            ctx_.bound_quadratic(3, 2, 0);
+            ctx_.bound_quadratic(3, 2, 0);              // a * b = pb
+            
             ctx_.zstack_push(c);
-            ctx_.bound_quadratic(0, 1, 2);              // quadratic: a * b = c
+            ctx_.bound_linear(0, 1, 2);                 // c + pb = pa
+            
             ctx_.zstack_push(k);
             ctx_.zstack_push(t);
             ctx_.bound_quadratic(2, 1, 0);
@@ -203,64 +208,73 @@ public:
         ctx_.zstack_pop();                    // pop y
         ctx_.zstack_pop();                    // pop x
         ctx_.zstack_push(std::move(top));     // push z back
+        return {};
     }
 
     result_t run(const op::inn_xor& ins) override {
-        return run_binop<typename opt::bit_xor>(ins.type);
-        // assert(ins.type == int_kind::i32);
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // ctx_.vstack_push(x xor y);
+        assert(ins.type == int_kind::i32);
+        u32 y = ctx_.template vstack_pop<u32>();
+        u32 x = ctx_.template vstack_pop<u32>();
+        ctx_.vstack_push(x xor y);
 
-        // field acc = 0;
-        // for (size_t i = 0; i < 32; i++) {
-        //     field a = bit_of(x, i);
-        //     field b = bit_of(y, i);
-        //     field p = a + b;
-        //     field q = a * b;
-        //     field q2 = field{2} * q;
-        //     field c = p - q2;
+        /* Analytical representation: f(x) = a + b - 2ab */
+        field acc = 0;
+        for (size_t i = 0; i < 32; i++) {
+            field a = bit_of(x, i);
+            field b = bit_of(y, i);
+            field p = a + b;
+            field q = a * b;
+            field q2 = field{2} * q;
+            field c = p - q2;
             
-        //     field k = 1 << i;
-        //     field t = c * k;
+            field k = 1 << i;
+            field t = c * k;
 
-        //     ctx_.zstack_push(a);
-        //     ctx_.bound_quadratic(0, 0, 0);  // quadratic: a * a = a
-        //     ctx_.zstack_push(b);
-        //     ctx_.bound_quadratic(0, 0, 0);  // quadratic: b * b = b
-        //     ctx_.zstack_push(p);
-        //     ctx_.bound_linear(2, 1, 0);     // linear:    a + b = p
-        //     ctx_.zstack_push(q);
-        //     ctx_.bound_quadratic(3, 2, 0);  // quadratic: a * b = q
-        //     ctx_.zstack_push(2);
-        //     ctx_.zstack_push(q2);
-        //     ctx_.bound_quadratic(2, 1, 0);  // quadratic: q * 2 = q2
-        //     ctx_.zstack_push(c);
-        //     ctx_.bound_linear(0, 1, 4);     // linear:    c + q2 = p
+            ctx_.zstack_push(a);
+            ctx_.bound_quadratic(0, 0, 0);  // quadratic: a * a = a
+            ctx_.zstack_push(b);
+            ctx_.bound_quadratic(0, 0, 0);  // quadratic: b * b = b
             
-        //     ctx_.zstack_push(k);
-        //     ctx_.zstack_push(t);
-        //     ctx_.bound_quadratic(2, 1, 0);
+            ctx_.zstack_push(p);
+            ctx_.bound_linear(2, 1, 0);     // linear:    a + b = p
+            /* Stack: a b p q */
+            ctx_.zstack_push(q);
+            ctx_.bound_quadratic(3, 2, 0);  // quadratic: a * b = q
+            
+            ctx_.zstack_push(2);
+            ctx_.zstack_push(q2);
+            /* Stack: a b p q 2 q2 */
+            ctx_.bound_quadratic(2, 1, 0);  // quadratic: q * 2 = q2
+            
+            ctx_.zstack_push(c);
+            /* Stack: a b p q 2 q2 c */
+            ctx_.bound_linear(0, 1, 4);     // linear:    c + q2 = p
+            
+            ctx_.zstack_push(k);
+            ctx_.zstack_push(t);
+            ctx_.bound_quadratic(2, 1, 0);
 
-        //     if (i == 0) {
-        //         acc = t;
-        //     }
-        //     else {
-        //         ctx_.zstack_push(acc);
-        //         acc = acc + t;
-        //         ctx_.zstack_push(acc);
-        //         ctx_.bound_linear(2, 1, 0);
-        //     }
-        // }
+            if (i == 0) {
+                acc = t;
+            }
+            else {
+                ctx_.zstack_push(acc);
+                acc = acc + t;
+                ctx_.zstack_push(acc);
+                ctx_.bound_linear(2, 1, 0);
+            }
+        }
         
-        // auto top = ctx_.zstack_pop();         // save z
-        // ctx_.zstack_drop(32 * 9 + 31 * 2);
-        // ctx_.zstack_push(std::move(top));     // push z back
+        auto top = ctx_.zstack_pop();         // save z
+        ctx_.zstack_drop(32 * 9 + 31 * 2 - 1);
+        ctx_.zstack_pop();                    // pop y
+        ctx_.zstack_pop();                    // pop x
+        ctx_.zstack_push(std::move(top));     // push z back
+        return {};
     }
 
     result_t run(const op::inn_shl& ins) override {
         assert(ins.type == int_kind::i32);
-        std::cout << ins.name() << std::endl;
 
         return run_binop<typename opt::shiftl>(ins.type);
         
@@ -438,11 +452,13 @@ private:
 
 template <typename Context>
 struct zkp_executor :
+        public basic_exe_parametric<Context>,
         public basic_exe_control<Context>,
         public basic_exe_variable<Context>,
         public zkp_exe_numeric<Context>,
         public basic_exe_memory<Context>
 {
+    using basic_exe_parametric<Context>::run;
     using basic_exe_control<Context>::run;
     using basic_exe_variable<Context>::run;
     using zkp_exe_numeric<Context>::run;
@@ -450,6 +466,7 @@ struct zkp_executor :
 
     zkp_executor(Context& ctx)
         : ctx_(ctx),
+          basic_exe_parametric<Context>(ctx),
           basic_exe_control<Context>(ctx),
           basic_exe_variable<Context>(ctx),
           zkp_exe_numeric<Context>(ctx),

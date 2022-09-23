@@ -119,7 +119,7 @@ struct loop;
 struct if_then_else;
 struct br;
 struct br_if;
-// struct br_table;
+struct br_table;
 struct ret;
 struct call;
 // struct call_indirect;
@@ -258,7 +258,7 @@ struct ControlExecutor : virtual Executor {
     virtual result_t run(const op::if_then_else&) = 0;
     virtual result_t run(const op::br&) = 0;
     virtual result_t run(const op::br_if&) = 0;
-    // virtual result_t run(const op::br_table&) = 0;
+    virtual result_t run(const op::br_table&) = 0;
     virtual result_t run(const op::ret&) = 0;
     virtual result_t run(const op::call&) = 0;
     // virtual result_t run(const op::call_indirect&) = 0;
@@ -558,10 +558,10 @@ struct br_if : virtual instr, enable_control<br_if> {
     index_t label;
 };
 
-// struct br_table : virtual instr, enable_control<br_table> {
-//     std::vector<index_t> labels;
-//     index_t label;
-// };
+struct br_table : virtual instr, enable_control<br_table> {
+    std::vector<index_t> branches;
+    index_t default_;
+};
 
 struct ret : virtual instr, enable_control<ret> {
     std::string name() const override { return "return"; }

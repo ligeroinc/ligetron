@@ -11,6 +11,27 @@
 namespace ligero::vm {
 
 template <typename Context>
+class basic_exe_parametric : virtual public ParametricExecutor {
+    Context& ctx_;
+
+public:
+    basic_exe_parametric(Context& ctx) : ctx_(ctx) { }
+
+    result_t run(const op::drop& ins) override {
+        ctx_.stack_pop_raw();
+        return {};
+    }
+
+    result_t run(const op::select&) override {
+        auto c = ctx_.template stack_pop<u32>();
+        auto v2 = ctx_.template stack_pop<u32>();
+        auto v1 = ctx_.template stack_pop<u32>();
+        ctx_.stack_push(c != 0 ? v1 : v2);
+        return {};
+    }
+};
+
+template <typename Context>
 class basic_exe_control : virtual public ControlExecutor {
     Context& ctx_;
 
@@ -64,11 +85,11 @@ public:
                 ctx_.stack_push(std::move(*it));
             }
         }
+        
         return {};
     }
 
     result_t run(const op::loop& block) override {
-    loop:
         /* Entering block with Label L */
         u32 m = 0, n = 0;
         if (block.type) {
@@ -77,6 +98,7 @@ public:
             n = type.returns.size();
         }
 
+    loop:
         // stack_.insert((stack_.rbegin() + m).base(), label{ n });
         ctx_.block_entry(m, n);
 
@@ -118,7 +140,7 @@ public:
         const int l = b.label;
 
         /* Find L-th label */
-        auto it = prelude::find_if_n(ctx_.stack_top(), ctx_.stack_bottom(), l, [](const auto& v) {
+        auto it = prelude::find_if_n(ctx_.stack_top(), ctx_.stack_bottom(), l+1, [](const auto& v) {
             return std::holds_alternative<label>(v);
         });
         assert(it != ctx_.stack_bottom());
@@ -154,10 +176,17 @@ public:
         return {};
     }
 
-    // result_t run(const op::br_table&) override {
-    //     undefined("Undefined");
-    //     return {};
-    // }
+    result_t run(const op::br_table& b) override {
+        u32 i = ctx_.template stack_pop<u32>();
+
+        if (i < b.branches.size()) {
+            return run(op::br{ b.branches[i] });
+        }
+        else {
+            return run(op::br{ b.default_ });
+        }
+        return {};
+    }
 
     result_t run(const op::ret&) override {
         std::cout << "Ret" << std::endl;
@@ -233,7 +262,8 @@ public:
                 for (size_t i = 0; i < m; i++) {
                     ret.emplace_back(ctx_.stack_pop_raw());
                 }
-                
+
+                // ctx_.template stack_pop<label>();
                 ctx_.template stack_pop<frame_ptr>();
                 
                 for (auto it = ret.rbegin(); it != ret.rend(); it++) {
@@ -277,7 +307,7 @@ public:
         else {
             ctx_.template stack_push(std::get<u64>(local));
         }
-        ctx_.show_stack();
+        // ctx_.show_stack();
         return {};
     }
 
@@ -286,7 +316,7 @@ public:
         u32 top = ctx_.template stack_pop<u32>();
         std::cout << "local.set[" << x << "]=" << top << " ";
         ctx_.local_set(x, top);
-        ctx_.show_stack();
+        // ctx_.show_stack();
         return {};
     }
 
@@ -295,7 +325,7 @@ public:
         u32 top = ctx_.template stack_peek<u32>();
         std::cout << "local.tee[" << x << "]=" << top << " ";
         ctx_.local_set(x, top);
-        ctx_.show_stack();
+        // ctx_.show_stack();
         return {};
     }
 
@@ -617,51 +647,90 @@ public:
         return {};
     }
 
-    result_t run(const op::inn_load& ins) override {
+    template <typename Load, typename To>
+    void do_load(u32 offset) {
         frame *f = ctx_.current_frame();
         address_t a = f->module->memaddrs[0];
         const auto& mem = ctx_.store()->memorys[a];
         
         u32 i = ctx_.template stack_pop<u32>();
-        u32 ea = i + ins.offset;
+        u32 ea = i + offset;
 
-        u32 n = (ins.type == int_kind::i32) ? 4 : 8;
+        // u32 n = (ins.type == int_kind::i32) ? 4 : 8;
+        u32 n = sizeof(Load);
         if (ea + n > mem.data.size()) {
+            std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
             throw wasm_trap("Invalid memory address");
         }
 
+        To c = *reinterpret_cast<const Load*>(mem.data.data() + ea);
+        std::cout << "memory.load mem[" << ea << "]=" << c;
+        ctx_.template stack_push(c);
+    }
+
+    result_t run(const op::inn_load& ins) override {
         if (ins.type == int_kind::i32) {
-            u32 c = *reinterpret_cast<const u32*>(mem.data.data() + ea);
-            std::cout << "i32.load mem[" << ea << "]=" << c;
-            ctx_.template stack_push(c);
+            do_load<u32, u32>(ins.offset);
         }
         else {
-            u64 c = *reinterpret_cast<const u64*>(mem.data.data() + ea);
-            std::cout << "i64.load mem[" << ea << "]=" << c;
-            ctx_.template stack_push(c);
+            do_load<u64, u64>(ins.offset);
         }
-
-        auto *v = reinterpret_cast<const u32*>(mem.data.data());
-        std::cout << " Mem: ";
-        for (auto i = 0; i < 16; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
+        // auto *v = reinterpret_cast<const u32*>(mem.data.data());
+        // std::cout << " Mem: ";
+        // for (auto i = 0; i < 16; i++) {
+        //     std::cout << *(v + i) << " ";
+        // }
+        // std::cout << std::endl;
         return {};
     }
 
     result_t run(const op::inn_load8_sx& ins) override {
-        undefined();
+        if (ins.type == int_kind::i32) {
+            if (ins.sign == sign_kind::sign) {
+                do_load<s8, u32>(ins.offset);
+            }
+            else {
+                do_load<u8, u32>(ins.offset);
+            }
+        }
+        else {
+            if (ins.sign == sign_kind::sign) {
+                do_load<s8, u64>(ins.offset);
+            }
+            else {
+                do_load<u8, u64>(ins.offset);
+            }
+        }
         return {};
     }
 
     result_t run(const op::inn_load16_sx& ins) override {
-        undefined();
+        if (ins.type == int_kind::i32) {
+            if (ins.sign == sign_kind::sign) {
+                do_load<s16, u32>(ins.offset);
+            }
+            else {
+                do_load<u16, u32>(ins.offset);
+            }
+        }
+        else {
+            if (ins.sign == sign_kind::sign) {
+                do_load<s16, u64>(ins.offset);
+            }
+            else {
+                do_load<u16, u64>(ins.offset);
+            }
+        }
         return {};
     }
 
     result_t run(const op::i64_load32_sx& ins) override {
-        undefined();
+        if (ins.sign == sign_kind::sign) {
+            do_load<s32, u64>(ins.offset);
+        }
+        else {
+            do_load<u32, u64>(ins.offset);
+        }
         return {};
     }
 
@@ -676,6 +745,7 @@ public:
 
         u32 n = (ins.type == int_kind::i32) ? 4 : 8;
         if (ea + n > mem.data.size()) {
+            std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
             throw wasm_trap("Invalid memory address");
         }
 
@@ -718,11 +788,13 @@ public:
 
 template <typename Context>
 struct basic_executor :
+        public basic_exe_parametric<Context>,
         public basic_exe_control<Context>,
         public basic_exe_variable<Context>,
         public basic_exe_numeric<Context>,
         public basic_exe_memory<Context>
 {
+    using basic_exe_parametric<Context>::run;
     using basic_exe_control<Context>::run;
     using basic_exe_variable<Context>::run;
     using basic_exe_numeric<Context>::run;
@@ -730,6 +802,7 @@ struct basic_executor :
 
     basic_executor(Context& ctx)
         : ctx_(ctx),
+          basic_exe_parametric<Context>(ctx),
           basic_exe_control<Context>(ctx),
           basic_exe_variable<Context>(ctx),
           basic_exe_numeric<Context>(ctx),

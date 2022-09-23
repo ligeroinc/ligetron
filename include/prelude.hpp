@@ -11,11 +11,14 @@ template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;  // deduction guid
 
 template <typename InputIt, typename UnaryPredicate>
 InputIt find_if_n(InputIt first, InputIt last, size_t n, UnaryPredicate p) {
-    auto it = first;
-    for (size_t i = 0; i < n; i++) {
-        it = std::find_if(it, last, p);
+    assert(n > 0);
+    auto it = std::find_if(first, last, p);
+    if (n == 1) {
+        return it;
     }
-    return it;
+    else {
+        return find_if_n(++it, last, n-1, p);
+    }
 }
 
 #define PRELUDE_DECLARE_HELPER(NAME)                                    \

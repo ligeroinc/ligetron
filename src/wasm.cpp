@@ -25,8 +25,68 @@ constexpr uint64_t modulus = 4611686018326724609ULL;
 constexpr size_t l = 128, d = 256, n = 512;
 using poly_t = zkp::primitive_poly<modulus>;
 
+template <typename Context>
+void run_program(Module& m, Context& ctx, size_t func) {
+    store_t store;
+    ctx.store(&store);
+    zkp::zkp_executor exe(ctx);
+    auto module = instantiate(store, m, exe);
+    ctx.module(&module);
+
+    std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+    for (const auto& f : store.functions) {
+        std::cout << "Func: " << f.name << std::endl;
+    }
+
+    // {
+    //     std::vector<u8> arg(32);
+    //     u32 *p = reinterpret_cast<u32*>(arg.data());
+    //     for (auto i = 0; i < 8; i++) {
+    //         p[i] = 8-i;
+    //     }
+    //     std::vector<u8> data(arg);
+    //     ctx.set_args(data);
+    // }
+    constexpr size_t offset = 16384;
+    {
+        auto& mem = store.memorys[0].data;
+        mem[offset] = 's';
+        mem[offset+1] = 'u';
+        mem[offset+2] = 'n';
+        mem[offset+3] = 'd';
+        mem[offset+4] = 'a';
+        mem[offset+5] = 'y';
+        
+        mem[offset+6] = 's';
+        mem[offset+7] = 'a';
+        mem[offset+8] = 't';
+        mem[offset+9] = 'u';
+        mem[offset+10] = 'r';
+        mem[offset+11] = 'd';
+        mem[offset+12] = 'a';
+        mem[offset+13] = 'y';
+    }
+
+    auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
+    std::cout << "Mem: ";
+    for (auto i = 0; i < 10; i++) {
+        std::cout << *(v + i) << " ";
+    }
+    std::cout << std::endl;
+
+    invoke(module, exe, func, offset, offset+6, 6, 8);
+
+    std::cout << "Mem: ";
+    for (auto i = 0; i < 10; i++) {
+        std::cout << *(v + i) << " ";
+    }
+    std::cout << std::endl;
+}
+
 int main(int argc, char *argv[]) {
+    std::string dummy;
     const char *file = argv[1];
+    size_t func = std::stoi(argv[2]);
     std::ifstream fs(file, std::ios::binary);
     std::stringstream ss;
     ss << fs.rdbuf();
@@ -48,87 +108,17 @@ int main(int argc, char *argv[]) {
     zkp::reed_solomon64 encoder(modulus, l, d, n);
 
     zkp::stage1_prover_context<poly_t, zkp::sha256> ctx(encoder);
-    {
-        store_t store;
-        ctx.store(&store);
-        zkp::zkp_executor exe(ctx);
-        auto module = instantiate(store, m, exe);
-        ctx.module(&module);
-
-        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
-        for (const auto& f : store.functions) {
-            std::cout << "Func: " << f.name << std::endl;
-        }
-
-        {
-            std::vector<u8> arg(32);
-            u32 *p = reinterpret_cast<u32*>(arg.data());
-            for (auto i = 0; i < 8; i++) {
-                p[i] = 8-i;
-            }
-            std::vector<u8> data(arg);
-            ctx.set_args(data);
-        }
-
-        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-
-        invoke(module, exe, std::stoi(argv[2]), 0);
-
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-    }
+    run_program(m, ctx, func);
 
     auto hash = ctx.root_hash();
     std::cout << "----------------------------------------" << std::endl << std::endl;
     show_hash(hash);
     std::cout << "----------------------------------------" << std::endl;
 
+    std::cin >> dummy;
+
     zkp::stage2_prover_context<poly_t> ctx2(encoder, hash);
-    {
-        store_t store;
-        ctx2.store(&store);
-        zkp::zkp_executor exe(ctx2);
-        auto module = instantiate(store, m, exe);
-        ctx2.module(&module);
-
-        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
-        for (const auto& f : store.functions) {
-            std::cout << "Func: " << f.name << std::endl;
-        }
-
-        {
-            std::vector<u8> arg(32);
-            u32 *p = reinterpret_cast<u32*>(arg.data());
-            for (auto i = 0; i < 8; i++) {
-                p[i] = 8-i;
-            }
-            std::vector<u8> data(arg);
-            ctx2.set_args(data);
-        }
-
-        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-
-        invoke(module, exe, std::stoi(argv[2]), 0);
-
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-    }
+    run_program(m, ctx2, func);
 
     std::cout << "----------------------------------------" << std::endl
               << "validation of linear: " << ctx2.validate_linear() << std::endl
@@ -148,86 +138,18 @@ int main(int argc, char *argv[]) {
         std::cout << sample_index[i] << " ";
     }
     std::cout << std::endl;
+
+    std::cin >> dummy;
     
     zkp::stage3_prover_context<poly_t> ctx3(encoder, sample_index);
-    {
-        store_t store;
-        ctx3.store(&store);
-        zkp::zkp_executor exe(ctx3);
-        auto module = instantiate(store, m, exe);
-        ctx3.module(&module);
-
-        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
-        for (const auto& f : store.functions) {
-            std::cout << "Func: " << f.name << std::endl;
-        }
-
-        {
-            std::vector<u8> arg(32);
-            u32 *p = reinterpret_cast<u32*>(arg.data());
-            for (auto i = 0; i < 8; i++) {
-                p[i] = 8-i;
-            }
-            std::vector<u8> data(arg);
-            ctx3.set_args(data);
-        }
-
-        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-
-        invoke(module, exe, std::stoi(argv[2]), 0);
-
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-    }
+    run_program(m, ctx3, func);
 
     std::cout << "Saved samples: " << ctx3.get_sample().size() << std::endl;
 
+    std::cin >> dummy;
+
     zkp::verifier_context<poly_t> vctx(encoder, hash, ctx3.get_sample());
-    {
-        store_t store;
-        vctx.store(&store);
-        zkp::zkp_executor exe(vctx);
-        auto module = instantiate(store, m, exe);
-        vctx.module(&module);
-
-        std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
-        for (const auto& f : store.functions) {
-            std::cout << "Func: " << f.name << std::endl;
-        }
-
-        {
-            std::vector<u8> arg(32);
-            u32 *p = reinterpret_cast<u32*>(arg.data());
-            for (auto i = 0; i < 8; i++) {
-                p[i] = 8-i;
-            }
-            std::vector<u8> data(arg);
-            vctx.set_args(data);
-        }
-
-        auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-
-        invoke(module, exe, std::stoi(argv[2]), 0);
-        
-        std::cout << "Mem: ";
-        for (auto i = 0; i < 10; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
-    }
+    run_program(m, vctx, func);
 
     const auto& prover_arg = ctx2.get_argument();
     const auto& verifier_arg = vctx.get_argument();
@@ -239,7 +161,7 @@ int main(int argc, char *argv[]) {
             (prover_arg.linear()[sample_index[i]] == verifier_arg.linear()[i]) &&
             (prover_arg.quadratic()[sample_index[i]] == verifier_arg.quadratic()[i]);
     }
-    
+
     std::cout << "Check result: " << verify_result << std::endl;
     
     return 0;

@@ -420,8 +420,24 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
         frame_init->module = &minst;
         exe.context().push_frame(std::move(frame_init));
 
+        for (auto& imp : module.imports) {
+            if (auto *p = dynamic_cast<wabt::GlobalImport*>(imp)) {
+
+                // TODO: fix hard-coding
+                constexpr u32 stack_pointer = 16384 - 1;
+                if (p->module_name == "env" && p->field_name == "__stack_pointer") {
+                    auto& g = p->global;
+                    auto expr = std::make_unique<wabt::ConstExpr>(wabt::Const::I32(stack_pointer));
+                    if (g.init_expr.empty()) {
+                        g.init_expr.push_back(std::move(expr));
+                    }
+                }
+            }
+        }
+
         for (const auto *p : module.globals) {
-            std::cout << "Initializing global " << p->name;
+            std::cout << "Initializing global " << p->name << std::endl;
+
             for (const auto& expr : p->init_expr) {
                 translate(expr)->run(exe);
             }
@@ -435,6 +451,7 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
             global_kind k{ translate_type(p->type), p->mutable_ };
             index_t gi = store.emplace_back<global_instance>(k, std::move(v));
             minst.globaladdrs.push_back(gi);
+           
         }
         
     }

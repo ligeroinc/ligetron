@@ -42,7 +42,7 @@ struct zkp_context_base : public context_base {
     }
 
     svalue_t stack_pop_raw() override {
-        auto&& val = Base::stack_pop_raw();
+        auto val = Base::stack_pop_raw();
         std::visit(prelude::overloaded{
                 [this](u32) { zstack_pop(); },
                 [this](u64) { zstack_pop(); },
@@ -53,7 +53,8 @@ struct zkp_context_base : public context_base {
 
     template <typename T>
     T stack_pop() {
-        return std::get<T>(stack_pop_raw());
+        auto tmp = stack_pop_raw();
+        return std::get<T>(std::move(tmp));
     }
 
     // const auto& zstack() const { return zstack_; }
@@ -69,10 +70,14 @@ struct zkp_context_base : public context_base {
         return std::get<T>(Base::stack_pop_raw());
     }
 
-    virtual void zstack_push(const field_type& f) {
+    virtual void zstack_push_impl(const field_type& f) {
         poly_type p(1, f);
         encoder_.encode(p);
         zstack_.push_back(std::move(p));
+    }
+
+    virtual void zstack_push(const field_type& f) {
+        zstack_push_impl(f);
     }
 
     virtual void zstack_push(poly_type&& tp) {
@@ -90,13 +95,19 @@ struct zkp_context_base : public context_base {
         return x;
     }
 
-    virtual void zstack_drop(size_t count) {
+    void zstack_drop(size_t count) {
         zstack_.erase((zstack_.rbegin() + count).base(), zstack_.end());
     }
+
+    // void count() const {
+    //     std::cout << "field count: " << fcounter
+    //               << " scounter: " << scounter << std::endl;
+    // }
     
 protected:
     std::vector<poly_type> zstack_;
     reed_solomon64& encoder_;
+    // size_t fcounter = 0, scounter = 0;
 };
 
 template <typename Field>
@@ -258,15 +269,17 @@ struct verifier_context : public stage2_prover_context<Field> {
         {
             std::reverse(sampled_val_.begin(), sampled_val_.end());
         }
-
-    void zstack_push(const field_type&) override {
+    
+    void zstack_push(const field_type& f) override {
         assert(!sampled_val_.empty());
         poly_type p = sampled_val_.back();
         sampled_val_.pop_back();
         this->zstack_.push_back(std::move(p));
     }
 
-    using Base::zstack_push;
+    void zstack_push(poly_type&& p) override {
+        Base::zstack_push(std::move(p));
+    }
 
 protected:
     std::vector<poly_type> sampled_val_;

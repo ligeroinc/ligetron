@@ -11,22 +11,32 @@ namespace ligero::vm::zkp {
 
 using namespace intel;
 
-template <typename> struct poly_base { };
+// template <typename> struct poly_base { };
+struct poly_field_expr { };
+
+template <typename Poly>
+concept IsPolyExpr = std::derived_from<Poly, poly_field_expr>;
 
 template <uint64_t Modulus>
-struct primitive_poly : public poly_base<primitive_poly<Modulus>> {
+struct primitive_poly : public poly_field_expr
+// public poly_base<primitive_poly<Modulus>>
+{
     using value_type = uint64_t;
     using field_type = prime_field<Fp64<Modulus>>;
 
     constexpr static value_type modulus = Modulus;
+    constexpr static bool is_leaf = true;
 
-    primitive_poly() : data_() { }
+    primitive_poly() = default;
     explicit primitive_poly(size_t n) : data_(n, 0) { }
     primitive_poly(size_t n, value_type v) : data_(n, v) { }
     primitive_poly(std::initializer_list<value_type> vals) : data_(vals) { }
     
     template <typename Iter>
     primitive_poly(Iter begin, Iter end) : data_(begin, end) { }
+
+    template <IsPolyExpr Op>
+    primitive_poly(const Op& op) : data_(op.size()) { op.eval(*this); }
 
     // primitive_poly(const primitive_poly& other) : data_(other.data_) { }
     // primitive_poly(primitive_poly&& other) : data_(std::move(other.data_)) { }
@@ -104,9 +114,6 @@ struct primitive_poly : public poly_base<primitive_poly<Modulus>> {
         hexl::EltwiseReduceMod(data_.data(), data_.data(), data_.size(), modulus, in, out);
     }
 
-    // void ntt() { ntt_.ComputeForward(data_.data(), data_.data(), 1, 1); }
-    // void invntt() { ntt_.ComputeInverse(data_.data(), data_.data(), 1, 1); }
-
     primitive_poly& operator+=(const primitive_poly& o) {
         hexl::EltwiseAddMod(data_.data(), data_.data(), o.data().data(), data_.size(), modulus);
         return *this;
@@ -154,6 +161,8 @@ struct primitive_poly : public poly_base<primitive_poly<Modulus>> {
     void serialize(Archive& ar, unsigned int version) {
         ar & data_;
     }
+
+    const primitive_poly& eval(primitive_poly& out) const { return *this; }
     
 protected:
     hexl::AlignedVector64<uint64_t> data_;
@@ -175,21 +184,81 @@ struct NTT {
     }
 };
 
-// template <template <auto> typename Op, typename... Args>
-// struct poly_expr : public poly_non_terminal<poly_expr<Op, Args...>> {
-//     std::tuple<const Args&...> args_;
+/* ------------------------------------------------------------ */
 
-//     using value_type = std::common_type_t<typename Args::value_type...>;
-//     using first_type = typename std::tuple_element<0, std::tuple<Args...>>::type;
-//     constexpr static value_type modulus = first_type::modulus;
+template <typename Op, typename ExprL, typename ExprR>
+struct poly_expr : public poly_field_expr {
+    const ExprL& l_;
+    const ExprR& r_;
 
-//     constexpr poly_expr(const Args&... args) : args_(args...) { }
+    static_assert(ExprL::modulus == ExprR::modulus);
+    constexpr static auto modulus = ExprL::modulus;
+    constexpr static bool is_leaf = false;
 
-//     void eval(value_type *out) const {
-//         return std::apply([](const Args&... ops) {
-//             (Op<modulus>{}(), ...);
-//         }, args_);
-//     }
-// };
+    constexpr poly_expr(const ExprL& l, const ExprR& r) : l_(l), r_(r) { }
+
+    size_t size() const {
+        assert(l_.size() == r_.size());
+        return l_.size();
+    }
+
+    template <typename Out> requires (ExprL::is_leaf || ExprR::is_leaf)
+    Out& eval(Out& out) const {
+        // At most one of the sub-expression will use the output
+        return Op{}(out, modulus, l_.eval(out), r_.eval(out));
+    }
+
+    template <typename Out> requires(!(ExprL::is_leaf || ExprR::is_leaf))
+    Out& eval(Out& out) const {
+        auto tmp = out;
+        return Op{}(out, modulus, l_.eval(tmp), r_.eval(out));
+    }
+};
+
+namespace poly_ops {
+
+struct add_mod {
+    template <typename Out, typename M, typename Op1, typename Op2>
+    auto& operator()(Out& out, const M& modulus, const Op1& op1, const Op2& op2) {
+        assert(op1.size() == op2.size());
+        hexl::EltwiseAddMod(out.data().data(), op1.data().data(), op2.data().data(), op1.size(), modulus);
+        return out;
+    }
+};
+
+struct sub_mod {
+    template <typename Out, typename M, typename Op1, typename Op2>
+    auto& operator()(Out& out, const M& modulus, const Op1& op1, const Op2& op2) {
+        assert(op1.size() == op2.size());
+        hexl::EltwiseSubMod(out.data().data(), op1.data().data(), op2.data().data(), op1.size(), modulus);
+        return out;
+    }
+};
+
+struct mul_mod {
+    template <typename Out, typename M, typename Op1, typename Op2>
+    auto& operator()(Out& out, const M& modulus, const Op1& op1, const Op2& op2) {
+        assert(op1.size() == op2.size());
+        hexl::EltwiseMultMod(out.data().data(), op1.data().data(), op2.data().data(), op1.size(), modulus, 1);
+        return out;
+    }
+};
+
+}  // namespace polyop
+
+template <IsPolyExpr Op1, IsPolyExpr Op2>
+auto operator+(const Op1& op1, const Op2& op2) {
+    return poly_expr<poly_ops::add_mod, Op1, Op2>(op1, op2);
+}
+
+template <IsPolyExpr Op1, IsPolyExpr Op2>
+auto operator-(const Op1& op1, const Op2& op2) {
+    return poly_expr<poly_ops::sub_mod, Op1, Op2>(op1, op2);
+}
+
+template <IsPolyExpr Op1, IsPolyExpr Op2>
+auto operator*(const Op1& op1, const Op2& op2) {
+    return poly_expr<poly_ops::mul_mod, Op1, Op2>(op1, op2);
+}
 
 }  // namespace ligero::zkp

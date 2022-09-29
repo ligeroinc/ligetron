@@ -30,10 +30,15 @@ struct context_base {
 
     template <typename T>
     T stack_pop() {
-        svalue_t top = std::move(stack_.back());
-        stack_.pop_back();
-        return std::get<T>(std::move(top));
+        auto tmp = stack_pop_raw();
+        return std::get<T>(std::move(tmp));
     }
+    // template <typename T>
+    // T stack_pop() {
+        // svalue_t top = std::move(stack_.back());
+        // stack_.pop_back();
+        // return std::get<T>(std::move(top));
+    // }
 
     void show_stack() const {
         std::cout << "stack: ";

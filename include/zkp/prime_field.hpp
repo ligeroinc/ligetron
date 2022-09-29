@@ -61,6 +61,11 @@ struct prime_field : prime_field_expr {
         return *this;
     }
 
+    prime_field& operator%=(const value_type& v) {
+        element_ %= v;
+        return *this;
+    }
+
     template <typename Number>
     operator Number() const {
         if constexpr (requires { element_.template convert_to<Number>(); }) {

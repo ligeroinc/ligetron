@@ -12,18 +12,20 @@ namespace ligero::vm::zkp {
 //     return (num >> index) & static_cast<T>(1);
 // }
 
-
 template <typename Context>
-class zkp_exe_numeric : virtual public NumericExecutor {    
-    Context& ctx_;
-
-public:
+struct zkp_exe_numeric : virtual public NumericExecutor {    
     using field = typename Context::field_type;
     using poly = typename Context::field_poly;
     using opt = typename Context::operator_type;
-    using var = zkp_var<u32, poly>;
     
-    zkp_exe_numeric(Context& ctx) : ctx_(ctx) { }
+    using var = typename Context::var_type;
+    
+    zkp_exe_numeric(Context& ctx)
+        : ctx_(ctx),
+          zero(ctx_.make_var(0)),
+          one(ctx_.make_var(1)),
+          two(ctx_.make_var(2))
+        { }
 
     result_t run(const op::inn_const& i) override {
         assert(i.type == int_kind::i32);
@@ -35,14 +37,17 @@ public:
 
     result_t run(const op::inn_clz& ins) override {
         undefined();
+        return {};
     }
 
     result_t run(const op::inn_ctz& ins) override {
         undefined();
+        return {};
     }
 
     result_t run(const op::inn_popcnt& ins) override {
         undefined();
+        return {};
     }
 
     result_t run(const op::inn_add& ins) override {
@@ -107,28 +112,34 @@ public:
     }
 
     result_t run(const op::inn_div_sx& ins) override {
-        undefined();
-    }
-
-    result_t run(const op::inn_rem_sx& ins) override {
-        undefined();
-    }
-
-    result_t run(const op::inn_and& ins) override {
         assert(ins.type == int_kind::i32);
 
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
+        
+        ctx_.stack_push(ctx_.eval(x / y));
+        return {};
+    }
 
-        var acc{ 0, ctx_.encode(0) };
+    result_t run(const op::inn_rem_sx& ins) override {
+        undefined();
+        return {};
+    }
+
+    result_t run(const op::inn_and& ins) override {
+        assert(ins.type == int_kind::i32);
+        
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var acc = zero;
         for (size_t i = 0; i < 32; i++) {
-            u32 power = 1UL << i;
-            var p{ power, ctx_.encode(power) };
+            var p = ctx_.make_var(1UL << i);
             acc = ctx_.eval(x[i] * y[i] * p + acc);
         }
 
         ctx_.stack_push(acc);
-        
+
         // u32 y = ctx_.template vstack_pop<u32>();
         // u32 x = ctx_.template vstack_pop<u32>();
         // ctx_.vstack_push(x & y);
@@ -173,7 +184,21 @@ public:
     result_t run(const op::inn_or& ins) override {
         assert(ins.type == int_kind::i32);
 
-        return run_binop<typename opt::bit_or>(ins.type);
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var acc = zero;
+        for (size_t i = 0; i < 32; i++) {
+            var xi = ctx_.eval(x[i]);
+            var yi = ctx_.eval(y[i]);
+            var p = ctx_.make_var(1UL << i);
+            acc = ctx_.eval((xi + yi - xi * yi) * p + acc);
+        }
+
+        ctx_.stack_push(acc);
+
+        // return run_binop<typename opt::bit_or>(ins.type);
+        
         // u32 y = ctx_.template vstack_pop<u32>();
         // u32 x = ctx_.template vstack_pop<u32>();
         // ctx_.vstack_push(x | y);
@@ -229,7 +254,21 @@ public:
     result_t run(const op::inn_xor& ins) override {
         assert(ins.type == int_kind::i32);
 
-        return run_binop<typename opt::bit_xor>(ins.type);
+        // return run_binop<typename opt::bit_xor>(ins.type);
+
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var acc = zero;
+        for (size_t i = 0; i < 32; i++) {
+            var xi = ctx_.eval(x[i]);
+            var yi = ctx_.eval(y[i]);
+            var p = ctx_.make_var(1UL << i);
+            acc = ctx_.eval((xi + yi - two * xi * yi) * p + acc);
+        }
+
+        ctx_.stack_push(acc);
+        
         // u32 y = ctx_.template vstack_pop<u32>();
         // u32 x = ctx_.template vstack_pop<u32>();
         // ctx_.vstack_push(x xor y);
@@ -292,8 +331,20 @@ public:
 
     result_t run(const op::inn_shl& ins) override {
         assert(ins.type == int_kind::i32);
+        
+        // return run_binop<typename opt::shiftl>(ins.type);
 
-        return run_binop<typename opt::shiftl>(ins.type);
+        var shift = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var exp = one;
+        for (size_t i = 0; i < 5; i++) {
+            var p = ctx_.make_var(1UL << (1UL << i));  // 2 ^ (2 ^ i)
+            var si = ctx_.eval(shift[i]);
+            exp = ctx_.eval(exp * (p * si + one - si));
+        }
+        
+        ctx_.stack_push(ctx_.eval(x * exp));
         
         // u32 y = ctx_.template vstack_pop<u32>();
         // u32 x = ctx_.template vstack_pop<u32>();
@@ -352,84 +403,203 @@ public:
     }
 
     result_t run(const op::inn_shr_sx& ins) override {
-        std::cout << ins.name();
-        return run_binop<typename opt::shiftr>(ins.type);
+        assert(ins.type == int_kind::i32);
+        assert(ins.sign == sign_kind::unsign);
+
+        var shift = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var exp = one;
+        for (size_t i = 0; i < 5; i++) {
+            var p = ctx_.make_var(1UL << (1UL << i));  // 2 ^ (2 ^ i)
+            var si = ctx_.eval(shift[i]);
+            exp = ctx_.eval(exp * (p * si + one - si));
+        }
+        
+        ctx_.stack_push(ctx_.eval(x / exp));
+        return {};
     }
 
     result_t run(const op::inn_rotl& ins) override {
-        std::cout << ins.name();
-        return run_binop<typename opt::rotatel>(ins.type);
+        // std::cout << ins.name();
+        // return run_binop<typename opt::rotatel>(ins.type);
+        undefined();
+        return {};
     }
 
     result_t run(const op::inn_rotr& ins) override {
-        std::cout << ins.name();
-        return run_binop<typename opt::rotater>(ins.type);
+        // std::cout << ins.name();
+        // return run_binop<typename opt::rotater>(ins.type);
+        undefined();
+        return {};
     }
 
-    result_t run(const op::inn_eqz& ins) override {        
-        std::cout << ins.name();
-        
-        if (ins.type == int_kind::i32) {
-            u32 c = ctx_.template stack_pop<u32>();
-            u32 r = typename opt::equal_to{}(c, u32{0});
-            ctx_.template stack_push(r);
+    result_t run(const op::inn_eqz& ins) override {
+        assert(ins.type == int_kind::i32);
+
+        var x = ctx_.stack_pop_var();
+
+        var acc = one;
+        for (size_t i = 0; i < 32; i++) {
+            acc = ctx_.eval(acc * (one - x[i]));
         }
-        else {
-            u64 c = ctx_.template stack_pop<u64>();
-            u64 r = typename opt::equal_to{}(c, u64{0});
-            ctx_.template stack_push(r);
-        }
+
+        ctx_.stack_push(acc);
+        // if (ins.type == int_kind::i32) {
+        //     u32 c = ctx_.template stack_pop<u32>();
+        //     u32 r = typename opt::equal_to{}(c, u32{0});
+        //     ctx_.template stack_push(r);
+        // }
+        // else {
+        //     u64 c = ctx_.template stack_pop<u64>();
+        //     u64 r = typename opt::equal_to{}(c, u64{0});
+        //     ctx_.template stack_push(r);
+        // }
+        // std::cout << " " << x.val() << " " << acc.val() << std::endl;
         return {};
     }
 
     result_t run(const op::inn_eq& ins) override {
-        std::cout << ins.name();
-        return run_binop<typename opt::equal_to>(ins.type);
+        // assert(ins.type == int_kind::i32);
+        // std::cout << ins.name() << std::endl;
+
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var acc = one;
+        var diff = ctx_.eval(x - y);
+        for (size_t i = 0; i < 32; i++) {
+            acc = ctx_.eval(acc * (one - diff[i]));
+        }
+
+        ctx_.stack_push(acc);
+        // std::cout << " " << x.val() << " " << y.val() << " " << acc.val() << std::endl;
+        
+        // std::cout << ins.name();
+        // return run_binop<typename opt::equal_to>(ins.type);
+
+        return {};
     }
 
     result_t run(const op::inn_ne& ins) override {
-        std::cout << ins.name();
-        return run_binop<typename opt::not_equal_to>(ins.type);
+        // assert(ins.type == int_kind::i32);
+        // std::cout << ins.name() << std::endl;
+
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var acc = one;
+        var diff = ctx_.eval(x - y);
+        for (size_t i = 0; i < 32; i++) {
+            acc = ctx_.eval(acc * (one - diff[i]));
+        }
+        acc = ctx_.eval(one - acc);
+        
+        ctx_.stack_push(acc);
+
+        // std::cout << " " << x.val() << " " << y.val() << " " << acc.val() << std::endl;
+        
+        
+        // std::cout << ins.name();
+        // ctx_.show_stack();
+        // return run_binop<typename opt::not_equal_to>(ins.type);
+        return {};
     }
 
     result_t run(const op::inn_lt_sx& ins) override {
-        std::cout << ins.name();
-        if (ins.sign == sign_kind::sign) {
-            return run_binop<typename opt::less, s32, s64>(ins.type);
+        // std::cout << ins.name() << std::endl;
+        // assert(ins.type == int_kind::i32);
+        
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var diff = ctx_.eval(y - x);
+        var is_pos = ctx_.eval(one - diff[31]);
+
+        var acc = zero;
+        for (int i = 30; i >= 0; i--) {
+            acc = ctx_.eval(acc + diff[i] - acc * diff[i]);
         }
-        else {
-            return run_binop<typename opt::less>(ins.type);
-        }
+
+        var result = ctx_.eval(is_pos * acc);
+        ctx_.stack_push(result);
+
+        // std::cout << " " << x.val() << " " << y.val() << " " << result.val() << std::endl;
+        
+        
+        // if (ins.sign == sign_kind::sign) {
+        //     return run_binop<typename opt::less, s32, s64>(ins.type);
+        // }
+        // else {
+        //     return run_binop<typename opt::less>(ins.type);
+        // }
+        return {};
     }
 
     result_t run(const op::inn_gt_sx& ins) override {
-        std::cout << ins.name();
-        if (ins.sign == sign_kind::sign) {
-            return run_binop<typename opt::greater, s32, s64>(ins.type);
+        // std::cout << ins.name();
+        // if (ins.sign == sign_kind::sign) {
+        //     return run_binop<typename opt::greater, s32, s64>(ins.type);
+        // }
+        // else {
+        //     return run_binop<typename opt::greater>(ins.type);
+        // }
+        assert(ins.type == int_kind::i32);
+        
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var diff = ctx_.eval(x - y);
+        var is_pos = ctx_.eval(one - diff[31]);
+
+        var acc = zero;
+        for (int i = 30; i >= 0; i--) {
+            acc = ctx_.eval(acc + diff[i] - acc * diff[i]);
         }
-        else {
-            return run_binop<typename opt::greater>(ins.type);
-        }
+
+        var result = ctx_.eval(is_pos * acc);
+        ctx_.stack_push(result);
+        return {};
     }
 
     result_t run(const op::inn_le_sx& ins) override {
-        std::cout << ins.name();
-        if (ins.sign == sign_kind::sign) {
-            return run_binop<typename opt::less_equal, s32, s64>(ins.type);
-        }
-        else {
-            return run_binop<typename opt::less_equal>(ins.type);
-        }
+        // std::cout << ins.name();
+        // if (ins.sign == sign_kind::sign) {
+        //     return run_binop<typename opt::less_equal, s32, s64>(ins.type);
+        // }
+        // else {
+        //     return run_binop<typename opt::less_equal>(ins.type);
+        // }
+        assert(ins.type == int_kind::i32);
+        
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var diff = ctx_.eval(y - x);
+        var result = ctx_.eval(one - diff[31]);
+
+        ctx_.stack_push(result);
+        return {};
     }
 
     result_t run(const op::inn_ge_sx& ins) override {
-        std::cout << ins.name();
-        if (ins.sign == sign_kind::sign) {
-            return run_binop<typename opt::greater_equal, s32, s64>(ins.type);
-        }
-        else {
-            return run_binop<typename opt::greater_equal>(ins.type);
-        }
+        // std::cout << ins.name();
+        // if (ins.sign == sign_kind::sign) {
+        //     return run_binop<typename opt::greater_equal, s32, s64>(ins.type);
+        // }
+        // else {
+        //     return run_binop<typename opt::greater_equal>(ins.type);
+        // }
+        assert(ins.type == int_kind::i32);
+        
+        var y = ctx_.stack_pop_var();
+        var x = ctx_.stack_pop_var();
+
+        var diff = ctx_.eval(x - y);
+        var result = ctx_.eval(one - diff[31]);
+
+        ctx_.stack_push(result);
+        return {};
     }
 
     result_t run(const op::inn_extend8_s& ins) override {
@@ -475,18 +645,22 @@ private:
             T32 x = ctx_.template stack_pop<u32>();
             u32 result = static_cast<u32>(Op{}(x, y));
             ctx_.template stack_push(result);
-            std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+            // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
         }
         else {
             T64 y = ctx_.template stack_pop<u64>();
             T64 x = ctx_.template stack_pop<u64>();
             u64 result = static_cast<u64>(Op{}(x, y));
             ctx_.template stack_push(result);
-            std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+            // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
         }
-        ctx_.show_stack();
+        // ctx_.show_stack();
         return {};
     }
+
+private:
+    Context& ctx_;
+    const var zero, one, two;
 };
 
 
@@ -505,12 +679,12 @@ struct zkp_executor :
     using basic_exe_memory<Context>::run;
 
     zkp_executor(Context& ctx)
-        : ctx_(ctx),
-          basic_exe_parametric<Context>(ctx),
+        : basic_exe_parametric<Context>(ctx),
           basic_exe_control<Context>(ctx),
           basic_exe_variable<Context>(ctx),
           zkp_exe_numeric<Context>(ctx),
-          basic_exe_memory<Context>(ctx)
+          basic_exe_memory<Context>(ctx),
+          ctx_(ctx)
         { }
 
     Context& context() { return ctx_; }

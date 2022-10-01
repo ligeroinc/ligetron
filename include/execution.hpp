@@ -109,6 +109,7 @@ public:
             if (int *p = std::get_if<int>(&ret)) {
                 assert(*p >= 0);
                 if (*p == 0) {
+                    // std::cout << std::endl << std::endl;
                     goto loop;
                 }
                 else {
@@ -162,8 +163,8 @@ public:
             }
         }
 
-        std::cout << "<br " << l << "> ";
-        ctx_.show_stack();
+        // std::cout << "<br " << l << "> ";
+        // ctx_.show_stack();
         return l;
     }
 
@@ -302,7 +303,7 @@ public:
         auto local = ctx_.local_get(x);
         if (std::holds_alternative<u32>(local)) {
             ctx_.template stack_push(std::get<u32>(local));
-            std::cout << "local.get[" << x << "]=" << std::get<u32>(local) << " ";
+            // std::cout << "local.get[" << x << "]=" << std::get<u32>(local) << " " << std::endl;
         }
         else {
             ctx_.template stack_push(std::get<u64>(local));
@@ -314,7 +315,7 @@ public:
     result_t run(const op::local_set& var) override {
         index_t x = var.local;
         u32 top = ctx_.template stack_pop<u32>();
-        std::cout << "local.set[" << x << "]=" << top << " ";
+        // std::cout << "local.set[" << x << "]=" << top << " " << std::endl;
         ctx_.local_set(x, top);
         // ctx_.show_stack();
         return {};
@@ -323,7 +324,7 @@ public:
     result_t run(const op::local_tee& var) override {
         index_t x = var.local;
         u32 top = ctx_.template stack_peek<u32>();
-        std::cout << "local.tee[" << x << "]=" << top << " ";
+        // std::cout << "local.tee[" << x << "]=" << top << " " << std::endl;
         ctx_.local_set(x, top);
         // ctx_.show_stack();
         return {};
@@ -659,12 +660,12 @@ public:
         // u32 n = (ins.type == int_kind::i32) ? 4 : 8;
         u32 n = sizeof(Load);
         if (ea + n > mem.data.size()) {
-            std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+            // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
             throw wasm_trap("Invalid memory address");
         }
 
         To c = *reinterpret_cast<const Load*>(mem.data.data() + ea);
-        std::cout << "memory.load mem[" << ea << "]=" << c;
+        // std::cout << "memory.load mem[" << ea << "]=" << c;
         ctx_.template stack_push(c);
     }
 
@@ -745,7 +746,7 @@ public:
 
         u32 n = (ins.type == int_kind::i32) ? 4 : 8;
         if (ea + n > mem.data.size()) {
-            std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+            // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
             throw wasm_trap("Invalid memory address");
         }
 
@@ -753,20 +754,20 @@ public:
             u32 c = std::get<u32>(sc);
             u8 *ptr = reinterpret_cast<u8*>(&c);
             std::copy(ptr, ptr + n, mem.data.data() + ea);
-            std::cout << "i32.store mem[" << ea << "]=" << c;
+            // std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;;
         }
         else {
             u64 c = std::get<u64>(sc);
             u8 *ptr = reinterpret_cast<u8*>(&c);
             std::copy(ptr, ptr + n, mem.data.data() + ea);
-            std::cout << "i64.store mem[" << ea << "]=" << c;
+            // std::cout << "i64.store mem[" << ea << "]=" << c;
         }
-        auto *v = reinterpret_cast<u32*>(mem.data.data());
-        std::cout << " Mem: ";
-        for (auto i = 0; i < 16; i++) {
-            std::cout << *(v + i) << " ";
-        }
-        std::cout << std::endl;
+        // auto *v = reinterpret_cast<u32*>(mem.data.data());
+        // std::cout << " Mem: ";
+        // for (auto i = 0; i < 16; i++) {
+        //     std::cout << *(v + i) << " ";
+        // }
+        // std::cout << std::endl;
         return {};
     }
 

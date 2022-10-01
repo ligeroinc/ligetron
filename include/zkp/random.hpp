@@ -13,7 +13,7 @@ struct hash_random_engine {
     using result_type = uint8_t;
     using seed_type = typename Hasher::digest;
     
-    constexpr static size_t cycle_size = Hasher::digest_size;
+    constexpr static int cycle_size = Hasher::digest_size;
 
     constexpr static result_type min() { return std::numeric_limits<result_type>::min(); }
     constexpr static result_type max() { return std::numeric_limits<result_type>::max(); }
@@ -59,6 +59,7 @@ struct hash_random_engine {
 
             hash_ << state_ + q - 1;
             buffer_ = hash_.flush_digest();
+            hash_ << seed_;
             state_++;
             offset_ = cycle_size - 1 - r;
         }
@@ -68,6 +69,7 @@ struct hash_random_engine {
         if (offset_ < 0 || offset_ >= cycle_size) {
             hash_ << state_++;
             buffer_ = hash_.flush_digest();
+            hash_ << seed_;
             offset_ = cycle_size - 1;
             
         }

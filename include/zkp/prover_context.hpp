@@ -49,7 +49,7 @@ struct zkp_context_base : public context_base {
                 [this](u64) { zstack_pop(); },
                 [](const auto&) { }
             }, val);
-        return std::move(val);
+        return val;
     }
 
     void stack_push(const var_type& var) {
@@ -86,10 +86,14 @@ struct zkp_context_base : public context_base {
     //     zstack_.push_back(std::move(p));
     // }
     
-    field_poly encode(const field_type& v) {
+    virtual field_poly encode(const field_type& v) {
         field_poly p(1, v);
         encoder_.encode(p);
         return p;
+    }
+
+    var_type make_var(const field_type& v) {
+        return var_type{ v, encode(v) };
     }
 
     virtual void zstack_push(const field_type& v) {
@@ -201,7 +205,7 @@ struct stage1_prover_context : public zkp_context<Fp> {
         builder_ << x << y << z;
     }
 
-    void assert_quadratic(const field_poly& z, const field_poly& x, const field_poly& y) {
+    void assert_quadratic(const field_poly& z, const field_poly& x, const field_poly& y) override {
         builder_ << x << y << z;
     }
 
@@ -243,18 +247,6 @@ struct stage2_prover_context : public zkp_context<Fp> {
             .update_quadratic(x, y, z);
     }
 
-    bool validate_linear() {
-        auto row = arg_.linear();
-        this->encoder_.decode(row);
-        return std::all_of(row.begin(), row.end(), [](auto v) { return v == 0; });
-    }
-
-    bool validate_quadratic() {
-        auto row = arg_.quadratic();
-        this->encoder_.decode(row);
-        return std::all_of(row.begin(), row.end(), [](auto v) { return v == 0; });
-    }
-
     const auto& get_argument() const { return arg_; }
     
 protected:
@@ -269,10 +261,28 @@ struct stage3_prover_context : public zkp_context<Fp>
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
+    using var_type = zkp_var<u32, field_poly>;
+
+    using Base::eval, Base::encode;
 
     stage3_prover_context(reed_solomon64& encoder, const std::vector<size_t>& si)
         : Base(encoder), sample_index_(si) { }
 
+    field_poly encode(const field_type& v) override {
+        auto p = Base::encode(v);
+        field_poly sp(sample_index_.size());
+        #pragma omp parallel for
+        for (size_t i = 0; i < sample_index_.size(); i++) {
+            sp[i] = p[sample_index_[i]];
+        }
+        return sp;
+    }
+
+    void zstack_push(const field_type& v) override {
+        auto p = encode(v);
+        samples_.push_back(p);
+        this->zstack_.push_back(std::move(p));
+    }
     // void zstack_push(field_poly&& f) override {
     //     // poly_type p(1, f);
     //     // this->encoder_.encode(p);
@@ -287,13 +297,23 @@ struct stage3_prover_context : public zkp_context<Fp>
     //     Base::zstack_push(std::move(f));
     //     samples_.push_back(std::move(sp));
     // }
-
-    void bound_linear(size_t, size_t, size_t) {
-        // Nothing to check
+    
+    var_type eval(zkp_ops::mul op, const var_type& x, const var_type& y) override {
+        var_type var = Base::eval(op, x, y);
+        samples_.push_back(var.poly());
+        return var;
     }
 
-    void bound_quadratic(size_t, size_t, size_t) {
-        // Nothing to check
+    var_type eval(zkp_ops::div op, const var_type& x, const var_type& y) override {
+        var_type var = Base::eval(op, x, y);
+        samples_.push_back(var.poly());
+        return var;
+    }
+
+    var_type eval(zkp_ops::index_of op, const var_type& x) override {
+        var_type var = Base::eval(op, x);
+        samples_.push_back(var.poly());
+        return var;
     }
 
     const auto& get_sample() const { return samples_; }
@@ -310,11 +330,16 @@ struct verifier_context : public stage2_prover_context<Fp> {
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
+    using var_type = zkp_var<u32, field_poly>;
+
+    using Base::eval;
+    using Base::assert_linear, Base::assert_quadratic;
 
     verifier_context(reed_solomon64& e,
                      const typename RandomEngine::seed_type& seed,
+                     const std::vector<size_t>& si,
                      const std::vector<field_poly>& sv)
-        : Base(e, seed), sampled_val_(sv)
+        : Base(e, seed), sample_index_(si), sampled_val_(sv)
         {
             std::reverse(sampled_val_.begin(), sampled_val_.end());
         }
@@ -326,8 +351,52 @@ struct verifier_context : public stage2_prover_context<Fp> {
     //     this->zstack_.push_back(std::move(p));
     // }
 
+    void zstack_push(const field_type& v) override {
+        this->zstack_.push_back(pop_sample());
+    }
+
+    field_poly encode(const field_type& v) override {
+        auto p = Base::encode(v);
+        field_poly sp(sample_index_.size());
+        #pragma omp parallel for
+        for (size_t i = 0; i < sample_index_.size(); i++) {
+            sp[i] = p[sample_index_[i]];
+        }
+        return sp;
+    }
+
+    virtual var_type eval(zkp_ops::mul, const var_type& x, const var_type& y) {
+        field_type v = x.val() * y.val();
+        auto p = pop_sample();
+        assert_quadratic(p, x.poly(), y.poly());  // p = x * y
+        return var_type{ std::move(v), std::move(p) };
+    }
+
+    virtual var_type eval(zkp_ops::div, const var_type& x, const var_type& y) {
+        auto v = x.val() / y.val();
+        auto p = pop_sample();
+        assert_quadratic(x.poly(), p, y.poly());  // p = x / y ==> x = p * y
+        return var_type{ std::move(v), std::move(p) };
+    }
+
+    virtual var_type eval(zkp_ops::index_of op, const var_type& x) {
+        size_t index = op.index;
+        auto v = x.val();
+        auto bit = (v >> index) & static_cast<decltype(v)>(1);
+        auto p = pop_sample();
+        assert_quadratic(p, p, p);  // x^2 - x = 0
+        return var_type { std::move(bit), std::move(p) };
+    }
+
 protected:
+    std::vector<size_t> sample_index_;
     std::vector<field_poly> sampled_val_;
+
+    field_poly pop_sample() {
+        field_poly p = sampled_val_.back();
+        sampled_val_.pop_back();
+        return p;
+    }
 };
 
 }  // namespace ligero::vm::zkp

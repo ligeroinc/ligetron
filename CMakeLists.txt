@@ -13,9 +13,9 @@ find_package(Boost
   REQUIRED)
 
 # add_compile_options(--target=wasm32-unknown-unknown-wasm -c -Wl,--allow-undefined)
-add_compile_options(-std=c++20 -O0 -g)
+add_compile_options(-std=c++20 -O3 -march=native -fopenmp)
 # add_compile_options(-sSTANDALONE_WASM -sALLOW_MEMORY_GROWTH -fno-exceptions -mbulk-memory -msimd128 -march=native)
-# add_link_options(-static)
+add_link_options(-fopenmp)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${Boost_INCLUDE_DIR})

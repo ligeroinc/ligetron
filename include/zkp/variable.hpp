@@ -23,7 +23,7 @@ struct index_of { size_t index; };
 
 template <typename Op, typename... Args>
 struct var_expression : public zkp_var_expr {
-    const Op& op_;
+    Op op_;
     std::tuple<const Args&...> args_;
 
     var_expression(const Op& op, const Args&... args) : op_(op), args_(args...) { }
@@ -50,7 +50,7 @@ struct zkp_var : public zkp_var_expr {
     const Poly& poly() const { return poly_; }
 
     auto operator[](size_t i) const {
-        return var_expression(zkp_ops::index_of{i}, *this);
+        return var_expression(zkp_ops::index_of{ i }, *this);
     }
 
     template <typename... Args>

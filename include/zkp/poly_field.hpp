@@ -94,18 +94,29 @@ struct primitive_poly : public poly_field_expr
         return *this;
     }
 
-    primitive_poly& pad_random(size_t N) {
-        std::random_device rd;
-        std::mt19937_64 gen(rd());
-        std::uniform_int_distribution<uint64_t> dist(0, modulus - 1);
-
+    template <typename RandomGenerator>
+    primitive_poly& pad_random(size_t N, RandomGenerator& rand) {
         if (size_t old = data_.size(); N > old) {
+            std::uniform_int_distribution<uint64_t> dist(0, modulus - 1);
             data_.resize(N);
             for (size_t i = old; i < N; i++)
-                data_[i] = dist(gen);
+                data_[i] = dist(rand);
         }
         return *this;
     }
+
+    // primitive_poly& pad_random(size_t N, unsigned int seed = ) {
+    //     std::random_device rd;
+    //     std::mt19937_64 gen(rd());
+    //     std::uniform_int_distribution<uint64_t> dist(0, modulus - 1);
+
+    //     if (size_t old = data_.size(); N > old) {
+    //         data_.resize(N);
+    //         for (size_t i = old; i < N; i++)
+    //             data_[i] = dist(gen);
+    //     }
+    //     return *this;
+    // }
     
     const value_type& operator[](size_t index) const { return data_[index]; }
     value_type& operator[](size_t index) { return data_[index]; }

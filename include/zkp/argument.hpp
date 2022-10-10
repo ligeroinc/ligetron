@@ -50,18 +50,15 @@ struct quasi_argument {
 
     quasi_argument& update_linear(const Poly& a, const Poly& b, const Poly& c) {
         static random::uniform_int_distribution<value_type> dist(value_type{0}, Poly::modulus - value_type{1});
-        Poly r = a;
-        r += b;
-        r -= c;
+
+        Poly r = a + b - c;
         linear_.fma_mod(r, dist(rl_));
         return *this;
     }
 
     quasi_argument& update_quadratic(const Poly& a, const Poly& b, const Poly& c) {
         static random::uniform_int_distribution<value_type> dist(value_type{0}, Poly::modulus - value_type{1});
-        Poly r = a;
-        r *= b;
-        r -= c;
+        Poly r = a * b - c;
         quad_.fma_mod(r, dist(rq_));
         return *this;
     }

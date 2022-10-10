@@ -22,16 +22,16 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
     
     zkp_exe_numeric(Context& ctx)
         : ctx_(ctx),
-          zero(ctx_.make_var(0)),
-          one(ctx_.make_var(1)),
-          two(ctx_.make_var(2))
+          zero(0, ctx_.encode_const(0)),
+          one(1, ctx_.encode_const(1)),
+          two(2, ctx_.encode_const(2))
         { }
 
     result_t run(const op::inn_const& i) override {
         assert(i.type == int_kind::i32);
 
         u32 c = static_cast<u32>(i.val);
-        ctx_.stack_push(var{ c, ctx_.encode(c) });
+        ctx_.stack_push(var{ c, ctx_.encode_const(static_cast<s32>(c)) });
         return {};
     }
 
@@ -134,7 +134,8 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
 
         var acc = zero;
         for (size_t i = 0; i < 32; i++) {
-            var p = ctx_.make_var(1UL << i);
+            u32 idx = 1UL << i;
+            var p{ idx, ctx_.encode_const(idx) };
             acc = ctx_.eval(x[i] * y[i] * p + acc);
         }
 
@@ -191,7 +192,8 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         for (size_t i = 0; i < 32; i++) {
             var xi = ctx_.eval(x[i]);
             var yi = ctx_.eval(y[i]);
-            var p = ctx_.make_var(1UL << i);
+            u32 idx = 1UL << i;
+            var p{ idx, ctx_.encode_const(idx) };
             acc = ctx_.eval((xi + yi - xi * yi) * p + acc);
         }
 
@@ -263,7 +265,8 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         for (size_t i = 0; i < 32; i++) {
             var xi = ctx_.eval(x[i]);
             var yi = ctx_.eval(y[i]);
-            var p = ctx_.make_var(1UL << i);
+            u32 idx = 1UL << i;
+            var p{ idx, ctx_.encode_const(idx) };
             acc = ctx_.eval((xi + yi - two * xi * yi) * p + acc);
         }
 
@@ -339,7 +342,8 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
 
         var exp = one;
         for (size_t i = 0; i < 5; i++) {
-            var p = ctx_.make_var(1UL << (1UL << i));  // 2 ^ (2 ^ i)
+            u32 idx = 1UL << (1UL << i);  // 2 ^ (2 ^ i)
+            var p{ idx, ctx_.encode_const(idx) };
             var si = ctx_.eval(shift[i]);
             exp = ctx_.eval(exp * (p * si + one - si));
         }
@@ -411,7 +415,8 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
 
         var exp = one;
         for (size_t i = 0; i < 5; i++) {
-            var p = ctx_.make_var(1UL << (1UL << i));  // 2 ^ (2 ^ i)
+            u32 idx = 1UL << (1UL << i);  // 2 ^ (2 ^ i)
+            var p{ idx, ctx_.encode_const(idx) };
             var si = ctx_.eval(shift[i]);
             exp = ctx_.eval(exp * (p * si + one - si));
         }

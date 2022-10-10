@@ -9,22 +9,35 @@
 namespace ligero::vm::zkp {
 
 struct reed_solomon64 {
-    reed_solomon64(uint64_t modulus, size_t l, size_t d, size_t n) : l_(l), d_(d), n_(n) {
-        ntt_message_ = hexl::NTT(d, modulus);
-        if (d == n) {
-            uint64_t minimal_root = ntt_message_.GetMinimalRootOfUnity();
-            // std::cout << "Minimal root: " << minimal_root << std::endl;
-            uint64_t next_root = next_root_of_unity(minimal_root, 2*n, modulus);
-            // std::cout << "Next root: " << next_root << std::endl;
-            ntt_codeword_ = hexl::NTT(n, modulus, next_root);
+    reed_solomon64(uint64_t modulus, size_t l, size_t d, size_t n, unsigned int seed)
+        : modulus_(modulus), l_(l), d_(d), n_(n),
+          ntt_message_(d, modulus), ntt_codeword_(),
+          random_(seed)
+        {
+            if (d == n) {
+                uint64_t minimal_root = ntt_message_.GetMinimalRootOfUnity();
+                // std::cout << "Minimal root: " << minimal_root << std::endl;
+                uint64_t next_root = next_root_of_unity(minimal_root, 2*n, modulus);
+                // std::cout << "Next root: " << next_root << std::endl;
+                ntt_codeword_ = hexl::NTT(n, modulus, next_root);
+            }
+            else {
+                ntt_codeword_ = hexl::NTT(n, modulus);
+            }
         }
-        else {
-            ntt_codeword_ = hexl::NTT(n, modulus);
-        }
-    }
 
     template <typename Poly>
     Poly& encode(Poly& poly) {
+        poly.pad(l_);
+        poly.pad_random(d_, random_);
+        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
+        poly.pad(n_);
+        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
+        return poly;
+    }
+
+    template <typename Poly>
+    Poly& encode_const(Poly& poly) {
         poly.pad(d_);
         ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
         poly.pad(n_);
@@ -43,7 +56,6 @@ struct reed_solomon64 {
 
     template <typename Iter>
     void encode(Iter begin, Iter end) {
-        #pragma omp parallel for
         for (auto it = begin; it != end; it++) {
             encode(*it);
         }
@@ -60,11 +72,13 @@ struct reed_solomon64 {
     void decode(Poly& poly) {
         assert(d_ * 2 == n_);
         assert(poly.size() == n_);
+        
         ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
-        #pragma omp simd
-        for (size_t i = 0; i < d_; i++) {
-            poly[i] -= poly[i + d_];
-        }
+        hexl::EltwiseSubMod(poly.data().data(),
+                            poly.data().data(),
+                            poly.data().data() + d_,
+                            d_,
+                            Poly::modulus);
         ntt_message_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
         poly.data().erase(poly.begin() + l_, poly.end());
     }
@@ -73,9 +87,21 @@ struct reed_solomon64 {
     size_t padded_size() const { return d_; }
     size_t encoded_size() const { return n_; }
 
+    void seed(unsigned int seed) {
+        random_.seed(seed);
+    }
+
+    // void discard_random() {
+    //     std::uniform_int_distribution<uint64_t> dist(0, modulus_ - 1);
+    //     for (size_t i = 0; i < d_ - l_; i++)
+    //         dist(random_);
+    // }
+
 protected:
+    const uint64_t modulus_;
     const size_t l_, d_, n_;
     hexl::NTT ntt_message_, ntt_codeword_;
+    std::mt19937 random_;
 };
 
 }  // namespace ligero::zkp

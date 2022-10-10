@@ -23,6 +23,10 @@ struct context_base {
         return top;
     }
 
+    virtual void push_witness(u32 v) {
+        stack_push(v);
+    }
+
     template <typename T>
     const T& stack_peek() const {
         return std::get<T>(stack_.back());

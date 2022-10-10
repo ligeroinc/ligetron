@@ -465,7 +465,7 @@ void invoke(module_instance& m, Executor& exe, index_t funcaddr, Args&&... args)
     dummy->module = &m;
     exe.context().push_frame(std::move(dummy));
 
-    ((exe.context().stack_push(u32(args))), ...);
+    ((exe.context().push_witness(u32(args))), ...);
 
     op::call{funcaddr}.run(exe);
     std::cout << "Result: ";

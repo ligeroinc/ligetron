@@ -13,9 +13,15 @@ find_package(Boost
   REQUIRED)
 
 # add_compile_options(--target=wasm32-unknown-unknown-wasm -c -Wl,--allow-undefined)
-add_compile_options(-std=c++20 -O3 -march=native -fopenmp)
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  add_compile_options(-std=c++20 -Og -fsanitize=address)
+  add_link_options(-fsanitize=address)
+else()
+  add_compile_options(-std=c++20 -O3 -march=native -mavx512dq -fopenmp)
+  add_link_options(-fopenmp)
+endif()
+
 # add_compile_options(-sSTANDALONE_WASM -sALLOW_MEMORY_GROWTH -fno-exceptions -mbulk-memory -msimd128 -march=native)
-add_link_options(-fopenmp)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${Boost_INCLUDE_DIR})

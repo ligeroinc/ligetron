@@ -31,15 +31,15 @@ struct primitive_poly : public poly_field_expr
     explicit primitive_poly(size_t n) : data_(n, 0) { }
     primitive_poly(size_t n, value_type v) : data_(n, v) { }
     primitive_poly(std::initializer_list<value_type> vals) : data_(vals) { }
+
+    // primitive_poly(const primitive_poly& other) : data_(other.data_) { }
+    // primitive_poly(primitive_poly&& other) : data_(std::move(other.data_)) { }
     
     template <typename Iter>
     primitive_poly(Iter begin, Iter end) : data_(begin, end) { }
 
     template <IsPolyExpr Op>
     primitive_poly(const Op& op) : data_(op.size()) { op.eval(*this); }
-
-    // primitive_poly(const primitive_poly& other) : data_(other.data_) { }
-    // primitive_poly(primitive_poly&& other) : data_(std::move(other.data_)) { }
 
     template <value_type M> requires (M <= Modulus)
         primitive_poly(const primitive_poly<M>& other) : data_(other.data()) { }
@@ -159,6 +159,7 @@ struct primitive_poly : public poly_field_expr
     }
 
     primitive_poly& fma_mod(const primitive_poly& m, value_type scalar) {
+        assert(m.size() == data_.size());
         hexl::EltwiseFMAMod(data_.data(), m.data().data(), scalar, data_.data(), data_.size(), modulus, 1);
         return *this;
     }

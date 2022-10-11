@@ -28,6 +28,7 @@ struct zkp_context_base : public context_base {
     using var_type = zkp_var<u32, field_poly>;
 
     zkp_context_base(reed_solomon64& encoder) : encoder_(encoder) { }
+    virtual ~zkp_context_base() = default;
 
     void stack_push(svalue_t&& val) override {
         std::visit(prelude::overloaded{
@@ -72,7 +73,7 @@ struct zkp_context_base : public context_base {
         else {
             field_poly p(1, k);
             encoder_.encode_const(p);
-            auto [pair, _] = consts_.insert(std::make_pair(k, std::move(p)));
+            auto [pair, _] = consts_.emplace(k, std::move(p));
             auto& [k, v] = *pair;
             return v;
         }
@@ -183,9 +184,16 @@ struct stage1_prover_context : public zkp_context<Fp> {
         // : lrs_(l), qrs_(q), builder_(l.encoded_size()) { }
         : zkp_context<Fp>(encoder), builder_(encoder.encoded_size()) { }
 
+    // void push_witness(u32 v) override {
+    //     builder_ << this->encode(v);
+    //     Base::push_witness(v);
+    // }
+
     void push_witness(u32 v) override {
-        builder_ << this->encode(v);
-        Base::push_witness(v);
+        auto p = this->encode(v);
+        builder_ << p;
+        this->stack_.push_back(v);
+        this->zstack_.push_back(p);
     }
 
     // void assert_linear(const field_poly& z, const field_poly& x, const field_poly& y) override {
@@ -199,14 +207,15 @@ struct stage1_prover_context : public zkp_context<Fp> {
         builder_ << p;
     }
 
-    auto root_hash() {
-        mkt_ = builder_;
-        return mkt_.root();
+    auto&& builder() {
+        return std::move(builder_);
+        // mkt_ = builder_;
+        // return mkt_;
     }
     
 protected:
     // reed_solomon64& lrs_, qrs_;
-    merkle_tree<Hasher> mkt_;
+    // merkle_tree<Hasher> mkt_;
     typename merkle_tree<Hasher>::builder builder_;
 };
 
@@ -234,15 +243,12 @@ struct stage2_prover_context : public zkp_context<Fp> {
     //     }
     // }
 
-    void assert_quadratic(const field_poly& z, const field_poly& x, const field_poly& y) override {
-        #pragma omp parallel sections
-        {
-            #pragma omp section
-            { arg_ .update_code(z); }
+    void process_witness(const field_poly& p) override {
+        arg_.update_code(p);
+    }
 
-            #pragma omp section
-            { arg_.update_quadratic(x, y, z); }
-        }
+    void assert_quadratic(const field_poly& z, const field_poly& x, const field_poly& y) override {
+        arg_.update_quadratic(x, y, z);
     }
 
     const auto& get_argument() const { return arg_; }
@@ -291,7 +297,7 @@ struct stage3_prover_context : public zkp_context<Fp>
                 sp[i] = p[sample_index_[i]];
             }
             
-            auto [pair, _] = this->consts_.insert(std::make_pair(k, std::move(sp)));
+            auto [pair, _] = this->consts_.emplace(k, std::move(sp));
             auto& [k, v] = *pair;
             return v;
         }
@@ -352,8 +358,8 @@ protected:
 template <typename Fp,
           typename Hasher = sha256,
           typename RandomEngine = hash_random_engine<Hasher>>
-struct verifier_context : public stage2_prover_context<Fp> {
-    using Base = stage2_prover_context<Fp, RandomEngine>;
+struct verifier_context : public zkp_context<Fp> {
+    using Base = zkp_context<Fp>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
@@ -362,11 +368,13 @@ struct verifier_context : public stage2_prover_context<Fp> {
     using Base::eval;
     using Base::assert_linear, Base::assert_quadratic;
 
-    verifier_context(reed_solomon64& e,
+    verifier_context(reed_solomon64& encoder,
                      const typename RandomEngine::seed_type& seed,
                      const std::vector<size_t>& si,
                      const std::vector<field_poly>& sv)
-        : Base(e, seed), sample_index_(si), sampled_val_(sv), builder_(sample_index_.size())
+        : Base(encoder), sample_index_(si), sampled_val_(sv),
+          builder_(sample_index_.size()),
+          arg_(si.size(), seed)
         {
             std::reverse(sampled_val_.begin(), sampled_val_.end());
         }
@@ -383,8 +391,10 @@ struct verifier_context : public stage2_prover_context<Fp> {
     }
 
     void push_witness(u32 v) override {
+        auto sample = pop_sample();
+        builder_ << sample;
         this->stack_.push_back(v);
-        this->zstack_.push_back(pop_sample());
+        this->zstack_.push_back(sample);
     }
 
     field_poly encode(const field_type& v) override {
@@ -413,19 +423,25 @@ struct verifier_context : public stage2_prover_context<Fp> {
                 sp[i] = p[sample_index_[i]];
             }
             
-            auto [pair, _] = this->consts_.insert(std::make_pair(k, std::move(sp)));
+            auto [pair, _] = this->consts_.emplace(k, std::move(sp));
             auto& [k, v] = *pair;
             return v;
         }
     }
 
+    void assert_quadratic(const field_poly& z, const field_poly& x, const field_poly& y) override {
+        arg_.update_quadratic(x, y, z);
+    }
+
     void process_witness(const field_poly& p) override {
         builder_ << p;
+        this->arg_.update_code(p);
     }
 
     var_type eval(zkp_ops::mul, const var_type& x, const var_type& y) override {
         auto v = x.val() * y.val();
         auto p = pop_sample();
+        process_witness(p);
         assert_quadratic(p, x.poly(), y.poly());  // p = x * y
         return var_type{ std::move(v), std::move(p) };
     }
@@ -433,6 +449,7 @@ struct verifier_context : public stage2_prover_context<Fp> {
     var_type eval(zkp_ops::div, const var_type& x, const var_type& y) override {
         auto v = x.val() / y.val();
         auto p = pop_sample();
+        process_witness(p);
         assert_quadratic(x.poly(), p, y.poly());  // p = x / y ==> x = p * y
         return var_type{ std::move(v), std::move(p) };
     }
@@ -442,14 +459,22 @@ struct verifier_context : public stage2_prover_context<Fp> {
         auto v = x.val();
         auto bit = (v >> index) & static_cast<decltype(v)>(1);
         auto p = pop_sample();
+        process_witness(p);
         assert_quadratic(p, p, p);  // x^2 - x = 0
         return var_type { std::move(bit), std::move(p) };
     }
+
+    auto&& builder() {
+        return std::move(builder_);
+    }
+
+    const auto& get_argument() const { return arg_; }
 
 protected:
     std::vector<size_t> sample_index_;
     std::vector<field_poly> sampled_val_;
     typename merkle_tree<Hasher>::builder builder_;
+    quasi_argument<Fp, RandomEngine> arg_;
 
     field_poly pop_sample() {
         field_poly p = sampled_val_.back();

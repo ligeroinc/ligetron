@@ -30,18 +30,18 @@ struct reed_solomon64 {
     Poly& encode(Poly& poly) {
         poly.pad(l_);
         poly.pad_random(d_, random_);
-        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
+        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
         poly.pad(n_);
-        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
+        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
         return poly;
     }
 
     template <typename Poly>
     Poly& encode_const(Poly& poly) {
         poly.pad(d_);
-        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
+        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
         poly.pad(n_);
-        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
+        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
         return poly;
     }
 
@@ -73,13 +73,13 @@ struct reed_solomon64 {
         assert(d_ * 2 == n_);
         assert(poly.size() == n_);
         
-        ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
+        ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
         hexl::EltwiseSubMod(poly.data().data(),
                             poly.data().data(),
                             poly.data().data() + d_,
                             d_,
                             Poly::modulus);
-        ntt_message_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
+        ntt_message_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
         poly.data().erase(poly.begin() + l_, poly.end());
     }
 

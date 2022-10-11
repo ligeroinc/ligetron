@@ -267,6 +267,7 @@ struct ControlExecutor : virtual Executor {
 
 /* ------------------------------------------------------------ */
 struct instr {
+    virtual ~instr() = default;
     virtual result_t run(Executor& exe) const = 0;
     virtual std::string name() const = 0;
 };

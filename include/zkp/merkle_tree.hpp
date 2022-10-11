@@ -18,6 +18,9 @@ struct merkle_tree {
     struct builder {
         explicit builder() : hashers_() { }
         explicit builder(size_t n) : hashers_(n) { }
+        
+        builder(const builder&) = delete;
+        builder& operator=(const builder&) = delete;
 
         bool empty() const { return hashers_.empty(); }
         size_t size() const { return hashers_.size(); }
@@ -43,6 +46,7 @@ struct merkle_tree {
             for (size_t i = 0; i < hashers_.size(); i++) {
                 hashers_[i] << val[i];
             }
+            count++;
             return *this;
         }
 
@@ -59,6 +63,8 @@ struct merkle_tree {
         auto begin() { return hashers_.begin(); }
         auto end()   { return hashers_.end();   }
         const auto& data() const { return hashers_; }
+
+        int count = 0;
     protected:
         std::vector<hasher_type> hashers_;
     };
@@ -69,25 +75,27 @@ struct merkle_tree {
             : total_count_(count), known_index_(index) { }
 
         void insert(size_t pos, digest_type node) {
-            commitment_.emplace(pos, node);
+            nodes_.emplace(pos, node);
         }
 
         size_t size() const { return total_count_; }
         size_t leaf_size() const { return total_count_ / 2 + 1; }
 
         const auto& known_index() const { return known_index_; }
-        const auto& commitment() const { return commitment_; }
+        const auto& nodes() const { return nodes_; }
+
+        const auto& operator[](size_t i) const { return nodes_.at(i); }
         
     protected:
         size_t total_count_;
         std::vector<size_t> known_index_;
-        std::unordered_map<size_t, digest_type> commitment_;
+        std::unordered_map<size_t, digest_type> nodes_;
     };
 
     explicit merkle_tree() : nodes_() { }
     explicit merkle_tree(size_t n) : nodes_(std::bit_ceil(n) * 2 - 1) { }
-    merkle_tree(builder& b) : nodes_() { initialize_from_builder(std::move(b)); }
-    merkle_tree(builder& b, const decommitment& d) : nodes_() { from_decommitment(b, d); }
+    merkle_tree(builder&& b) : nodes_() { initialize_from_builder(std::move(b)); }
+    merkle_tree(builder&& b, const decommitment& d) : nodes_() { from_decommitment(b, d); }
     merkle_tree(const merkle_tree& o) : nodes_(o.nodes_) { }
     merkle_tree(merkle_tree&& o) : nodes_(std::move(o.nodes_)) { }
 
@@ -101,7 +109,7 @@ struct merkle_tree {
         return *this;
     }
 
-    merkle_tree& operator=(builder& b) {
+    merkle_tree& operator=(builder&& b) {
         initialize_from_builder(std::move(b));
         return *this;
     }
@@ -129,27 +137,152 @@ struct merkle_tree {
     const digest_type& node(size_t n) const { return nodes_[nodes_.size() / 2 + n]; }
 
     decommitment decommit(const std::vector<size_t>& known_index) {
-        decommitment d{ nodes_.size(), known_index };
-        const size_t child_begin = nodes_.size() / 2;
-        const size_t child_end = nodes_.size();
+        size_t node_size = nodes_.size();
+        decommitment d{ node_size, known_index };
 
         std::unordered_set<size_t> known(known_index.begin(), known_index.end());
+        decommit_helper(d, known, nodes_.size() / 2, nodes_.size());
+        return d;
+    }
 
-        for (size_t i = child_begin; i < child_end; i += 2) {
-            const size_t parent = parent_index(i);
-            bool left_known = known.contains(i);
-            bool right_known = known.contains(i + 1);
+    void decommit_helper(decommitment& d, const std::unordered_set<size_t>& known, size_t start, size_t end) {
+        if (start == 0)
+            return;
 
-            if (!left_known) {
-                d.insert(i, nodes_[i]);
+        // std::cout << "start: " << start << " end: " << end << std::endl;
+
+        std::unordered_set<size_t> upper_level;
+        for (size_t i = start; i < end; i += 2) {
+            size_t left = i, right = i + 1;
+            size_t local_left = left - start, local_right = right - start;
+            size_t local_parent = local_left / 2;
+            bool kl = known.contains(local_left);
+            bool kr = known.contains(local_right);
+
+            // std::cout << local_left << " " << local_right << " " << kl << " " << kr << std::endl;
+
+            if (kl && kr) {
+                upper_level.insert(local_parent);
             }
-            
-            if (!right_known) {
-                d.insert(i + 1, nodes_[i + 1]);
+            else if (kr) {
+                assert(!d.nodes().contains(left));
+                // std::cout << "insert left " << left << std::endl;
+                // std::cout << std::hex;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)nodes_[left].data[j];
+                // std::cout << std::endl << "parent: ";
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)nodes_[left / 2].data[j];
+                // std::cout << std::endl << std::dec;
+                
+                d.insert(left, nodes_[left]);
+                upper_level.insert(local_parent);
+            }
+            else if (kl) {
+                assert(!d.nodes().contains(right));
+                // std::cout << "insert right " << right << std::endl;
+                // std::cout << std::hex;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)nodes_[right].data[j];
+                // std::cout << std::endl << "parent: ";
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)nodes_[left / 2].data[j];
+                // std::cout << std::endl << std::dec;
+                
+                d.insert(right, nodes_[right]);
+                upper_level.insert(local_parent);
             }
         }
 
-        return d;
+        decommit_helper(d, upper_level, (start - 1) / 2, (end - 1) / 2);
+    }
+
+    static digest_type recommit(builder&& b, const decommitment& d) {
+        assert(b.size() == d.known_index().size());
+        const auto& index = d.known_index();
+        std::vector<digest_type> buffer(d.leaf_size());
+
+        for (size_t i = 0; i < index.size(); i++) {
+            buffer[index[i]] = b[i].flush_digest();
+        }
+
+        std::unordered_set<size_t> known(index.begin(), index.end());
+        recommit_helper(buffer, d, known, d.size() / 2, d.size());
+        return buffer[0];
+    }
+
+    static void recommit_helper(std::vector<digest_type>& buffer,
+                         const decommitment& d,
+                         const std::unordered_set<size_t>& known,
+                         size_t start, size_t end) {
+        if (start == 0)
+            return;
+
+        // std::cout << "start: " << start << " end: " << end << std::endl;
+
+        std::unordered_set<size_t> upper_level;
+        for (size_t i = start; i < end; i += 2) {
+            size_t left = i, right = i + 1;
+            size_t parent = left / 2;
+            size_t local_left = left - start, local_right = right - start;
+            size_t local_parent = local_left / 2;
+            bool kl = known.contains(local_left);
+            bool kr = known.contains(local_right);
+
+            // std::cout << local_left << " " << local_right << " " << kl << " " << kr << std::endl;
+
+            if (kl && kr) {
+                upper_level.insert(local_parent);
+                buffer[local_parent] = hash<Hash>(buffer[local_left], buffer[local_right]);
+                // std::cout << "buffer[" << parent  << "] = hash(" << left << ", " << right << ")" << std::endl;
+                // std::cout << std::hex;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)buffer[left].data[j];
+                // std::cout << std::endl;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)buffer[right].data[j];
+                // std::cout << std::endl;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)buffer[parent].data[j];
+                // std::cout << std::endl << std::dec;
+            }
+            else if (kr) {
+                // std::cout << "restore left " << left << std::endl;
+                // d.insert(left, nodes_[left]);
+                buffer[local_parent] = hash<Hash>(d[left], buffer[local_right]);
+                upper_level.insert(local_parent);
+                // std::cout << "buffer[" << parent  << "] = hash(saved " << left << ", " << right << ")" << std::endl;
+                // std::cout << std::hex;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)d[left].data[j];
+                // std::cout << std::endl;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)buffer[right].data[j];
+                // std::cout << std::endl;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)buffer[parent].data[j];
+                // std::cout << std::endl << std::dec;
+            }
+            else if (kl) {
+                // std::cout << "restore right " << right << std::endl;
+                // d.insert(right, nodes_[right]);
+                buffer[local_parent] = hash<Hash>(buffer[local_left], d[right]);
+                upper_level.insert(local_parent);
+                // std::cout << "buffer[" << parent  << "] = hash(" << left << ", saved " << right << ")" << std::endl;
+                // std::cout << std::hex;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)buffer[left].data[j];
+                // std::cout << std::endl;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)d[right].data[j];
+                // std::cout << std::endl;
+                // for (size_t j = 0; j < Hash::digest_size; j++)
+                //     std::cout << (int)buffer[parent].data[j];
+                // std::cout << std::endl << std::dec;
+            }
+        }
+
+        recommit_helper(buffer, d, upper_level, (start - 1) / 2, (end - 1) / 2);
     }
 
 private:
@@ -180,34 +313,35 @@ private:
             const size_t left_child = 2 * i + 1;
             const size_t right_child = left_child + 1;
 
-            hasher_type hasher;
-            hasher << nodes_[left_child] << nodes_[right_child];
-            nodes_[i] = hasher.flush_digest();
+            nodes_[i] = hash<Hash>(nodes_[left_child], nodes_[right_child]);
+            // hasher_type hasher;
+            // hasher << nodes_[left_child] << nodes_[right_child];
+            // nodes_[i] = hasher.flush_digest();
         }
 
         if (curr_start > 0)
             build_tree(parent_index(curr_start), curr_start);
     }
 
-    merkle_tree& from_decommitment(builder& b, const decommitment& d) {
-        nodes_.clear();
-        nodes_.resize(d.size());
+    // merkle_tree& from_decommitment(builder& b, const decommitment& d) {
+    //     nodes_.clear();
+    //     nodes_.resize(d.size());
         
-        const auto& cm = d.commitment();
-        size_t ki = 0;
-        for (size_t i = d.size() / 2; i < d.size(); i++) {
-            if (cm.contains(i)) {
-                nodes_[i] = cm.at(i);
-            }
-            else {
-                auto& hasher = b[ki++];
-                nodes_[i] = hasher.flush_digest();
-            }
-        }
+    //     const auto& cm = d.commitment();
+    //     size_t ki = 0;
+    //     for (size_t i = d.size() / 2; i < d.size(); i++) {
+    //         if (cm.contains(i)) {
+    //             nodes_[i] = cm.at(i);
+    //         }
+    //         else {
+    //             auto& hasher = b[ki++];
+    //             nodes_[i] = hasher.flush_digest();
+    //         }
+    //     }
 
-        build_tree(d.size() / 2, d.size());
-        return *this;
-    }
+    //     build_tree(d.size() / 2, d.size());
+    //     return *this;
+    // }
 
 protected:
     std::vector<digest_type> nodes_;

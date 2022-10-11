@@ -148,6 +148,11 @@ struct openssl_hash : public overload_hash<openssl_hash<Hash>> {
     };
     
     openssl_hash() : ctx_(nullptr) { init(); }
+    
+    openssl_hash(const openssl_hash&) = delete;
+    openssl_hash& operator=(const openssl_hash&) = delete;
+
+    openssl_hash(openssl_hash&& other) : ctx_(nullptr) { std::swap(ctx_, other.ctx_); }
     // openssl_hash(byte_view seed) : ctx_(nullptr), seed_(seed) { init(); }
     
     ~openssl_hash() {

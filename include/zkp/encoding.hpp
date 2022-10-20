@@ -83,6 +83,7 @@ struct reed_solomon64 {
         poly.data().erase(poly.begin() + l_, poly.end());
     }
 
+    uint64_t modulus() const { return modulus_; }
     size_t plain_size() const { return l_; }
     size_t padded_size() const { return d_; }
     size_t encoded_size() const { return n_; }

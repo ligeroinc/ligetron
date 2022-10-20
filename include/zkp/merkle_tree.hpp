@@ -74,7 +74,7 @@ struct merkle_tree {
         decommitment(size_t count, const std::vector<size_t>& index)
             : total_count_(count), known_index_(index) { }
 
-        void insert(size_t pos, digest_type node) {
+        void insert(size_t pos, const digest_type& node) {
             nodes_.emplace(pos, node);
         }
 

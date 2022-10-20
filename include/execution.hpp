@@ -12,27 +12,46 @@ namespace ligero::vm {
 
 template <typename Context>
 class basic_exe_parametric : virtual public ParametricExecutor {
+    using u32_type = typename Context::u32_type;
+    
     Context& ctx_;
 
 public:
     basic_exe_parametric(Context& ctx) : ctx_(ctx) { }
 
     result_t run(const op::drop& ins) override {
-        ctx_.stack_pop_raw();
+        ctx_.stack_pop();
         return {};
     }
 
     result_t run(const op::select&) override {
-        auto c = ctx_.template stack_pop<u32>();
-        auto v2 = ctx_.template stack_pop<u32>();
-        auto v1 = ctx_.template stack_pop<u32>();
-        ctx_.stack_push(c != 0 ? v1 : v2);
+        u32_type c = ctx_.stack_pop().template as<u32_type>();
+        u32_type v2 = ctx_.stack_pop().template as<u32_type>();
+        u32_type v1 = ctx_.stack_pop().template as<u32_type>();
+        if constexpr (requires { u32_type::size; }) {
+            for (size_t i = 0; i < u32_type::size; i++) {
+                c[i] = c[i] != 0 ? v1[i] : v2[i];
+            }
+        }
+        else {
+            c = c != 0 ? v1 : v2;
+        }
+        ctx_.stack_push(c);
         return {};
     }
 };
 
 template <typename Context>
 class basic_exe_control : virtual public ControlExecutor {
+    using value_type = typename Context::value_type;
+    using svalue_type = typename Context::svalue_type;
+    
+    using u32_type = typename Context::u32_type;
+    using u64_type = typename Context::u64_type;
+    using frame_type = typename Context::frame_type;
+    using frame_ptr = typename svalue_type::frame_ptr;
+    using frame_pointer = typename Context::frame_pointer;
+    
     Context& ctx_;
 
 public:
@@ -76,14 +95,15 @@ public:
 
         /* Exiting block with Label L if no jump happended */
         {
-            std::vector<svalue_t> ret;
-            for (size_t i = 0; i < n; i++) {
-                ret.emplace_back(ctx_.stack_pop_raw());
-            }
-            ctx_.template stack_pop<label>();
-            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
-                ctx_.stack_push(std::move(*it));
-            }
+            ctx_.drop_n_below(1, n);
+            // std::vector<svalue_t> ret;
+            // for (size_t i = 0; i < n; i++) {
+            //     ret.emplace_back(ctx_.stack_pop_raw());
+            // }
+            // ctx_.template stack_pop<label>();
+            // for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+            //     ctx_.stack_push(std::move(*it));
+            // }
         }
         
         return {};
@@ -120,14 +140,15 @@ public:
 
         /* Exiting block with Label L if no jump happended */
         {
-            std::vector<svalue_t> ret;
-            for (size_t i = 0; i < n; i++) {
-                ret.emplace_back(ctx_.stack_pop_raw());
-            }
-            ctx_.template stack_pop<label>();
-            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
-                ctx_.stack_push(std::move(*it));
-            }
+            ctx_.drop_n_below(1, n);
+            // std::vector<svalue_t> ret;
+            // for (size_t i = 0; i < n; i++) {
+            //     ret.emplace_back(ctx_.stack_pop_raw());
+            // }
+            // ctx_.template stack_pop<label>();
+            // for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+            //     ctx_.stack_push(std::move(*it));
+            // }
         }
         return {};
     }
@@ -142,25 +163,26 @@ public:
 
         /* Find L-th label */
         auto it = prelude::find_if_n(ctx_.stack_top(), ctx_.stack_bottom(), l+1, [](const auto& v) {
-            return std::holds_alternative<label>(v);
+            return std::holds_alternative<label>(v.data());
         });
         assert(it != ctx_.stack_bottom());
         size_t distance = std::distance(ctx_.stack_top(), it);
 
         /* Pop unused stack values */
         {
-            const size_t n = std::get<label>(*it).arity;
-            std::vector<svalue_t> ret;
-            for (size_t i = 0; i < n; i++) {
-                ret.emplace_back(ctx_.stack_pop_raw());
-            }
-            for (size_t i = 0; i < distance - n; i++) {
-                ctx_.stack_pop_raw();
-            }
-            ctx_.template stack_pop<label>();  // Discard label
-            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
-                ctx_.stack_push(std::move(*it));
-            }
+            const size_t n = it->template as<label>().arity;
+            ctx_.drop_n_below(distance - n + 1, n);
+            // std::vector<svalue_t> ret;
+            // for (size_t i = 0; i < n; i++) {
+            //     ret.emplace_back(ctx_.stack_pop_raw());
+            // }
+            // for (size_t i = 0; i < distance - n; i++) {
+            //     ctx_.stack_pop_raw();
+            // }
+            // ctx_.template stack_pop<label>();  // Discard label
+            // for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+            //     ctx_.stack_push(std::move(*it));
+            // }
         }
 
         // std::cout << "<br " << l << "> ";
@@ -169,8 +191,20 @@ public:
     }
 
     result_t run(const op::br_if& b) override {
-        u32 cond = ctx_.template stack_pop<u32>();
+        // u32 cond = ctx_.template stack_pop<u32>();
+        auto v = ctx_.stack_pop().template as<u32_type>();
 
+        u32 cond = 0;
+        if constexpr (requires{ {v.begin()}; {v.end()}; }) {
+            // assert(std::all_of(v.begin(), v.end(), [first = v[0]](const auto& a) {
+            //     return a == first;
+            // }));
+            cond = v[0];
+        }
+        else {
+            cond = v;
+        }
+        
         if (cond) {
             return run(op::br{ b.label });
         }
@@ -178,7 +212,19 @@ public:
     }
 
     result_t run(const op::br_table& b) override {
-        u32 i = ctx_.template stack_pop<u32>();
+        // u32 i = ctx_.template stack_pop<u32>();
+        auto v = ctx_.stack_pop().template as<u32_type>();
+
+        u32 i = 0;
+        if constexpr (requires{ {v.begin()}; {v.end()}; }) {
+            assert(std::all_of(v.begin(), v.end(), [first = v[0]](const auto& a) {
+                return a == first;
+            }));
+            i = v[0];
+        }
+        else {
+            i = v;
+        }
 
         if (i < b.branches.size()) {
             return run(op::br{ b.branches[i] });
@@ -196,26 +242,25 @@ public:
         // auto it = top;
 
         auto frm = std::find_if(ctx_.stack_top(), ctx_.stack_bottom(), [](const auto& v) {
-            return std::holds_alternative<frame_ptr>(v);
+            return std::holds_alternative<frame_ptr>(v.data());
         });
         assert(frm != ctx_.stack_bottom());
         size_t distance = std::distance(ctx_.stack_top(), frm);
         
         {
-            std::vector<svalue_t> ret;
-            for (size_t i = 0; i < arity; i++) {
-                ret.emplace_back(ctx_.stack_pop_raw());
-            }
-            for (size_t i = 0; i < distance - arity; i++) {
-                ctx_.stack_pop_raw();
-            }
-            for (auto it = ret.rbegin(); it != ret.rend(); it++) {
-                ctx_.stack_push(std::move(*it));
-            }
-            ctx_.template stack_pop<frame_ptr>();
+            ctx_.drop_n_below(distance - arity + 1, arity);
+            // std::vector<svalue_t> ret;
+            // for (size_t i = 0; i < arity; i++) {
+            //     ret.emplace_back(ctx_.stack_pop_raw());
+            // }
+            // for (size_t i = 0; i < distance - arity; i++) {
+            //     ctx_.stack_pop_raw();
+            // }
+            // for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+            //     ctx_.stack_push(std::move(*it));
+            // }
+            // ctx_.template stack_pop<frame_ptr>();
         }
-
-        ctx_.show_stack();
 
         return std::numeric_limits<int>::max();
     }
@@ -227,24 +272,23 @@ public:
         u32 m = func.kind.returns.size();
 
         std::cout << "<call[" << addr << "].entry>";
-        ctx_.show_stack();
 
         /* Push arguments */
         /* -------------------------------------------------- */
-        std::vector<value_t> arguments;
+        std::vector<value_type> arguments;
         for (size_t i = 0; i < n; i++) {
-            svalue_t sv = ctx_.stack_pop_raw();
-            arguments.push_back(to_value(std::move(sv)));
+            svalue_type sv = ctx_.stack_pop();
+            arguments.push_back(std::move(sv.template as<value_type>()));
         }
         std::reverse(arguments.begin(), arguments.end());
 
         /* Invoke the function (native function) */
         /* -------------------------------------------------- */
         if (auto *pcode = std::get_if<function_instance::func_code>(&func.code)) {
-            auto fp = std::make_unique<frame>(m, std::move(arguments), ctx_.module());
+            auto fp = std::make_unique<frame_type>(m, std::move(arguments), ctx_.module());
 
             for (const value_kind& type : pcode->locals) {
-                fp->locals.emplace_back(static_cast<u64>(0));
+                fp->locals.emplace_back(u32_type(0U));
             }
         
             ctx_.push_frame(std::move(fp));
@@ -259,29 +303,30 @@ public:
 
             // ctx_.pop_frame(m);
             {
-                std::vector<svalue_t> ret;
-                for (size_t i = 0; i < m; i++) {
-                    ret.emplace_back(ctx_.stack_pop_raw());
-                }
+                ctx_.drop_n_below(1, m);
+                // std::vector<svalue_t> ret;
+                // for (size_t i = 0; i < m; i++) {
+                //     ret.emplace_back(ctx_.stack_pop_raw());
+                // }
 
-                // ctx_.template stack_pop<label>();
-                ctx_.template stack_pop<frame_ptr>();
+                // // ctx_.template stack_pop<label>();
+                // ctx_.template stack_pop<frame_ptr>();
                 
-                for (auto it = ret.rbegin(); it != ret.rend(); it++) {
-                    ctx_.stack_push(std::move(*it));
-                }
+                // for (auto it = ret.rbegin(); it != ret.rend(); it++) {
+                //     ctx_.stack_push(std::move(*it));
+                // }
             }
         }
         /* Invoke the function (host function) */
         /* -------------------------------------------------- */
         else {
-            const auto& hostc = std::get<function_instance::host_code>(func.code);
-            ctx_.call_host(hostc.host_name, arguments);
+            undefined();
+            // const auto& hostc = std::get<function_instance::host_code>(func.code);
+            // ctx_.call_host(hostc.host_name, arguments);
         }
 
 
-        std::cout << "<call[" << addr << "].exit>";
-        ctx_.show_stack();
+        std::cout << "<call[" << addr << "].exit>" << std::endl;
         return {};
     }
 
@@ -301,31 +346,35 @@ public:
     result_t run(const op::local_get& var) override {
         index_t x = var.local;
         auto local = ctx_.local_get(x);
-        if (std::holds_alternative<u32>(local)) {
-            ctx_.template stack_push(std::get<u32>(local));
-            // std::cout << "local.get[" << x << "]=" << std::get<u32>(local) << " " << std::endl;
-        }
-        else {
-            ctx_.template stack_push(std::get<u64>(local));
-        }
+        ctx_.stack_push(std::move(local));
+        // if (std::holds_alternative<u32>(static_cast<typename decltype(local)::variant_type&>(local))) {
+        //     ctx_.template stack_push(std::get<u32>(local));
+        // }
+        // else {
+        //     ctx_.template stack_push(std::get<u64>(local));
+        // }
+
+        // std::cout << "local.get[" << x << "]" << std::endl;
         // ctx_.show_stack();
         return {};
     }
 
     result_t run(const op::local_set& var) override {
         index_t x = var.local;
-        u32 top = ctx_.template stack_pop<u32>();
-        // std::cout << "local.set[" << x << "]=" << top << " " << std::endl;
-        ctx_.local_set(x, top);
+        auto top = ctx_.stack_pop().template as<typename Context::value_type>();
+        ctx_.local_set(x, std::move(top));
+
+        // std::cout << "local.set[" << x << "]" << std::endl;
         // ctx_.show_stack();
         return {};
     }
 
     result_t run(const op::local_tee& var) override {
         index_t x = var.local;
-        u32 top = ctx_.template stack_peek<u32>();
-        // std::cout << "local.tee[" << x << "]=" << top << " " << std::endl;
+        auto& top = ctx_.stack_peek().template as<typename Context::value_type>();
         ctx_.local_set(x, top);
+        
+        // std::cout << "local.tee[" << x << "]" << std::endl;
         // ctx_.show_stack();
         return {};
     }
@@ -334,7 +383,9 @@ public:
         index_t x = ins.local;
         address_t a = ctx_.current_frame()->module->globaladdrs[x];
         const global_instance& glob = ctx_.store()->globals[a];
-        ctx_.template stack_push(to_svalue(glob.val));
+        ctx_.stack_push(typename Context::u32_type(glob.val));
+        
+        // ctx_.show_stack();
         return {};
     }
 
@@ -342,8 +393,16 @@ public:
         index_t x = ins.local;
         address_t a = ctx_.current_frame()->module->globaladdrs[x];
         global_instance& glob = ctx_.store()->globals[a];
-        svalue_t val = ctx_.template stack_pop_raw();
-        glob.val = to_value(val);
+        auto val = ctx_.stack_pop().template as<typename Context::u32_type>();
+
+        u32 gv = 0;
+        if constexpr (requires(typename Context::u32_type u, size_t i) { u[i]; }) {
+            gv = val[0];
+        }
+        else {
+            gv = val;
+        }
+        glob.val = gv;
         // std::visit(prelude::overloaded {
         //         [&glob](u32 v) { glob.val = v; },
         //         [&glob](u64 v) { glob.val = v; },
@@ -609,17 +668,25 @@ private:
 
 template <typename Context>
 class basic_exe_memory : virtual public MemoryExecutor {
+    using value_type = typename Context::value_type;
+    using svalue_type = typename Context::svalue_type;
+    
+    using u32_type = typename Context::u32_type;
+    using u64_type = typename Context::u64_type;
+    using frame_type = typename Context::frame_type;
+    using frame_pointer = typename Context::frame_pointer;
+    
     Context& ctx_;
 
 public:
     basic_exe_memory(Context& ctx) : ctx_(ctx) { }
 
     result_t run(const op::memory_size&) override {
-        frame *f = ctx_.current_frame();
+        frame_pointer f = ctx_.current_frame();
         address_t a = f->module->memaddrs[0];
         const auto& mem = ctx_.store()->memorys[a];
         u32 sz = mem.data.size() / memory_instance::page_size;
-        ctx_.template stack_push(sz);
+        ctx_.template stack_push(u32_type(sz));
         return {};
     }
 
@@ -650,23 +717,29 @@ public:
 
     template <typename Load, typename To>
     void do_load(u32 offset) {
-        frame *f = ctx_.current_frame();
+        frame_pointer f = ctx_.current_frame();
         address_t a = f->module->memaddrs[0];
         const auto& mem = ctx_.store()->memorys[a];
         
-        u32 i = ctx_.template stack_pop<u32>();
-        u32 ea = i + offset;
+        u32_type i = ctx_.stack_pop().template as<u32_type>();
+        u32_type ea = i + u32_type(offset);
 
         // u32 n = (ins.type == int_kind::i32) ? 4 : 8;
         u32 n = sizeof(Load);
-        if (ea + n > mem.data.size()) {
-            // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
-            throw wasm_trap("Invalid memory address");
-        }
 
-        To c = *reinterpret_cast<const Load*>(mem.data.data() + ea);
-        // std::cout << "memory.load mem[" << ea << "]=" << c;
-        ctx_.template stack_push(c);
+        prelude::transform(ea, [&](const auto& v) {
+            if (v + n > mem.data.size()) {
+                // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+                throw wasm_trap("Invalid memory address");
+            }
+
+            To c = *reinterpret_cast<const Load*>(mem.data.data() + v);
+            // std::cout << "memory.load mem[" << ea << "]=" << c;
+            // ctx_.template stack_push(c);
+            return c;
+        });
+
+        ctx_.stack_push(ea);
     }
 
     result_t run(const op::inn_load& ins) override {
@@ -736,31 +809,56 @@ public:
     }
 
     result_t run(const op::inn_store& ins) override {
-        frame *f = ctx_.current_frame();
+        frame_pointer f = ctx_.current_frame();
         address_t a = f->module->memaddrs[0];
         memory_instance& mem = ctx_.store()->memorys[a];
         
-        svalue_t sc = ctx_.template stack_pop_raw();
-        u32 i = ctx_.template stack_pop<u32>();
-        u32 ea = i + ins.offset;
+        u32_type c = ctx_.stack_pop().template as<u32_type>();
+        u32_type i = ctx_.stack_pop().template as<u32_type>();
+        u32_type ea = i + u32_type(ins.offset);
 
         u32 n = (ins.type == int_kind::i32) ? 4 : 8;
-        if (ea + n > mem.data.size()) {
-            // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
-            throw wasm_trap("Invalid memory address");
+        u32_type upper = ea + u32_type(n);
+
+        if constexpr (std::is_same_v<u32, u32_type>) {
+            if (upper > mem.data.size()) {
+                // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+                throw wasm_trap("Invalid memory address");
+            }
+        }
+        else {
+            for (const auto& x : upper) {
+                if (x > mem.data.size()) {
+                    // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+                    throw wasm_trap("Invalid memory address");
+                }
+            }
         }
 
         if (ins.type == int_kind::i32) {
-            u32 c = std::get<u32>(sc);
-            u8 *ptr = reinterpret_cast<u8*>(&c);
-            std::copy(ptr, ptr + n, mem.data.data() + ea);
+            if constexpr (std::is_same_v<u32, u32_type>) {
+                const u8 *ptr = reinterpret_cast<const u8*>(&c);
+                std::copy(ptr, ptr + n, mem.data.data() + ea);
+            }
+            else {
+                for (size_t j = 0 ; j < u32_type::size; j++) {
+                    const u8 *ptr = reinterpret_cast<const u8*>(&c[j]);
+                    std::copy(ptr, ptr + n, mem.data.data() + ea[j]);
+                }
+            }
+            // prelude::for_each(c, [&](const auto& x) {
+            //     const u8 *ptr = reinterpret_cast<const u8*>(&x);
+            //     std::copy(ptr, ptr + n, mem.data.data() + ea);
+            // });
             // std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;;
         }
         else {
-            u64 c = std::get<u64>(sc);
-            u8 *ptr = reinterpret_cast<u8*>(&c);
-            std::copy(ptr, ptr + n, mem.data.data() + ea);
-            // std::cout << "i64.store mem[" << ea << "]=" << c;
+            undefined();
+            // u64_type& c = static_cast<u64_type&>(sc);
+            // prelude::for_each(c, [&](const auto& x) {
+            //     const u8 *ptr = reinterpret_cast<const u8*>(&x);
+            //     std::copy(ptr, ptr + n, mem.data.data() + ea);
+            // });
         }
         // auto *v = reinterpret_cast<u32*>(mem.data.data());
         // std::cout << " Mem: ";

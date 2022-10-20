@@ -18,35 +18,64 @@ void print(Poly& p) {
     std::cout << std::endl;
 }
 
-template <typename Fp>
-struct zkp_context_base : public context_base {
-    using Base = context_base;
+template <typename LocalValue, typename StackValue, typename Fp>
+struct zkp_context_base : public context_base<LocalValue, StackValue> {
+    using Base = context_base<LocalValue, StackValue>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
 
-    using var_type = zkp_var<u32, field_poly>;
+    using value_type = typename Base::value_type;
+    using svalue_type = typename Base::svalue_type;
+    
+    using u32_type = typename Base::u32_type;
+    using s32_type = typename Base::s32_type;
+    using u64_type = typename Base::u64_type;
+    using s64_type = typename Base::s64_type;
+
+    using label_type = typename Base::label_type;
+    using frame_type = typename Base::frame_type;
+    using frame_pointer = typename Base::frame_pointer;
+
+    using var_type = zkp_var<u32_type, field_poly>;
 
     zkp_context_base(reed_solomon64& encoder) : encoder_(encoder) { }
     virtual ~zkp_context_base() = default;
 
-    void stack_push(svalue_t&& val) override {
+    void stack_push(svalue_type&& val) override {
         std::visit(prelude::overloaded{
-                [this](u32 v) { zstack_push(static_cast<s32>(v)); },
-                [this](u64 v) { zstack_push(static_cast<s32>(v)); },
+                [this](const value_type& v) { zstack_push(v.template as<u32_type>()); },
+                // [this](u64_type& v) { zstack_push(v); },
                 [](const auto&) { }
-            }, val);
+            }, val.data());
         Base::stack_push(std::move(val));
     }
 
-    svalue_t stack_pop_raw() override {
-        auto val = Base::stack_pop_raw();
+    svalue_type stack_pop() override {
+        svalue_type val = Base::stack_pop();
         std::visit(prelude::overloaded{
-                [this](u32) { zstack_pop(); },
-                [this](u64) { zstack_pop(); },
+                [this](const value_type&) { zstack_pop(); },
+                // [this](const u64_type&) { zstack_pop(); },
                 [](const auto&) { }
-            }, val);
+            }, val.data());
         return val;
+    }
+
+    void drop_n_below(size_t n, size_t pos = 0) override {
+        constexpr auto is_value = [&](const svalue_type& v) {
+            return std::holds_alternative<value_type>(v.data());
+            // return std::holds_alternative<u32_type>(v) || std::holds_alternative<u64_type>(v);
+        };
+        size_t zpos = std::count_if(this->stack_.rbegin(),
+                                    this->stack_.rbegin() + pos,
+                                    is_value);
+        size_t zdrop = std::count_if(this->stack_.rbegin() + pos,
+                                     this->stack_.rbegin() + pos + n,
+                                     is_value);
+        Base::drop_n_below(n, pos);
+
+        auto zit = zstack_.rbegin() + zpos;
+        zstack_.erase((zit + zdrop).base(), zit.base());
     }
 
     void stack_push(const var_type& var) {
@@ -55,15 +84,25 @@ struct zkp_context_base : public context_base {
     }
 
     var_type stack_pop_var() {
-        auto val = Base::stack_pop_raw();
-        assert(std::holds_alternative<u32>(val));
-        return var_type{ std::get<u32>(val), zstack_pop() };
+        auto val = Base::stack_pop().template as<u32_type>();
+        // assert(std::holds_alternative<u32_type>(val));
+        return var_type{ val, zstack_pop() };
     }
     
-    virtual field_poly encode(const field_type& v) {
-        field_poly p(1, v);
-        encoder_.encode(p);
-        return p;
+    virtual field_poly encode(const u32_type& v) {
+        // s32_type sv;
+        // prelude::transform(v, sv, to_signed);
+        // field_poly p(1, v);
+        if constexpr (requires(u32_type u) { u.begin(); }) {
+            field_poly p = field_poly(v.begin(), v.end());
+            encoder_.encode(p);
+            return p;
+        }
+        else {
+            field_poly p = field_poly{ v };
+            encoder_.encode(p);
+            return p;
+        }
     }
 
     virtual field_poly& encode_const(s32 k) {
@@ -71,7 +110,7 @@ struct zkp_context_base : public context_base {
             return consts_[k];
         }
         else {
-            field_poly p(1, k);
+            field_poly p(encoder_.plain_size(), k);
             encoder_.encode_const(p);
             auto [pair, _] = consts_.emplace(k, std::move(p));
             auto& [k, v] = *pair;
@@ -79,25 +118,31 @@ struct zkp_context_base : public context_base {
         }
     }
 
-    virtual void zstack_push(const field_type& v) {
+    virtual void zstack_push(const u32_type& v) {
         zstack_.push_back(encode(v));
     }
 
     virtual field_poly zstack_pop() {
+        assert(!zstack_.empty());
         auto x = zstack_.back();
         zstack_.pop_back();
         return x;
     }
+
+    // void show_stack() const {
+    //     Base::show_stack();
+    //     std::cout << zstack_.size() << std::endl;
+    // }
 
     // void count() const {
     //     std::cout << "field count: " << fcounter
     //               << " scounter: " << scounter << std::endl;
     // }
 
-    virtual void assert_linear(const field_poly& z, const field_poly& x, const field_poly& y) {
-        // do nothing - override in child class
-        linear_count++;
-    }
+    // virtual void assert_linear(const field_poly& z, const field_poly& x, const field_poly& y) {
+    //     // do nothing - override in child class
+    //     linear_count++;
+    // }
 
     virtual void assert_quadratic(const field_poly& z, const field_poly& x, const field_poly& y) {
         // do nothing - override in child class
@@ -114,23 +159,23 @@ struct zkp_context_base : public context_base {
     }
 
     virtual var_type eval(zkp_ops::add, const var_type& x, const var_type& y) {
-        u32 v = x.val() + y.val();
+        u32_type v = x.val() + y.val();
         field_poly p = x.poly() + y.poly();
         process_witness(p);
-        assert_linear(p, x.poly(), y.poly());  // p = x + y
+        // assert_linear(p, x.poly(), y.poly());  // p = x + y
         return var_type{ std::move(v), std::move(p) };
     }
 
     virtual var_type eval(zkp_ops::sub, const var_type& x, const var_type& y) {
-        u32 v = x.val() - y.val();
+        u32_type v = x.val() - y.val();
         field_poly p = x.poly() - y.poly();
         process_witness(p);
-        assert_linear(x.poly(), p, y.poly());  // p = x - y ==> x = p + y
+        // assert_linear(x.poly(), p, y.poly());  // p = x - y ==> x = p + y
         return var_type{ v, std::move(p) };
     }
 
     virtual var_type eval(zkp_ops::mul, const var_type& x, const var_type& y) {
-        u32 v = x.val() * y.val();
+        u32_type v = x.val() * y.val();
         auto p = encode(v);
         process_witness(p);
         assert_quadratic(p, x.poly(), y.poly());  // p = x * y
@@ -138,8 +183,10 @@ struct zkp_context_base : public context_base {
     }
 
     virtual var_type eval(zkp_ops::div, const var_type& x, const var_type& y) {
-        u32 v = x.val() / y.val();
-        auto p = encode(static_cast<s32>(v));
+        assert(false);
+        
+        u32_type v = x.val() / y.val();
+        auto p = encode(v);
         process_witness(p);
         assert_quadratic(x.poly(), p, y.poly());  // p = x / y ==> x = p * y
         return var_type{ v, std::move(p) };
@@ -147,8 +194,8 @@ struct zkp_context_base : public context_base {
 
     virtual var_type eval(zkp_ops::index_of op, const var_type& x) {
         size_t index = op.index;
-        auto v = x.val();
-        auto bit = (v >> index) & static_cast<decltype(v)>(1);
+        u32_type v = x.val();
+        u32_type bit = (v >> index) & 1U;
         auto p = encode(bit);
         process_witness(p);
         assert_quadratic(p, p, p);  // x^2 - x = 0
@@ -163,33 +210,42 @@ protected:
     std::unordered_map<s32, field_poly> consts_;
 };
 
-template <typename Fp>
+template <typename LV, typename SV, typename Fp>
 struct zkp_context
-    : public zkp_context_base<Fp>,
-      public extend_call_host<zkp_context<Fp>>
+    : public zkp_context_base<LV, SV, Fp>
+      // public extend_call_host<zkp_context<Fp>>
 {
-    using zkp_context_base<Fp>::zkp_context_base;
+    using zkp_context_base<LV, SV, Fp>::zkp_context_base;
 };
 
 // Stage 1 (Merkle Tree)
 /* ------------------------------------------------------------ */
-template <typename Fp, typename Hasher = sha256>
-struct stage1_prover_context : public zkp_context<Fp> {
-    using Base = zkp_context<Fp>;
+template <typename LV, typename SV, typename Fp, typename Hasher = sha256>
+struct stage1_prover_context : public zkp_context<LV, SV, Fp> {
+    using Base = zkp_context<LV, SV, Fp>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
+
+    using u32_type = typename Base::u32_type;
+    using s32_type = typename Base::s32_type;
+    using u64_type = typename Base::u64_type;
+    using s64_type = typename Base::s64_type;
+
+    using label_type = typename Base::label_type;
+    using frame_type = typename Base::frame_type;
+    using frame_pointer = typename Base::frame_pointer;
     
     stage1_prover_context(reed_solomon64& encoder)
         // : lrs_(l), qrs_(q), builder_(l.encoded_size()) { }
-        : zkp_context<Fp>(encoder), builder_(encoder.encoded_size()) { }
+        : zkp_context<LV, SV, Fp>(encoder), builder_(encoder.encoded_size()) { }
 
     // void push_witness(u32 v) override {
     //     builder_ << this->encode(v);
     //     Base::push_witness(v);
     // }
 
-    void push_witness(u32 v) override {
+    void push_witness(const u32_type& v) override {
         auto p = this->encode(v);
         builder_ << p;
         this->stack_.push_back(v);
@@ -222,15 +278,26 @@ protected:
 
 // Stage 2 (code test, linear test, qudratic test)
 /* ------------------------------------------------------------ */
-template <typename Fp, typename RandomEngine = hash_random_engine<sha256>>
-struct stage2_prover_context : public zkp_context<Fp> {
+template <typename LV, typename SV, typename Fp,
+          typename RandomEngine = hash_random_engine<sha256>>
+struct stage2_prover_context : public zkp_context<LV, SV, Fp> {
+    using Base = zkp_context<LV, SV, Fp>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
-    using operator_type = standard_op;
+    using operator_type = standard_op;    
+
+    using u32_type = typename Base::u32_type;
+    using s32_type = typename Base::s32_type;
+    using u64_type = typename Base::u64_type;
+    using s64_type = typename Base::s64_type;
+
+    using label_type = typename Base::label_type;
+    using frame_type = typename Base::frame_type;
+    using frame_pointer = typename Base::frame_pointer;
     
     stage2_prover_context(reed_solomon64& encoder, const typename RandomEngine::seed_type& seed)
         // : lrs_(l), qrs_(q), arg_(l.encoded_size(), seed) { }
-        : zkp_context<Fp>(encoder), arg_(encoder.encoded_size(), seed) { }
+        : zkp_context<LV, SV, Fp>(encoder), arg_(encoder.encoded_size(), seed) { }
 
     // void assert_linear(const field_poly& z, const field_poly& x, const field_poly& y) override {
     //     #pragma omp parallel sections
@@ -258,14 +325,23 @@ protected:
 };
 
 
-template <typename Fp>
-struct stage3_prover_context : public zkp_context<Fp>
+template <typename LV, typename SV, typename Fp>
+struct stage3_prover_context : public zkp_context<LV, SV, Fp>
 {
-    using Base = zkp_context<Fp>;
+    using Base = zkp_context<LV, SV, Fp>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
-    using var_type = zkp_var<u32, field_poly>;
+    using var_type = typename Base::var_type;
+
+    using u32_type = typename Base::u32_type;
+    using s32_type = typename Base::s32_type;
+    using u64_type = typename Base::u64_type;
+    using s64_type = typename Base::s64_type;
+
+    using label_type = typename Base::label_type;
+    using frame_type = typename Base::frame_type;
+    using frame_pointer = typename Base::frame_pointer;
 
     using Base::eval, Base::encode;
 
@@ -273,7 +349,7 @@ struct stage3_prover_context : public zkp_context<Fp>
         : Base(encoder), sample_index_(si)
         { }
 
-    field_poly encode(const field_type& v) override {
+    field_poly encode(const typename Base::u32_type& v) override {
         auto p = Base::encode(v);
         field_poly sp(sample_index_.size());
         #pragma omp parallel for
@@ -288,7 +364,7 @@ struct stage3_prover_context : public zkp_context<Fp>
             return this->consts_[k];
         }
         else {
-            field_poly p(1, k);
+            field_poly p(this->encoder_.plain_size(), k);
             this->encoder_.encode_const(p);
             
             field_poly sp(sample_index_.size());
@@ -308,7 +384,7 @@ struct stage3_prover_context : public zkp_context<Fp>
     //     Base::push_witness(v);
     // }
     
-    void zstack_push(const field_type& v) override {
+    void zstack_push(const typename Base::u32_type& v) override {
         auto p = encode(v);
         samples_.push_back(p);
         this->zstack_.push_back(std::move(p));
@@ -355,18 +431,28 @@ protected:
 };
 
 
-template <typename Fp,
+template <typename LV, typename SV,
+          typename Fp,
           typename Hasher = sha256,
           typename RandomEngine = hash_random_engine<Hasher>>
-struct verifier_context : public zkp_context<Fp> {
-    using Base = zkp_context<Fp>;
+struct verifier_context : public zkp_context<LV, SV, Fp> {
+    using Base = zkp_context<LV, SV, Fp>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
-    using var_type = zkp_var<u32, field_poly>;
+    using var_type = typename Base::var_type;
+
+    using u32_type = typename Base::u32_type;
+    using s32_type = typename Base::s32_type;
+    using u64_type = typename Base::u64_type;
+    using s64_type = typename Base::s64_type;
+
+    using label_type = typename Base::label_type;
+    using frame_type = typename Base::frame_type;
+    using frame_pointer = typename Base::frame_pointer;
 
     using Base::eval;
-    using Base::assert_linear, Base::assert_quadratic;
+    using Base::assert_quadratic;
 
     verifier_context(reed_solomon64& encoder,
                      const typename RandomEngine::seed_type& seed,
@@ -386,18 +472,18 @@ struct verifier_context : public zkp_context<Fp> {
     //     this->zstack_.push_back(std::move(p));
     // }
 
-    void zstack_push(const field_type& v) override {
+    void zstack_push(const u32_type&) override {
         this->zstack_.push_back(pop_sample());
     }
 
-    void push_witness(u32 v) override {
+    void push_witness(const u32_type& v) override {
         auto sample = pop_sample();
         builder_ << sample;
         this->stack_.push_back(v);
         this->zstack_.push_back(sample);
     }
 
-    field_poly encode(const field_type& v) override {
+    field_poly encode(const u32_type&) override {
         assert(false);
         // auto p = Base::encode(v);
         // // print(p);
@@ -414,7 +500,7 @@ struct verifier_context : public zkp_context<Fp> {
             return this->consts_[k];
         }
         else {
-            field_poly p(1, k);
+            field_poly p(this->encoder_.plain_size(), k);
             this->encoder_.encode_const(p);
             
             field_poly sp(sample_index_.size());
@@ -439,7 +525,7 @@ struct verifier_context : public zkp_context<Fp> {
     }
 
     var_type eval(zkp_ops::mul, const var_type& x, const var_type& y) override {
-        auto v = x.val() * y.val();
+        u32_type v = x.val() * y.val();
         auto p = pop_sample();
         process_witness(p);
         assert_quadratic(p, x.poly(), y.poly());  // p = x * y
@@ -447,7 +533,7 @@ struct verifier_context : public zkp_context<Fp> {
     }
 
     var_type eval(zkp_ops::div, const var_type& x, const var_type& y) override {
-        auto v = x.val() / y.val();
+        u32_type v = x.val() / y.val();
         auto p = pop_sample();
         process_witness(p);
         assert_quadratic(x.poly(), p, y.poly());  // p = x / y ==> x = p * y
@@ -456,8 +542,8 @@ struct verifier_context : public zkp_context<Fp> {
 
     var_type eval(zkp_ops::index_of op, const var_type& x) override {
         size_t index = op.index;
-        auto v = x.val();
-        auto bit = (v >> index) & static_cast<decltype(v)>(1);
+        u32_type v = x.val();
+        u32_type bit = (v >> index) & 1U;
         auto p = pop_sample();
         process_witness(p);
         assert_quadratic(p, p, p);  // x^2 - x = 0

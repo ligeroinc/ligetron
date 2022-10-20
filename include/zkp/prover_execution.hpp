@@ -19,19 +19,24 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
     using opt = typename Context::operator_type;
     
     using var = typename Context::var_type;
+
+    using u32_type = typename Context::u32_type;
+    using s32_type = typename Context::s32_type;
+    using u64_type = typename Context::u64_type;
+    using s64_type = typename Context::s64_type;
     
     zkp_exe_numeric(Context& ctx)
         : ctx_(ctx),
-          zero(0, ctx_.encode_const(0)),
-          one(1, ctx_.encode_const(1)),
-          two(2, ctx_.encode_const(2))
+          zero(u32_type(0U), ctx_.encode_const(0)),
+          one(u32_type(1U), ctx_.encode_const(1)),
+          two(u32_type(2U), ctx_.encode_const(2))
         { }
 
     result_t run(const op::inn_const& i) override {
         assert(i.type == int_kind::i32);
 
         u32 c = static_cast<u32>(i.val);
-        ctx_.stack_push(var{ c, ctx_.encode_const(static_cast<s32>(c)) });
+        ctx_.stack_push(var{ u32_type(c), ctx_.encode_const(static_cast<s32>(c)) });
         return {};
     }
 
@@ -57,17 +62,10 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         var x = ctx_.stack_pop_var();
         
         ctx_.stack_push(ctx_.eval(x + y));
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // ctx_.vstack_push(x + y);
 
-        // poly fy = ctx_.zstack_pop();
-        // poly fx = ctx_.zstack_pop();
-        
-        // poly fz = fx + fy;
-        // ctx_.zstack_pushs(std::move(fx), std::move(fy), std::move(fz));
-        // ctx_.bound_linear(2, 1, 0);        // linear: x + y = z
-        // ctx_.zstack_drop(2, 1);
+        // std::cout << "add ";
+        // std::cout << " " << x.val() << " " << y.val() << std::endl;
+        // ctx_.show_stack();
         return {};
     }
 
@@ -78,16 +76,10 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         var x = ctx_.stack_pop_var();
         
         ctx_.stack_push(ctx_.eval(x - y));
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // ctx_.vstack_push(x - y);
 
-        // poly fy = ctx_.zstack_pop();
-        // poly fx = ctx_.zstack_pop();
-        // poly fz = fx - fy;
-        // ctx_.zstack_pushs(fx, fy, fz);
-        // ctx_.bound_linear(0, 1, 2);        // linear: z + y = x
-        // ctx_.zstack_drop(2, 1);
+        // std::cout << "sub ";
+        // std::cout << " " << x.val() << " " << y.val() << std::endl;
+        // ctx_.show_stack();
         return {};
     }
 
@@ -98,16 +90,6 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         var x = ctx_.stack_pop_var();
         
         ctx_.stack_push(ctx_.eval(x * y));
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // ctx_.vstack_push(x * y);
-
-        // poly fy = ctx_.zstack_pop();
-        // poly fx = ctx_.zstack_pop();
-        // poly fz = fx * fy;
-        // ctx_.zstack_pushs(fx, fy, fz);
-        // ctx_.bound_quadratic(2, 1, 0);        // quadratic: x * y = z
-        // ctx_.zstack_drop(2, 1);
         return {};
     }
 
@@ -141,44 +123,9 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
 
         ctx_.stack_push(acc);
 
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // ctx_.vstack_push(x & y);
-
-        // field acc = 0;
-        // for (size_t i = 0; i < 32; i++) {
-        //     field a = bit_of(x, i);
-        //     field b = bit_of(y, i);
-        //     field c = a * b;
-        //     field k = 1 << i;
-        //     field t = c * k;
-
-        //     ctx_.zstack_push(a);
-        //     ctx_.bound_quadratic(0, 0, 0);              // quadratic: a * a = a
-        //     ctx_.zstack_push(b);
-        //     ctx_.bound_quadratic(0, 0, 0);              // quadratic: b * b = b
-        //     ctx_.zstack_push(c);
-        //     ctx_.bound_quadratic(2, 1, 0);              // quadratic: a * b = c
-        //     ctx_.zstack_push(k);
-        //     ctx_.zstack_push(t);
-        //     ctx_.bound_quadratic(2, 1, 0);
-
-        //     if (i == 0) {
-        //         acc = t;
-        //     }
-        //     else {
-        //         ctx_.zstack_push(acc);
-        //         acc = acc + t;
-        //         ctx_.zstack_push(acc);
-        //         ctx_.bound_linear(2, 1, 0);
-        //     }
-        // }
-        
-        // auto top = ctx_.zstack_pop();         // save z
-        // ctx_.zstack_drop((32 * 5) + (31 * 2) - 1);
-        // ctx_.zstack_pop();                    // pop y
-        // ctx_.zstack_pop();                    // pop x
-        // ctx_.zstack_push(std::move(top));     // push z back
+        // std::cout << "and ";
+        // std::cout << " " << x.val() << " " << y.val() << " " << acc.val() << std::endl;
+        // ctx_.show_stack();
         return {};
     }
 
@@ -199,57 +146,11 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
 
         ctx_.stack_push(acc);
 
+        // std::cout << "or ";
+        // std::cout << " " << x.val() << " " << y.val() << " " << acc.val() << std::endl;
+        // ctx_.show_stack();
+
         // return run_binop<typename opt::bit_or>(ins.type);
-        
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // ctx_.vstack_push(x | y);
-
-        /* Analytical representation: f(x) = a + b - a * b */
-        // field acc = 0;
-        // for (size_t i = 0; i < 32; i++) {
-        //     field a = bit_of(x, i);
-        //     field b = bit_of(y, i);
-        //     field pa = a + b;
-        //     field pb = a * b;
-        //     field c = pa - pb;
-        //     field k = 1 << i;
-        //     field t = c * k;
-
-        //     ctx_.zstack_push(a);
-        //     ctx_.bound_quadratic(0, 0, 0);              // quadratic: a * a = a
-        //     ctx_.zstack_push(b);
-        //     ctx_.bound_quadratic(0, 0, 0);              // quadratic: b * b = b
-            
-        //     ctx_.zstack_push(pa);
-        //     ctx_.bound_linear(2, 1, 0);                 // a + b = pa
-            
-        //     ctx_.zstack_push(pb);
-        //     ctx_.bound_quadratic(3, 2, 0);              // a * b = pb
-            
-        //     ctx_.zstack_push(c);
-        //     ctx_.bound_linear(0, 1, 2);                 // c + pb = pa
-            
-        //     ctx_.zstack_push(k);
-        //     ctx_.zstack_push(t);
-        //     ctx_.bound_quadratic(2, 1, 0);
-
-        //     if (i == 0) {
-        //         acc = t;
-        //     }
-        //     else {
-        //         ctx_.zstack_push(acc);
-        //         acc = acc + t;
-        //         ctx_.zstack_push(acc);
-        //         ctx_.bound_linear(2, 1, 0);
-        //     }
-        // }
-        
-        // auto top = ctx_.zstack_pop();         // save z
-        // ctx_.zstack_drop((32 * 7) + (31 * 2) - 1);
-        // ctx_.zstack_pop();                    // pop y
-        // ctx_.zstack_pop();                    // pop x
-        // ctx_.zstack_push(std::move(top));     // push z back
         return {};
     }
 
@@ -271,64 +172,6 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         }
 
         ctx_.stack_push(acc);
-        
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // ctx_.vstack_push(x xor y);
-
-        /* Analytical representation: f(x) = a + b - 2ab */
-        // field acc = 0;
-        // for (size_t i = 0; i < 32; i++) {
-        //     field a = bit_of(x, i);
-        //     field b = bit_of(y, i);
-        //     field p = a + b;
-        //     field q = a * b;
-        //     field q2 = field{2} * q;
-        //     field c = p - q2;
-            
-        //     field k = 1 << i;
-        //     field t = c * k;
-
-        //     ctx_.zstack_push(a);
-        //     ctx_.bound_quadratic(0, 0, 0);  // quadratic: a * a = a
-        //     ctx_.zstack_push(b);
-        //     ctx_.bound_quadratic(0, 0, 0);  // quadratic: b * b = b
-            
-        //     ctx_.zstack_push(p);
-        //     ctx_.bound_linear(2, 1, 0);     // linear:    a + b = p
-        //     /* Stack: a b p q */
-        //     ctx_.zstack_push(q);
-        //     ctx_.bound_quadratic(3, 2, 0);  // quadratic: a * b = q
-            
-        //     ctx_.zstack_push(2);
-        //     ctx_.zstack_push(q2);
-        //     /* Stack: a b p q 2 q2 */
-        //     ctx_.bound_quadratic(2, 1, 0);  // quadratic: q * 2 = q2
-            
-        //     ctx_.zstack_push(c);
-        //     /* Stack: a b p q 2 q2 c */
-        //     ctx_.bound_linear(0, 1, 4);     // linear:    c + q2 = p
-            
-        //     ctx_.zstack_push(k);
-        //     ctx_.zstack_push(t);
-        //     ctx_.bound_quadratic(2, 1, 0);
-
-        //     if (i == 0) {
-        //         acc = t;
-        //     }
-        //     else {
-        //         ctx_.zstack_push(acc);
-        //         acc = acc + t;
-        //         ctx_.zstack_push(acc);
-        //         ctx_.bound_linear(2, 1, 0);
-        //     }
-        // }
-        
-        // auto top = ctx_.zstack_pop();         // save z
-        // ctx_.zstack_drop(32 * 9 + 31 * 2 - 1);
-        // ctx_.zstack_pop();                    // pop y
-        // ctx_.zstack_pop();                    // pop x
-        // ctx_.zstack_push(std::move(top));     // push z back
         return {};
     }
 
@@ -349,59 +192,10 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         }
         
         ctx_.stack_push(ctx_.eval(x * exp));
-        
-        // u32 y = ctx_.template vstack_pop<u32>();
-        // u32 x = ctx_.template vstack_pop<u32>();
-        // u32 z = x << y;
-        // ctx_.vstack_push(z);
 
-        /* Analytic form: shiftl(x, y) = x * 2 ^ y */
-        // field exp = 1;
-        // field shift = 1;
-
-        // for (size_t i = 0; i < 32; i++) {
-        //     field mask = bit_of(y, i);
-        //     field v = mask * exp;
-
-        //     ctx_.zstack_push(mask);
-        //     ctx_.bound_quadratic(0, 0, 0);  // check mask is a bit
-            
-        //     if (i > 0) {
-        //         ctx_.zstack_push(exp);
-        //         ctx_.zstack_push(2);
-        //         exp = exp * field{2};
-        //         ctx_.zstack_push(exp);
-        //     }
-        //     else {
-        //         ctx_.zstack_push(exp);
-        //     }
-            
-        //     ctx_.zstack_push(v);
-        //     ctx_.bound_quadratic(2, 1, 0);  // mask * exp = v
-
-        //     ctx_.zstack_push(shift);
-        //     shift = shift * v;
-        //     ctx_.zstack_push(shift);
-        //     ctx_.bound_quadratic(2, 1, 0);  // shift = shift * v
-        // }
-
-        // auto top = ctx_.zstack_pop();
-        // ctx_.zstack_drop(4 * 32 + 3 * 31 + 1 - 1);
-        // ctx_.zstack_push(std::move(top));
-        
-        // /* At this point, the shift value is on top of the zstack */
-        
-        // field fx = x;
-        // field fz = fx * shift;
-        // fz %= 1ULL << 32;
-
-        // ctx_.zstack_push(fx);
-        // ctx_.zstack_push(fz);
-        // ctx_.bound_quadratic(2, 1, 0);
-
-        // auto result = ctx_.zstack_pop();
-        // ctx_.zstack_drop(2 + 2);
-        // ctx_.zstack_push(std::move(result));
+        // std::cout << "shiftl ";
+        // std::cout << " " << x.val() << " " << shift.val();
+        // ctx_.show_stack();
         
         return {};
     }
@@ -450,16 +244,8 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         }
 
         ctx_.stack_push(acc);
-        // if (ins.type == int_kind::i32) {
-        //     u32 c = ctx_.template stack_pop<u32>();
-        //     u32 r = typename opt::equal_to{}(c, u32{0});
-        //     ctx_.template stack_push(r);
-        // }
-        // else {
-        //     u64 c = ctx_.template stack_pop<u64>();
-        //     u64 r = typename opt::equal_to{}(c, u64{0});
-        //     ctx_.template stack_push(r);
-        // }
+
+        // std::cout << "eqz ";
         // std::cout << " " << x.val() << " " << acc.val() << std::endl;
         return {};
     }
@@ -478,6 +264,8 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         }
 
         ctx_.stack_push(acc);
+
+        // std::cout << "eq ";
         // std::cout << " " << x.val() << " " << y.val() << " " << acc.val() << std::endl;
         
         // std::cout << ins.name();
@@ -502,6 +290,7 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         
         ctx_.stack_push(acc);
 
+        // std::cout << "ne ";
         // std::cout << " " << x.val() << " " << y.val() << " " << acc.val() << std::endl;
         
         
@@ -529,6 +318,7 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
         var result = ctx_.eval(is_pos * acc);
         ctx_.stack_push(result);
 
+        // std::cout << "lt_sx ";
         // std::cout << " " << x.val() << " " << y.val() << " " << result.val() << std::endl;
         
         
@@ -623,42 +413,45 @@ struct zkp_exe_numeric : virtual public NumericExecutor {
     }
 
     result_t run(const op::i64_extend_i32_sx& ins) override {
-        if (ins.sign == sign_kind::sign) {
-            u32 sv = ctx_.template stack_pop<u32>();
-            u64 c = static_cast<u64>(static_cast<s64>(static_cast<s32>(sv)));
-            ctx_.template stack_push(c);
-        }
-        else {
-            u32 sv = ctx_.template stack_pop<u32>();
-            u64 c = sv;
-            ctx_.template stack_push(c);
-        }
+        // if (ins.sign == sign_kind::sign) {
+        //     u32 sv = ctx_.template stack_pop<u32>();
+        //     u64 c = static_cast<u64>(static_cast<s64>(static_cast<s32>(sv)));
+        //     ctx_.template stack_push(c);
+        // }
+        // else {
+        //     u32 sv = ctx_.template stack_pop<u32>();
+        //     u64 c = sv;
+        //     ctx_.template stack_push(c);
+        // }
+        undefined(ins);
         return {};
     }
 
     result_t run(const op::i32_wrap_i64& ins) override {
-        u64 sv = ctx_.template stack_pop<u64>();
-        ctx_.template stack_push(static_cast<u32>(sv));
+        undefined(ins);
+        // u64 sv = ctx_.template stack_pop<u64>();
+        // ctx_.template stack_push(static_cast<u32>(sv));
         return {};
     }
 
 private:
     template <typename Op, typename T32 = u32, typename T64 = u64>
     result_t run_binop(int_kind k) {
-        if (k == int_kind::i32) {
-            T32 y = ctx_.template stack_pop<u32>();
-            T32 x = ctx_.template stack_pop<u32>();
-            u32 result = static_cast<u32>(Op{}(x, y));
-            ctx_.template stack_push(result);
-            // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
-        }
-        else {
-            T64 y = ctx_.template stack_pop<u64>();
-            T64 x = ctx_.template stack_pop<u64>();
-            u64 result = static_cast<u64>(Op{}(x, y));
-            ctx_.template stack_push(result);
-            // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
-        }
+        undefined();
+        // if (k == int_kind::i32) {
+        //     T32 y = ctx_.template stack_pop<u32>();
+        //     T32 x = ctx_.template stack_pop<u32>();
+        //     u32 result = static_cast<u32>(Op{}(x, y));
+        //     ctx_.template stack_push(result);
+        //     // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+        // }
+        // else {
+        //     T64 y = ctx_.template stack_pop<u64>();
+        //     T64 x = ctx_.template stack_pop<u64>();
+        //     u64 result = static_cast<u64>(Op{}(x, y));
+        //     ctx_.template stack_push(result);
+        //     // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+        // }
         // ctx_.show_stack();
         return {};
     }
@@ -682,6 +475,18 @@ struct zkp_executor :
     using basic_exe_variable<Context>::run;
     using zkp_exe_numeric<Context>::run;
     using basic_exe_memory<Context>::run;
+
+    using value_type = typename Context::value_type;
+    using svalue_type = typename Context::svalue_type;
+    
+    using u32_type = typename Context::u32_type;
+    using s32_type = typename Context::s32_type;
+    using u64_type = typename Context::u64_type;
+    using s64_type = typename Context::s64_type;
+
+    using label_type = typename Context::label_type;
+    using frame_type = typename Context::frame_type;
+    using frame_pointer = typename Context::frame_pointer;
 
     zkp_executor(Context& ctx)
         : basic_exe_parametric<Context>(ctx),

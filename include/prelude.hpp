@@ -1,6 +1,8 @@
 #pragma once
 
 #include <bit>
+#include <vector>
+#include <string>
 
 namespace ligero::prelude {
 
@@ -25,35 +27,107 @@ InputIt find_if_n(InputIt first, InputIt last, size_t n, UnaryPredicate p) {
     template <>                                                         \
     struct NAME<void> {                                                 \
         template <typename T>                                           \
-        constexpr T operator()(const T& x, const T& y) { return NAME<T>{}(x, y); } \
+        constexpr T operator()(const T& x, const T& y) const { return NAME<T>{}(x, y); } \
     };
 
 template <typename T = void>
 struct shiftl {
-    constexpr T operator()(const T& num, const T& by) { return num << by; }
+    constexpr T operator()(const T& num, const T& by) const { return num << by; }
 };
 
 PRELUDE_DECLARE_HELPER(shiftl)
 
 template <typename T = void>
 struct shiftr {
-    constexpr T operator()(const T& num, const T& by) { return num >> by; }
+    constexpr T operator()(const T& num, const T& by) const { return num >> by; }
 };
 
 PRELUDE_DECLARE_HELPER(shiftr)
 
 template <typename T = void>
 struct rotatel {
-    constexpr T operator()(const T& num, const T& by) { return std::rotl(num, by); }
+    constexpr T operator()(const T& num, const T& by) const { return std::rotl(num, by); }
 };
 
 PRELUDE_DECLARE_HELPER(rotatel)
 
 template <typename T = void>
 struct rotater {
-    constexpr T operator()(const T& num, const T& by) { return std::rotr(num, by); }
+    constexpr T operator()(const T& num, const T& by) const { return std::rotr(num, by); }
 };
 
 PRELUDE_DECLARE_HELPER(rotater)
+
+template <typename T>
+std::string to_string(const T& v) {
+    if constexpr (std::is_fundamental_v<T>) {
+        return std::to_string(v);
+    }
+    else {
+        std::string str = "[";
+        for (const auto& x : v) {
+            str += prelude::to_string(x);
+            str += ", ";
+        }
+        str += "]";
+        return str;
+    }
+}
+
+template <typename T, typename UnaryFunc>
+void transform(T& v, UnaryFunc&& func) {
+    if constexpr (requires { {v.begin()}; {v.end()}; }) {
+        std::transform(v.begin(), v.end(), v.begin(), func);
+    }
+    else {
+        v = func(v);
+    }
+}
+
+template <typename T, typename UnaryFunc>
+void for_each(T& v, UnaryFunc&& func) {
+    if constexpr (requires { {v.begin()}; {v.end()}; }) {
+        std::transform(v.begin(), v.end(), func);
+    }
+    else {
+        func(v);
+    }
+}
+
+constexpr auto to_signed = [](auto& x) {
+    return static_cast<std::make_signed_t<decltype(x)>>(x);
+};
+
+template <typename T>
+T make_signed(const T& v) {
+    if constexpr (requires { {v.begin()}; {v.end()}; }) {
+        std::make_signed_t<typename T::value_type> sv;
+        std::transform(v.begin(), v.end(), std::back_inserter(sv), to_signed);
+        return sv;
+    }
+    else {
+        return to_signed(v);
+    }
+}
+
+template <typename T, typename UnaryFunc>
+auto all_of(UnaryFunc&& func, T& v) {
+    if constexpr (requires { {v.begin() }; {v.end()}; }) {
+        return std::all_of(v.begin(), v.end(), func);
+    }
+    else {
+        return func(v);
+    }
+}
+
+template <typename T, typename UnaryFunc>
+auto any_of(UnaryFunc&& func, T& v) {
+    if constexpr (requires { {v.begin() }; {v.end()}; }) {
+        return std::any_of(v.begin(), v.end(), func);
+    }
+    else {
+        return func(v);
+    }
+}
 
 }  // namespace ligero::prelude

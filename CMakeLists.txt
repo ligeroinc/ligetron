@@ -14,10 +14,10 @@ find_package(Boost
 
 # add_compile_options(--target=wasm32-unknown-unknown-wasm -c -Wl,--allow-undefined)
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  add_compile_options(-std=c++20 -Og -fsanitize=address)
+  add_compile_options(-std=c++20 -Og -g -fsanitize=address)
   add_link_options(-fsanitize=address)
 else()
-  add_compile_options(-std=c++20 -O3 -march=native -mavx512dq -fopenmp)
+  add_compile_options(-std=c++20 -O3 -march=native -fopenmp)
   add_link_options(-fopenmp)
 endif()
 

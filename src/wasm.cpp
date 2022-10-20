@@ -13,6 +13,8 @@
 
 #include <chrono>
 
+#include <fixed_vector.hpp>
+
 using namespace wabt;
 using namespace ligero::vm;
 
@@ -30,9 +32,17 @@ bool validate(Decoder& dec, Poly p) {
 }
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
-constexpr uint64_t modulus = 1073479681UL;
+constexpr uint64_t modulus = 1125625028935681ULL;
 constexpr size_t l = 128, d = 256, n = 512;
 using poly_t = zkp::primitive_poly<modulus>;
+
+using u32vec = fixed_vector<u32, l>;
+using s32vec = fixed_vector<s32, l>;
+using u64vec = fixed_vector<u64, l>;
+using s64vec = fixed_vector<s64, l>;
+using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
+using frame_type = frame<value_type>;
+using svalue_type = stack_value<value_type, label, frame_type>;
 
 template <typename Context>
 void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
@@ -57,7 +67,7 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     //     ctx.set_args(data);
     // }
     constexpr size_t offset = 16384;
-    constexpr size_t len1 = 10, len2 = 10;
+    constexpr size_t len1 = 100, len2 = 100;
     constexpr size_t offset1 = offset + len1;
     if (fill) {
         {
@@ -130,7 +140,7 @@ int main(int argc, char *argv[]) {
     // -------------------------------------------------------------------------------- //
 
     
-    zkp::stage1_prover_context<poly_t, zkp::sha256> ctx(encoder);
+    zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);
     auto stage1_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, ctx, func);
@@ -156,7 +166,7 @@ int main(int argc, char *argv[]) {
 
     
     encoder.seed(encoder_seed);
-    zkp::stage2_prover_context<poly_t> ctx2(encoder, hash);
+    zkp::stage2_prover_context<value_type, svalue_type, poly_t> ctx2(encoder, hash);
     auto stage2_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, ctx2, func);
@@ -169,7 +179,7 @@ int main(int argc, char *argv[]) {
 
     const auto& prover_arg = ctx2.get_argument();
     std::cout << "----------------------------------------" << std::endl
-              << "validation of linear: Not needed"
+              << "validation of linear: N/A" << std::endl
               << "validation of quadratic: " << validate(encoder, prover_arg.quadratic()) << std::endl
               << "----------------------------------------" << std::endl;
 
@@ -197,7 +207,7 @@ int main(int argc, char *argv[]) {
     
 
     encoder.seed(encoder_seed);
-    zkp::stage3_prover_context<poly_t> ctx3(encoder, sample_index);
+    zkp::stage3_prover_context<value_type, svalue_type, poly_t> ctx3(encoder, sample_index);
     auto stage3_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, ctx3, func);
@@ -223,7 +233,7 @@ int main(int argc, char *argv[]) {
     
 
     encoder.seed(encoder_seed);
-    zkp::verifier_context<poly_t> vctx(encoder, hash, sample_index, ctx3.get_sample());
+    zkp::verifier_context<value_type, svalue_type, poly_t> vctx(encoder, hash, sample_index, ctx3.get_sample());
     auto verify_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, vctx, func, false);

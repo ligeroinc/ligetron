@@ -8,6 +8,7 @@
 #include <instruction.hpp>
 #include <bridge.hpp>
 #include <prelude.hpp>
+#include <value.hpp>
 
 #include <string_view>
 
@@ -15,54 +16,24 @@
 
 namespace ligero::vm {
 
-// Reference
-/* ------------------------------------------------------------ */
-// struct ref_t {
-//     ref_kind kind;
-//     address_t address;
-// };
+// using value_t = std::variant<u32, u64>;
+// using svalue_t = std::variant<u32, u64, label, frame_ptr>;
 
 
-// Runtime Objects
-/* ------------------------------------------------------------ */
-// struct externval_t {
-//     extern_kind kind;
-//     address_t address;
-// };
+// value_t to_value(const svalue_t& sv) {
+//     return std::visit(prelude::overloaded {
+//             [](u32 v) -> value_t { return v; },
+//             [](u64 v) -> value_t { return v; },
+//             [](const auto& v) -> value_t { throw wasm_trap("Invalid conversion"); }
+//         }, sv);
+// }
 
-struct label { u32 arity; };
-
-struct module_instance;
-struct frame;
-
-using frame_ptr = std::unique_ptr<frame>;
-using value_t = std::variant<u32, u64>;
-using svalue_t = std::variant<u32, u64, label, frame_ptr>;
-
-struct frame {
-    frame() = default;
-    frame(u32 arity, std::vector<value_t>&& local, module_instance *module)
-        : arity(arity), locals(std::move(local)), module(module) { }
-    
-    u32 arity;
-    std::vector<value_t> locals;
-    module_instance *module;
-};
-
-value_t to_value(const svalue_t& sv) {
-    return std::visit(prelude::overloaded {
-            [](u32 v) -> value_t { return v; },
-            [](u64 v) -> value_t { return v; },
-            [](const auto& v) -> value_t { throw wasm_trap("Invalid conversion"); }
-        }, sv);
-}
-
-svalue_t to_svalue(const value_t& v) {
-    return std::visit(prelude::overloaded {
-            [](u32 v) -> svalue_t { return v; },
-            [](u64 v) -> svalue_t { return v; },
-        }, v);
-}
+// svalue_t to_svalue(const value_t& v) {
+//     return std::visit(prelude::overloaded {
+//             [](u32 v) -> svalue_t { return v; },
+//             [](u64 v) -> svalue_t { return v; },
+//         }, v);
+// }
 
 // struct stack_val_t {
 //     enum class kind {
@@ -234,10 +205,10 @@ struct memory_instance {
 // Global Instance
 /* ------------------------------------------------------------ */
 struct global_instance {
-    global_instance(global_kind k, value_t val) : kind(k), val(val) { }
+    global_instance(global_kind k, u32 val) : kind(k), val(val) { }
     
     global_kind kind;
-    value_t val;
+    u32 val;
 };
 
 // Element Instance
@@ -414,7 +385,7 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
 
     /* Initialize globals */
     {
-        auto frame_init = std::make_unique<frame>();
+        auto frame_init = std::make_unique<typename Executor::frame_type>();
 
         // TODO: make a frame only contain imported globals and functions
         frame_init->module = &minst;
@@ -442,14 +413,25 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
                 translate(expr)->run(exe);
             }
 
-            value_t v = std::visit(prelude::overloaded {
-                    [](u32 v) -> value_t { return v; },
-                    [](u64 v) -> value_t { return v; },
-                    [](const auto& v) -> value_t { throw wasm_trap("Invalid global init value"); }
-                }, exe.context().stack_pop_raw());
+            auto top = exe.context().stack_pop().template as<typename Executor::u32_type>();
+
+            // TODO: make it more general
+            u32 global_val = 0;
+            if constexpr (requires(typename Executor::u32_type u, size_t i) { u[i]; }) {
+                global_val = top[0];
+            }
+            else {
+                global_val = top;
+            }
+            
+            // auto v = std::visit(prelude::overloaded {
+            //         [](u32 v) -> value_t { return v; },
+            //         [](u64 v) -> value_t { return v; },
+            //         [](const auto& v) -> value_t { throw wasm_trap("Invalid global init value"); }
+            //     }, );
 
             global_kind k{ translate_type(p->type), p->mutable_ };
-            index_t gi = store.emplace_back<global_instance>(k, std::move(v));
+            index_t gi = store.emplace_back<global_instance>(k, global_val);
             minst.globaladdrs.push_back(gi);
            
         }
@@ -461,12 +443,14 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
 
 template <typename Executor, typename... Args>
 void invoke(module_instance& m, Executor& exe, index_t funcaddr, Args&&... args) {
-    auto dummy = std::make_unique<frame>();
+    auto dummy = std::make_unique<typename Executor::frame_type>();
     dummy->module = &m;
     exe.context().push_frame(std::move(dummy));
 
-    ((exe.context().push_witness(u32(args))), ...);
+    ((exe.context().push_witness(args)), ...);
 
+    std::cout << "Parameters: ";
+    exe.context().show_stack();
     op::call{funcaddr}.run(exe);
     std::cout << "Result: ";
     exe.context().show_stack();

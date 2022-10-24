@@ -75,6 +75,9 @@ using result_kind = std::vector<value_kind>;
 // Function Type
 /* ------------------------------------------------------------ */
 struct function_kind {
+    function_kind(result_kind param, result_kind ret)
+        : params(std::move(param)), returns(std::move(ret)) { }
+    
     result_kind params;
     result_kind returns;
 };

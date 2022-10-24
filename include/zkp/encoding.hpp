@@ -6,6 +6,8 @@
 #include <zkp/random.hpp>
 #include <zkp/number_theory.hpp>
 
+#include <chrono>
+
 namespace ligero::vm::zkp {
 
 struct reed_solomon64 {
@@ -17,7 +19,7 @@ struct reed_solomon64 {
             if (d == n) {
                 uint64_t minimal_root = ntt_message_.GetMinimalRootOfUnity();
                 // std::cout << "Minimal root: " << minimal_root << std::endl;
-                uint64_t next_root = next_root_of_unity(minimal_root, 2*n, modulus);
+                uint64_t next_root = next_root_of_unity(minimal_root, static_cast<uint64_t>(2*n), modulus);
                 // std::cout << "Next root: " << next_root << std::endl;
                 ntt_codeword_ = hexl::NTT(n, modulus, next_root);
             }
@@ -28,11 +30,14 @@ struct reed_solomon64 {
 
     template <typename Poly>
     Poly& encode(Poly& poly) {
+        auto encode_begin = std::chrono::high_resolution_clock::now();
         poly.pad(l_);
         poly.pad_random(d_, random_);
         ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
         poly.pad(n_);
         ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
+        auto encode_end = std::chrono::high_resolution_clock::now();
+        timer_ += std::chrono::duration_cast<std::chrono::microseconds>(encode_end - encode_begin).count();
         return poly;
     }
 
@@ -97,6 +102,7 @@ struct reed_solomon64 {
     //     for (size_t i = 0; i < d_ - l_; i++)
     //         dist(random_);
     // }
+    size_t timer_ = 0;
 
 protected:
     const uint64_t modulus_;

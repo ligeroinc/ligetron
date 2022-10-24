@@ -424,10 +424,10 @@ public:
 
     result_t run(const op::inn_const& i) override {
         if (i.type == int_kind::i32) {
-            ctx_.template stack_push(static_cast<u32>(i.val));
+            ctx_.stack_push(static_cast<u32>(i.val));
         }
         else {
-            ctx_.template stack_push(i.val);
+            ctx_.stack_push(i.val);
         }
         return {};
     }
@@ -435,13 +435,13 @@ public:
     result_t run(const op::inn_clz& ins) override {
         if (ins.type == int_kind::i32) {
             u32 c = ctx_.template stack_pop<u32>();
-            u32 count = typename opt::countl_zero<u32>{}(c);
-            ctx_.template stack_push(count);
+            u32 count = typename opt::template countl_zero<u32>{}(c);
+            ctx_.stack_push(count);
         }
         else {
             u64 c = ctx_.template stack_pop<u64>();
-            u64 count = typename opt::countl_zero<u64>{}(c);
-            ctx_.template stack_push(count);
+            u64 count = typename opt::template countl_zero<u64>{}(c);
+            ctx_.stack_push(count);
         }
         return {};
     }
@@ -449,13 +449,13 @@ public:
     result_t run(const op::inn_ctz& ins) override {
         if (ins.type == int_kind::i32) {
             u32 c = ctx_.template stack_pop<u32>();
-            u32 count = typename opt::countr_zero<u32>{}(c);
-            ctx_.template stack_push(count);
+            u32 count = typename opt::template countr_zero<u32>{}(c);
+            ctx_.stack_push(count);
         }
         else {
             u64 c = ctx_.template stack_pop<u64>();
-            u64 count = typename opt::countr_zero<u64>{}(c);
-            ctx_.template stack_push(count);
+            u64 count = typename opt::template countr_zero<u64>{}(c);
+            ctx_.stack_push(count);
         }
         return {};
     }
@@ -463,13 +463,13 @@ public:
     result_t run(const op::inn_popcnt& ins) override {
         if (ins.type == int_kind::i32) {
             u32 c = ctx_.template stack_pop<u32>();
-            u32 count = typename opt::popcount<u32>{}(c);
-            ctx_.template stack_push(count);
+            u32 count = typename opt::template popcount<u32>{}(c);
+            ctx_.stack_push(count);
         }
         else {
             u64 c = ctx_.template stack_pop<u64>();
-            u64 count = typename opt::popcount<u64>{}(c);
-            ctx_.template stack_push(count);
+            u64 count = typename opt::template popcount<u64>{}(c);
+            ctx_.stack_push(count);
         }
         return {};
     }
@@ -549,12 +549,12 @@ public:
         if (ins.type == int_kind::i32) {
             u32 c = ctx_.template stack_pop<u32>();
             u32 r = typename opt::equal_to{}(c, u32{0});
-            ctx_.template stack_push(r);
+            ctx_.stack_push(r);
         }
         else {
             u64 c = ctx_.template stack_pop<u64>();
             u64 r = typename opt::equal_to{}(c, u64{0});
-            ctx_.template stack_push(r);
+            ctx_.stack_push(r);
         }
         return {};
     }
@@ -628,19 +628,19 @@ public:
         if (ins.sign == sign_kind::sign) {
             u32 sv = ctx_.template stack_pop<u32>();
             u64 c = static_cast<u64>(static_cast<s64>(static_cast<s32>(sv)));
-            ctx_.template stack_push(c);
+            ctx_.stack_push(c);
         }
         else {
             u32 sv = ctx_.template stack_pop<u32>();
             u64 c = sv;
-            ctx_.template stack_push(c);
+            ctx_.stack_push(c);
         }
         return {};
     }
 
     result_t run(const op::i32_wrap_i64& ins) override {
         u64 sv = ctx_.template stack_pop<u64>();
-        ctx_.template stack_push(static_cast<u32>(sv));
+        ctx_.stack_push(static_cast<u32>(sv));
         return {};
     }
 
@@ -651,14 +651,14 @@ private:
             T32 y = ctx_.template stack_pop<u32>();
             T32 x = ctx_.template stack_pop<u32>();
             u32 result = static_cast<u32>(Op{}(x, y));
-            ctx_.template stack_push(result);
+            ctx_.stack_push(result);
             std::cout << " f(" << x << ", " << y << ") = " << result << " ";
         }
         else {
             T64 y = ctx_.template stack_pop<u64>();
             T64 x = ctx_.template stack_pop<u64>();
             u64 result = static_cast<u64>(Op{}(x, y));
-            ctx_.template stack_push(result);
+            ctx_.stack_push(result);
             std::cout << " f(" << x << ", " << y << ") = " << result << " ";
         }
         ctx_.show_stack();
@@ -686,7 +686,7 @@ public:
         address_t a = f->module->memaddrs[0];
         const auto& mem = ctx_.store()->memorys[a];
         u32 sz = mem.data.size() / memory_instance::page_size;
-        ctx_.template stack_push(u32_type(sz));
+        ctx_.stack_push(u32_type(sz));
         return {};
     }
 

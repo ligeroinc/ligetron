@@ -137,109 +137,51 @@ int main(int argc, char *argv[]) {
 
     std::cout << "l: " << l << " d: " << d << " K: " << n << std::endl;
 
-    std::random_device rd;
-    const unsigned int encoder_seed = rd();
+    
+
+    std::ifstream proof("proof.data", std::ios::in | std::ios::binary);
+    boost::archive::binary_iarchive ia(proof);
+    
+    unsigned int encoder_seed;
+    ia >> encoder_seed;
+
+    zkp::sha256::digest merkle_root;
+    ia >> merkle_root;
+
+    zkp::sha256::digest sample_seed;
+    ia >> sample_seed;
+
+    poly_t prover_code, prover_quad;
+    ia >> prover_code;
+    ia >> prover_quad;
+
+    zkp::merkle_tree<zkp::sha256>::decommitment decommit;
+    ia >> decommit;
+
+    std::vector<poly_t> samples;
+    ia >> samples;
+
+    
+
     zkp::reed_solomon64 encoder(modulus, l, d, n, encoder_seed);
 
-    
-    // Stage 1
-    // -------------------------------------------------------------------------------- //
-
-    
-    zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);
-    auto stage1_begin = std::chrono::high_resolution_clock::now();
-    {
-        run_program(m, ctx, func);
-    }
-    auto stage1_end = std::chrono::high_resolution_clock::now();
-
-    std::cout << "Stage1 time: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stage1_end - stage1_begin).count()
-              << "ms" << std::endl;
-
-    zkp::merkle_tree<zkp::sha256> tree = ctx.builder();
-    auto hash = tree.root();
-    // auto hash = ctx.root_hash();
-    std::cout << "----------------------------------------" << std::endl << std::endl;
-    show_hash(hash);
-    std::cout << "----------------------------------------" << std::endl;
-
-    // std::cin >> dummy;
-
-    
-    // Stage 2
-    // -------------------------------------------------------------------------------- //
-
-    
-    encoder.seed(encoder_seed);
-    zkp::stage2_prover_context<value_type, svalue_type, poly_t> ctx2(encoder, hash);
-    auto stage2_begin = std::chrono::high_resolution_clock::now();
-    {
-        run_program(m, ctx2, func);
-    }
-    auto stage2_end = std::chrono::high_resolution_clock::now();
-
-    std::cout << "Stage2 time: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stage2_end - stage2_begin).count()
-              << "ms" << std::endl;
-
-    const auto& prover_arg = ctx2.get_argument();
-    std::cout << "----------------------------------------" << std::endl
-              // << "validation of linear: N/A" << std::endl
-              << "validation of quadratic: " << validate(encoder, prover_arg.quadratic()) << std::endl
-              << "----------------------------------------" << std::endl;
-
     constexpr size_t sample_size = 80;
-    zkp::hash_random_engine<zkp::sha256> engine(zkp::hash<zkp::sha256>(ctx2.get_argument()));
+    zkp::hash_random_engine<zkp::sha256> engine(sample_seed);
     std::vector<size_t> indexes(n), sample_index;
     std::iota(indexes.begin(), indexes.end(), 0);
     std::sample(indexes.cbegin(), indexes.cend(),
                 std::back_inserter(sample_index),
                 sample_size,
                 engine);
-    std::cout << "Sampled indexes: ";
-    for (size_t i = 0; i < sample_size; i++) {
-        std::cout << sample_index[i] << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "Sampled indexes: ";
+    // for (size_t i = 0; i < sample_size; i++) {
+    //     std::cout << sample_index[i] << " ";
+    // }
+    // std::cout << std::endl;
 
-    auto decommit = tree.decommit(sample_index);
-
-    // std::cin >> dummy;
-
-
-    // Stage 3
-    // -------------------------------------------------------------------------------- //
-    
 
     encoder.seed(encoder_seed);
-    zkp::stage3_prover_context<value_type, svalue_type, poly_t> ctx3(encoder, sample_index);
-    auto stage3_begin = std::chrono::high_resolution_clock::now();
-    {
-        run_program(m, ctx3, func);
-    }
-    auto stage3_end = std::chrono::high_resolution_clock::now();
-
-    std::cout << "Stage3 time: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stage3_end - stage3_begin).count()
-              << "ms" << std::endl;
-
-    std::cout << "----------------------------------------" << std::endl
-              // << "Saved samples: " << ctx3.get_sample().size() << std::endl
-              << "----------------------------------------" << std::endl;
-    std::cout << "Linear constraints: " << ctx3.linear_count << std::endl
-              << "Quadratic constraints: " << ctx3.quad_count << std::endl
-              << "Total count: " << ctx3.linear_count + ctx3.quad_count << std::endl;
-
-    // std::cin >> dummy;
-
-
-    // Verifier
-    // -------------------------------------------------------------------------------- //
-    
-
-    encoder.seed(encoder_seed);
-    zkp::verifier_context<value_type, svalue_type, poly_t> vctx(encoder, hash, sample_index, ctx3.get_sample());
+    zkp::verifier_context<value_type, svalue_type, poly_t> vctx(encoder, merkle_root, sample_index, samples);
     auto verify_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, vctx, func, false);
@@ -250,22 +192,33 @@ int main(int argc, char *argv[]) {
     auto rhash = zkp::merkle_tree<zkp::sha256>::recommit(vctx.builder(), decommit);
 
     std::cout << "----------------------------------------" << std::endl;
+    std::cout << "Prover Merkle Tree root:   ";
+    show_hash(merkle_root);
+    std::cout << "verifier Merkle Tree root: ";
     show_hash(rhash);
     std::cout << "----------------------------------------" << std::endl;
-
-    bool verify_result = true;
+    
+    bool merkle_result = merkle_root == rhash;
+    bool code_result = true, quad_result = true;
     for (size_t i = 0; i < sample_size; i++) {
-        verify_result = verify_result &&
-            (prover_arg.code()[sample_index[i]] == verifier_arg.code()[i]) &&
-            (prover_arg.linear()[sample_index[i]] == verifier_arg.linear()[i]) &&
-            (prover_arg.quadratic()[sample_index[i]] == verifier_arg.quadratic()[i]);
+        code_result = code_result && (prover_code[sample_index[i]] == verifier_arg.code()[i]);
+            // (prover_arg.linear()[sample_index[i]] == verifier_arg.linear()[i]) &&
+        quad_result = quad_result && (prover_quad[sample_index[i]] == verifier_arg.quadratic()[i]);
     }
-    verify_result = verify_result && (hash == rhash);
 
+    bool verify_result = code_result && quad_result && merkle_result;
+
+
+    std::cout << "Hash Verify result:      " << merkle_result << std::endl
+              << "Code Verify result:      " << code_result << std::endl
+              << "Quadratic Verify result: " << quad_result << std::endl
+              << "Final Verify result:     " << verify_result << std::endl;
+    std::cout << "----------------------------------------" << std::endl;
+    
     std::cout << "Verify time: "
               << std::chrono::duration_cast<std::chrono::milliseconds>(verify_end - verify_begin).count()
-              << "ms" << std::endl
-              << "Verify result: " << verify_result << std::endl;
+              << "ms" << std::endl;
+
     
     return 0;
 }

@@ -65,10 +65,18 @@ std::string to_string(const T& v) {
     }
     else {
         std::string str = "[";
-        for (const auto& x : v) {
-            str += prelude::to_string(x);
+        for (size_t i = 0; i < 2; i++) {
+            str += prelude::to_string(v[i]);
             str += ", ";
         }
+        str += "... ,";
+        str += prelude::to_string(v[T::size - 2]);
+        str += ", ";
+        str += prelude::to_string(v[T::size - 1]);
+        // for (const auto& x : v) {
+        //     str += prelude::to_string(x);
+        //     str += ", ";
+        // }
         str += "]";
         return str;
     }

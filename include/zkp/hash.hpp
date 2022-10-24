@@ -4,7 +4,6 @@
 #include <exception>
 #include <openssl/sha.h>
 #include <openssl/evp.h>
-#include <sodium.h>
 #include <string_view>
 #include <type_traits>
 #include <span>
@@ -145,6 +144,11 @@ struct openssl_hash : public overload_hash<openssl_hash<Hash>> {
         auto begin() { return std::begin(data); }
         auto end() { return std::end(data); }
         size_t size() const { return digest_size; }
+
+        template <typename Archive>
+        void serialize(Archive& ar, const unsigned int) {
+            ar & data;
+        }
     };
     
     openssl_hash() : ctx_(nullptr) { init(); }
@@ -201,6 +205,9 @@ using sha3_256 = openssl_hash<openssl_sha3_256_t>;
 
 /* ------------------------------------------------------------ */
 
+#if defined(ENABLE_SODIUM)
+
+#include <sodium.h>
 struct sodium_blake2b : public overload_hash<sodium_blake2b> {
     using overload_hash<sodium_blake2b>::operator<<;
     constexpr static size_t digest_size = crypto_generichash_BYTES;
@@ -251,6 +258,9 @@ protected:
     crypto_generichash_state ctx_;  // Hash context
     // byte_view seed_;                // Non-owning view of seed for space-efficiency
 };
+
+#endif
+
 
 template <IsHashScheme Hasher, typename... Args>
 typename Hasher::digest hash(const Args&... args) {

@@ -2,7 +2,7 @@
 
 #include <type.hpp>
 #include <instruction.hpp>
-#include <ir.h>
+#include <wabt/ir.h>
 #include <exception>
 
 namespace ligero::vm {

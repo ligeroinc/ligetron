@@ -2,8 +2,6 @@
 
 #include <array>
 
-#include <sodium.h>
-
 #include <zkp/hash.hpp>
 
 namespace ligero::vm::zkp {

@@ -12,8 +12,6 @@
 
 #include <string_view>
 
-#include <ir.h>
-
 namespace ligero::vm {
 
 // using value_t = std::variant<u32, u64>;
@@ -407,7 +405,7 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
         }
 
         for (const auto *p : module.globals) {
-            std::cout << "Initializing global " << p->name << std::endl;
+            // std::cout << "Initializing global " << p->name << std::endl;
 
             for (const auto& expr : p->init_expr) {
                 translate(expr)->run(exe);

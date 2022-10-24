@@ -7,6 +7,11 @@
 #include <zkp/variable.hpp>
 #include <unordered_map>
 
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/unordered_map.hpp>
+
 namespace ligero::vm::zkp {
 
 template <typename Poly>
@@ -346,7 +351,7 @@ struct stage3_prover_context : public zkp_context<LV, SV, Fp>
     using Base::eval, Base::encode;
 
     stage3_prover_context(reed_solomon64& encoder, const std::vector<size_t>& si)
-        : Base(encoder), sample_index_(si)
+        : Base(encoder), sample_index_(si)// , oa_(ss_)
         { }
 
     field_poly encode(const typename Base::u32_type& v) override {
@@ -386,7 +391,8 @@ struct stage3_prover_context : public zkp_context<LV, SV, Fp>
     
     void zstack_push(const typename Base::u32_type& v) override {
         auto p = encode(v);
-        samples_.push_back(p);
+        // samples_.push_back(p);
+        push_sample(p);
         this->zstack_.push_back(std::move(p));
     }
     
@@ -407,27 +413,35 @@ struct stage3_prover_context : public zkp_context<LV, SV, Fp>
     
     var_type eval(zkp_ops::mul op, const var_type& x, const var_type& y) override {
         var_type var = Base::eval(op, x, y);
-        samples_.push_back(var.poly());
+        push_sample(var.poly());
         return var;
     }
 
     var_type eval(zkp_ops::div op, const var_type& x, const var_type& y) override {
         var_type var = Base::eval(op, x, y);
-        samples_.push_back(var.poly());
+        push_sample(var.poly());
         return var;
     }
 
     var_type eval(zkp_ops::index_of op, const var_type& x) override {
         var_type var = Base::eval(op, x);
-        samples_.push_back(var.poly());
+        push_sample(var.poly());
         return var;
     }
 
     const auto& get_sample() const { return samples_; }
+    // auto& get_sample() { return ss_; }
+    
+    void push_sample(const field_poly& sample) {
+        samples_.push_back(sample);
+        // oa_ << sample;
+    }
 
 protected:
     std::vector<size_t> sample_index_;
     std::vector<field_poly> samples_;
+    // std::stringstream ss_;
+    // boost::archive::binary_oarchive oa_;
 };
 
 
@@ -457,8 +471,12 @@ struct verifier_context : public zkp_context<LV, SV, Fp> {
     verifier_context(reed_solomon64& encoder,
                      const typename RandomEngine::seed_type& seed,
                      const std::vector<size_t>& si,
-                     const std::vector<field_poly>& sv)
-        : Base(encoder), sample_index_(si), sampled_val_(sv),
+                     const std::vector<field_poly>& sv
+                     // boost::binary_iarchive& ia
+        )
+        : Base(encoder), sample_index_(si),
+          // ss_(ss), ia_(ia),
+          sampled_val_(sv),
           builder_(sample_index_.size()),
           arg_(si.size(), seed)
         {
@@ -559,6 +577,9 @@ struct verifier_context : public zkp_context<LV, SV, Fp> {
 protected:
     std::vector<size_t> sample_index_;
     std::vector<field_poly> sampled_val_;
+    // std::stringstream& ss_;
+    // boost::archive::binary_iarchive& ia_;
+    
     typename merkle_tree<Hasher>::builder builder_;
     quasi_argument<Fp, RandomEngine> arg_;
 
@@ -566,6 +587,10 @@ protected:
         field_poly p = sampled_val_.back();
         sampled_val_.pop_back();
         return p;
+
+        // field_poly p;
+        // ia_ >> p;
+        // return p;
     }
 };
 

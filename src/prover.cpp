@@ -15,6 +15,8 @@
 
 #include <fixed_vector.hpp>
 
+#include <emscripten.h>
+
 using namespace wabt;
 using namespace ligero::vm;
 
@@ -33,7 +35,7 @@ bool validate(Decoder& dec, Poly p) {
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
 constexpr uint64_t modulus = 1125625028935681ULL;
-constexpr size_t l = 128, d = 256, n = 512;
+constexpr size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
 
 using u32vec = fixed_vector<u32, l>;
@@ -54,10 +56,10 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     auto module = instantiate(store, m, exe);
     ctx.module(&module);
 
-    std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
-    for (const auto& f : store.functions) {
-        std::cout << "Func: " << f.name << std::endl;
-    }
+    // std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+    // for (const auto& f : store.functions) {
+    //     std::cout << "Func: " << f.name << std::endl;
+    // }
 
     // {
     //     std::vector<u8> arg(32);
@@ -108,6 +110,25 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     // std::cout << std::endl;
 }
 
+// EM_JS(void, emscripten_save_file, (const char *str, int size), {
+//         var filename = "proof.data";
+//         let content = UTF8ToString(str, size);
+//         // let content = Module.FS.readFile(filename);
+//         // err(`Offering download of "${filename}", with ${content.length} bytes...`);
+
+//         var a = document.createElement('a');
+//         a.download = filename;
+//         a.href = URL.createObjectURL(new Blob([content], {type: mime}));
+//         a.style.display = 'none';
+
+//         document.body.appendChild(a);
+//         a.click();
+//         setTimeout(() => {
+//                 document.body.removeChild(a);
+//                 URL.revokeObjectURL(a.href);
+//             }, 2000);
+//     });
+
 int main(int argc, char *argv[]) {
     // std::string dummy;
 
@@ -121,7 +142,7 @@ int main(int argc, char *argv[]) {
     std::stringstream ss;
     ss << fs.rdbuf();
     const std::string content = ss.str();
-    std::cout << "read file " << file << " with size " << content.size() << std::endl;
+    // std::cout << "read file " << file << " with size " << content.size() << std::endl;
     
     Module m;
     Result r = ReadBinaryIr(file, content.data(), content.size(), ReadBinaryOptions{}, nullptr, &m);
@@ -135,7 +156,8 @@ int main(int argc, char *argv[]) {
     //     }
     // }
 
-    std::cout << "l: " << l << " d: " << d << " K: " << n << std::endl;
+    std::cout << "Proving Edit Distance of " << l << " instances" << std::endl;
+    // std::cout << "l: " << l << " d: " << d << " K: " << n << std::endl;
 
     std::random_device rd;
     const unsigned int encoder_seed = rd();
@@ -145,6 +167,8 @@ int main(int argc, char *argv[]) {
     // Stage 1
     // -------------------------------------------------------------------------------- //
 
+    std::cout << "Start Stage 1" << std::endl;
+
     
     zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);
     auto stage1_begin = std::chrono::high_resolution_clock::now();
@@ -152,18 +176,19 @@ int main(int argc, char *argv[]) {
         run_program(m, ctx, func);
     }
     auto stage1_end = std::chrono::high_resolution_clock::now();
-    
-    std::cout << "Stage1 Encode time: " << encoder.timer_ << "us" << std::endl;
+
+    size_t stage1_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage1_end - stage1_begin).count();
+    std::cout << "Prover Stage1 time: "
+              << stage1_time << "ms"
+              << " (NTT: " << encoder.timer_ / 1000 << "ms)"
+              << std::endl;
     encoder.timer_ = 0;
-    
-    std::cout << "Stage1 time: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stage1_end - stage1_begin).count()
-              << "ms" << std::endl;
 
     zkp::merkle_tree<zkp::sha256> tree = ctx.builder();
     auto stage1_root = tree.root();
     // auto hash = ctx.root_hash();
-    std::cout << "----------------------------------------" << std::endl << std::endl;
+    // std::cout << "----------------------------------------" << std::endl << std::endl;
+    std::cout << "Root of Merkle Tree: ";
     show_hash(stage1_root);
     std::cout << "----------------------------------------" << std::endl;
 
@@ -172,7 +197,7 @@ int main(int argc, char *argv[]) {
     
     // Stage 2
     // -------------------------------------------------------------------------------- //
-
+    std::cout << "Start Stage 2" << std::endl;
     
     encoder.seed(encoder_seed);
     zkp::stage2_prover_context<value_type, svalue_type, poly_t> ctx2(encoder, stage1_root);
@@ -182,17 +207,17 @@ int main(int argc, char *argv[]) {
     }
     auto stage2_end = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Stage2 Encode time: " << encoder.timer_ << "us" << std::endl;
-    encoder.timer_ = 0;
-        
+    size_t stage2_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage2_end - stage2_begin).count();
     std::cout << "Stage2 time: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stage2_end - stage2_begin).count()
-              << "ms" << std::endl;
+              << stage2_time << "ms"
+              << " (NTT: " << encoder.timer_ / 1000 << "ms)"
+              << std::endl;
+    encoder.timer_ = 0;
 
     const auto& prover_arg = ctx2.get_argument();
-    std::cout << "----------------------------------------" << std::endl
+    // std::cout << "----------------------------------------" << std::endl
               // << "validation of linear: N/A" << std::endl
-              << "validation of quadratic: " << validate(encoder, prover_arg.quadratic()) << std::endl
+    std::cout << "Validation of quadratic constraints: " << validate(encoder, prover_arg.quadratic()) << std::endl
               << "----------------------------------------" << std::endl;
 
     constexpr size_t sample_size = 80;
@@ -216,7 +241,7 @@ int main(int argc, char *argv[]) {
 
     // Stage 3
     // -------------------------------------------------------------------------------- //
-    
+    std::cout << "Start Stage 3" << std::endl;
 
     encoder.seed(encoder_seed);
     zkp::stage3_prover_context<value_type, svalue_type, poly_t> ctx3(encoder, sample_index);
@@ -226,24 +251,37 @@ int main(int argc, char *argv[]) {
     }
     auto stage3_end = std::chrono::high_resolution_clock::now();
 
-    std::cout << "Stage3 Encode time: " << encoder.timer_ << "us" << std::endl;
-    encoder.timer_ = 0;
-    
+    size_t stage3_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage3_end - stage3_begin).count();
     std::cout << "Stage3 time: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(stage3_end - stage3_begin).count()
-              << "ms" << std::endl;
+              << stage3_time
+              << "ms"
+              << " (NTT: " << encoder.timer_ / 1000 << "ms)"
+              << std::endl;
+    encoder.timer_ = 0;
 
-    std::cout << "----------------------------------------" << std::endl
-              << "Saved samples: " << ctx3.get_sample().size() << std::endl
+    // std::cout << "----------------------------------------" << std::endl
+    std::cout << "Saved rows: " << ctx3.get_sample().size() << std::endl
               << "----------------------------------------" << std::endl;
-    std::cout << "Quadratic constraints: " << ctx3.quad_count << std::endl
-              << "Total count: " << ctx3.linear_count + ctx3.quad_count << std::endl;
+    std::cout << "Quadratic constraints: " << ctx3.quad_count << std::endl;
+              // << "Total count: " << ctx3.linear_count + ctx3.quad_count << std::endl;
 // << "Linear constraints: " << ctx3.linear_count << std::endl
 
     // std::cin >> dummy;
 
+    std::cout << std::endl << "Done!" << std::endl << std::endl
+              << "Total prover time: "
+              << std::setprecision(2)
+              << (stage1_time + stage2_time + stage3_time) / 1000.0
+              << "s"
+              << std::endl << std::endl
+              << "| | | Push button below to download the proof"
+              << std::endl
+              << "V V V"
+              << std::endl;
 
-    std::ofstream proof("proof.data", std::ios::out | std::ios::binary | std::ios::trunc);
+
+    std::ofstream proof("/proof.data", std::ios::out | std::ios::binary | std::ios::trunc);
+    // std::stringstream proof;
     boost::archive::binary_oarchive oa(proof);
     oa << encoder_seed
        << stage1_root
@@ -253,6 +291,24 @@ int main(int argc, char *argv[]) {
        << decommit
        << ctx3.get_sample();
     proof.close();
+
+// #include <filesystem>
+//     namespace fss = std::filesystem;
+//     std::string path = "/";
+//     for (const auto & entry : fss::directory_iterator(path))
+//         std::cout << entry.path() << std::endl;
+
+    // const char * str = "abcde";
+    // foo(str, 5);
+
+    // EM_ASM({
+    //         FS.readFile('proof.data');
+    //     });
+    
+    // std::string str = proof.str();
+    // EM_ASM({
+    //         emscripten_save_file($0, $1);
+    //     }, str.c_str(), str.size());
     
     return 0;
 }

@@ -271,7 +271,7 @@ public:
         u32 n = func.kind.params.size();
         u32 m = func.kind.returns.size();
 
-        std::cout << "<call[" << addr << "].entry>";
+        // std::cout << "<call[" << addr << "].entry>";
 
         /* Push arguments */
         /* -------------------------------------------------- */
@@ -326,7 +326,7 @@ public:
         }
 
 
-        std::cout << "<call[" << addr << "].exit>" << std::endl;
+        // std::cout << "<call[" << addr << "].exit>" << std::endl;
         return {};
     }
 

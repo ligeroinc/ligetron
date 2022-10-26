@@ -447,12 +447,12 @@ void invoke(module_instance& m, Executor& exe, index_t funcaddr, Args&&... args)
 
     ((exe.context().push_witness(args)), ...);
 
-    std::cout << "Parameters: ";
-    exe.context().show_stack();
+    // std::cout << "Parameters: ";
+    // exe.context().show_stack();
     op::call{funcaddr}.run(exe);
-    std::cout << "Result: ";
-    exe.context().show_stack();
-    std::cout << std::endl;
+    // std::cout << "Result: ";
+    // exe.context().show_stack();
+    // std::cout << std::endl;
 }
 
 }  // namespace ligero::vm

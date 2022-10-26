@@ -33,7 +33,7 @@ bool validate(Decoder& dec, Poly p) {
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
 constexpr uint64_t modulus = 1125625028935681ULL;
-constexpr size_t l = 128, d = 256, n = 512;
+constexpr size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
 
 using u32vec = fixed_vector<u32, l>;
@@ -54,10 +54,10 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     auto module = instantiate(store, m, exe);
     ctx.module(&module);
 
-    std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
-    for (const auto& f : store.functions) {
-        std::cout << "Func: " << f.name << std::endl;
-    }
+    // std::cout << "Functions: " << module.funcaddrs.size() << std::endl;
+    // for (const auto& f : store.functions) {
+    //     std::cout << "Func: " << f.name << std::endl;
+    // }
 
     // {
     //     std::vector<u8> arg(32);
@@ -128,14 +128,14 @@ int main(int argc, char *argv[]) {
 
     assert(r != Result::Error);
 
-    std::cout << "Imports: " << m.imports.size() << std::endl;
-    for (const auto *imp : m.imports) {
-        if (auto *p = dynamic_cast<const FuncImport*>(imp)) {
-            std::cout << imp->module_name << "." << imp->field_name << " => " << p->func.name << std::endl;
-        }
-    }
+    // std::cout << "Imports: " << m.imports.size() << std::endl;
+    // for (const auto *imp : m.imports) {
+    //     if (auto *p = dynamic_cast<const FuncImport*>(imp)) {
+    //         std::cout << imp->module_name << "." << imp->field_name << " => " << p->func.name << std::endl;
+    //     }
+    // }
 
-    std::cout << "l: " << l << " d: " << d << " K: " << n << std::endl;
+    // std::cout << "l: " << l << " d: " << d << " K: " << n << std::endl;
 
     
 
@@ -143,23 +143,24 @@ int main(int argc, char *argv[]) {
     boost::archive::binary_iarchive ia(proof);
     
     unsigned int encoder_seed;
-    ia >> encoder_seed;
-
     zkp::sha256::digest merkle_root;
-    ia >> merkle_root;
-
     zkp::sha256::digest sample_seed;
-    ia >> sample_seed;
-
     poly_t prover_code, prover_quad;
-    ia >> prover_code;
-    ia >> prover_quad;
-
     zkp::merkle_tree<zkp::sha256>::decommitment decommit;
-    ia >> decommit;
-
     std::vector<poly_t> samples;
-    ia >> samples;
+
+    try {
+        ia >> encoder_seed;
+        ia >> merkle_root;
+        ia >> sample_seed;
+        ia >> prover_code;
+        ia >> prover_quad;
+        ia >> decommit;
+        ia >> samples;
+    }
+    catch (...) {
+        std::cout << "Bad Proof file, verifier rejected!" << std::endl;
+    }
 
     
 
@@ -183,9 +184,14 @@ int main(int argc, char *argv[]) {
     encoder.seed(encoder_seed);
     zkp::verifier_context<value_type, svalue_type, poly_t> vctx(encoder, merkle_root, sample_index, samples);
     auto verify_begin = std::chrono::high_resolution_clock::now();
-    {
+    try {
         run_program(m, vctx, func, false);
     }
+    catch (...) {
+        std::cout << "Proof Rejected!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    
     auto verify_end = std::chrono::high_resolution_clock::now();
 
     const auto& verifier_arg = vctx.get_argument();
@@ -211,7 +217,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Hash Verify result:      " << merkle_result << std::endl
               << "Code Verify result:      " << code_result << std::endl
-              << "Quadratic Verify result: " << quad_result << std::endl
+              << "Quadratic Verify result: " << quad_result << std::endl << std::endl
               << "Final Verify result:     " << verify_result << std::endl;
     std::cout << "----------------------------------------" << std::endl;
     

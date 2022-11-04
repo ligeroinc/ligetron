@@ -15,8 +15,6 @@
 
 #include <fixed_vector.hpp>
 
-#include <emscripten.h>
-
 using namespace wabt;
 using namespace ligero::vm;
 

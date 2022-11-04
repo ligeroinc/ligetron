@@ -49,7 +49,7 @@ link_directories(${CMAKE_PREFIX_PATH}/lib)
 # include_directories(${PROJECT_SOURCE_DIR}/depends/wabt)
 
 macro (link_binaries)
-  # foreach(BINARY IN ITEMS ${ARGN})
+  foreach(BINARY IN ITEMS ${ARGN})
 	# target_link_libraries(${BINARY} ${Boost_LIBRARIES} hexl ssl crypto wabt boost)
 	target_link_libraries(${BINARY} ${Boost_LIBRARIES} hexl ssl crypto wabt tbb)
   endforeach()

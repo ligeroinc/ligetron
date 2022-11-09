@@ -15,7 +15,11 @@
 
 #include <fixed_vector.hpp>
 
+// #include <zkp/nonbatch_execution.hpp>
+// #include <zkp/nonbatch_context.hpp>
+
 using namespace wabt;
+using namespace ligero;
 using namespace ligero::vm;
 
 void show_hash(const typename zkp::sha256::digest& d) {
@@ -44,7 +48,7 @@ using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
 using frame_type = frame<value_type>;
 using svalue_type = stack_value<value_type, label, frame_type>;
 
-size_t str_len = 10;
+std::string str_a, str_b;
 
 template <typename Context>
 void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
@@ -69,28 +73,38 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     //     ctx.set_args(data);
     // }
     constexpr size_t offset = 16384;
-    size_t len1 = str_len, len2 = str_len;
+    size_t len1 = str_a.size(), len2 = str_b.size();
     size_t offset1 = offset + len1;
-    if (fill) {
-        {
-            auto& mem = store.memorys[0].data;
-            mem[offset] = 's';
-            mem[offset+1] = 'u';
-            mem[offset+2] = 'n';
-            mem[offset+3] = 'd';
-            mem[offset+4] = 'a';
-            mem[offset+5] = 'y';
 
-            mem[offset1] = 's';
-            mem[offset1+1] = 'a';
-            mem[offset1+2] = 't';
-            mem[offset1+3] = 'u';
-            mem[offset1+4] = 'r';
-            mem[offset1+5] = 'd';
-            mem[offset1+6] = 'a';
-            mem[offset1+7] = 'y';
-        }
+    auto& mem = store.memorys[0].data;
+
+    for (size_t i = 0; i < len1; i++) {
+        mem[offset + i] = str_a[i];
     }
+
+    for (size_t i = 0; i < len2; i++) {
+        mem[offset1 + i] = str_b[i];
+    }
+    // if (fill) {
+    //     {
+    //         auto& mem = store.memorys[0].data;
+    //         mem[offset] = 's';
+    //         mem[offset+1] = 'u';
+    //         mem[offset+2] = 'n';
+    //         mem[offset+3] = 'd';
+    //         mem[offset+4] = 'a';
+    //         mem[offset+5] = 'y';
+
+    //         mem[offset1] = 's';
+    //         mem[offset1+1] = 'a';
+    //         mem[offset1+2] = 't';
+    //         mem[offset1+3] = 'u';
+    //         mem[offset1+4] = 'r';
+    //         mem[offset1+5] = 'd';
+    //         mem[offset1+6] = 'a';
+    //         mem[offset1+7] = 'y';
+    //     }
+    // }
 
     // auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
     // std::cout << "Mem: ";
@@ -131,8 +145,10 @@ int main(int argc, char *argv[]) {
     // std::string dummy;
 
     const char *file = "edit.wasm";
-    size_t func = 0;
-    str_len = std::stoi(argv[1]);
+    size_t func = 1;
+
+    str_a = argv[1];
+    str_b = argv[2];
     // const char *file = argv[1];
     // size_t func = std::stoi(argv[2]);
     
@@ -212,9 +228,16 @@ int main(int argc, char *argv[]) {
               << std::endl;
     encoder.timer_ = 0;
 
+    auto stage2_result = ctx2.stack_pop_var();
+    decltype(stage2_result) one{ 1U, ctx2.encode_const(1U) };
+    auto statement = ctx2.eval(stage2_result - one);
+
+    std::cout << std::boolalpha;
+    std::cout << "Validation of linear constraints:    " << validate(encoder, statement.poly())
+              << std::endl;
+    
+    
     const auto& prover_arg = ctx2.get_argument();
-    // std::cout << "----------------------------------------" << std::endl
-              // << "validation of linear: N/A" << std::endl
     std::cout << "Validation of quadratic constraints: " << validate(encoder, prover_arg.quadratic()) << std::endl
               << "----------------------------------------" << std::endl;
 
@@ -241,8 +264,22 @@ int main(int argc, char *argv[]) {
     // -------------------------------------------------------------------------------- //
     std::cout << "Start Stage 3" << std::endl;
 
+    std::ofstream proof("proof.data", std::ios::out | std::ios::binary | std::ios::trunc);
+    boost::archive::binary_oarchive oa(proof);
+    
+    oa << encoder_seed
+       << stage1_root
+       << stage2_seed
+       << prover_arg.code()
+       << prover_arg.quadratic()
+       << statement.poly()
+       << decommit;
+
+    size_t saved_rows = 0;
+    auto save = [&oa, &saved_rows](const auto& poly) { oa << poly; saved_rows++; };
+
     encoder.seed(encoder_seed);
-    zkp::stage3_prover_context<value_type, svalue_type, poly_t> ctx3(encoder, sample_index);
+    zkp::stage3_prover_context<value_type, svalue_type, poly_t, decltype(save)> ctx3(encoder, sample_index, save);
     auto stage3_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, ctx3, func);
@@ -258,7 +295,7 @@ int main(int argc, char *argv[]) {
     encoder.timer_ = 0;
 
     // std::cout << "----------------------------------------" << std::endl
-    std::cout << "Saved rows: " << ctx3.get_sample().size() << std::endl
+    std::cout << "Saved rows: " << saved_rows << std::endl
               << "----------------------------------------" << std::endl;
     std::cout << "Quadratic constraints: " << ctx3.quad_count << std::endl;
               // << "Total count: " << ctx3.linear_count + ctx3.quad_count << std::endl;
@@ -277,17 +314,6 @@ int main(int argc, char *argv[]) {
               << "V V V"
               << std::endl;
 
-
-    std::ofstream proof("/proof.data", std::ios::out | std::ios::binary | std::ios::trunc);
-    // std::stringstream proof;
-    boost::archive::binary_oarchive oa(proof);
-    oa << encoder_seed
-       << stage1_root
-       << stage2_seed
-       << prover_arg.code()
-       << prover_arg.quadratic()
-       << decommit
-       << ctx3.get_sample();
     proof.close();
 
 // #include <filesystem>

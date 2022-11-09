@@ -44,10 +44,10 @@ using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
 using frame_type = frame<value_type>;
 using svalue_type = stack_value<value_type, label, frame_type>;
 
-size_t str_len = 10;
+std::string str_a, str_b;
 
 template <typename Context>
-void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
+void run_program(Module& m, Context& ctx, size_t func) {
     store_t store;
     ctx.store(&store);
     zkp::zkp_executor exe(ctx);
@@ -69,28 +69,38 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     //     ctx.set_args(data);
     // }
     constexpr size_t offset = 16384;
-    size_t len1 = str_len, len2 = str_len;
+    size_t len1 = str_a.size(), len2 = str_b.size();
     size_t offset1 = offset + len1;
-    if (fill) {
-        {
-            auto& mem = store.memorys[0].data;
-            mem[offset] = 's';
-            mem[offset+1] = 'u';
-            mem[offset+2] = 'n';
-            mem[offset+3] = 'd';
-            mem[offset+4] = 'a';
-            mem[offset+5] = 'y';
 
-            mem[offset1] = 's';
-            mem[offset1+1] = 'a';
-            mem[offset1+2] = 't';
-            mem[offset1+3] = 'u';
-            mem[offset1+4] = 'r';
-            mem[offset1+5] = 'd';
-            mem[offset1+6] = 'a';
-            mem[offset1+7] = 'y';
-        }
+    auto& mem = store.memorys[0].data;
+
+    for (size_t i = 0; i < len1; i++) {
+        mem[offset + i] = str_a[i];
     }
+
+    for (size_t i = 0; i < len2; i++) {
+        mem[offset1 + i] = str_b[i];
+    }
+    // if (fill) {
+    //     {
+
+    //         mem[offset] = 's';
+    //         mem[offset+1] = 'u';
+    //         mem[offset+2] = 'n';
+    //         mem[offset+3] = 'd';
+    //         mem[offset+4] = 'a';
+    //         mem[offset+5] = 'y';
+
+    //         mem[offset1] = 's';
+    //         mem[offset1+1] = 'a';
+    //         mem[offset1+2] = 't';
+    //         mem[offset1+3] = 'u';
+    //         mem[offset1+4] = 'r';
+    //         mem[offset1+5] = 'd';
+    //         mem[offset1+6] = 'a';
+    //         mem[offset1+7] = 'y';
+    //     }
+    // }
 
     // auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
     // std::cout << "Mem: ";
@@ -112,8 +122,11 @@ int main(int argc, char *argv[]) {
     // std::string dummy;
 
     const char *file = "edit.wasm";
-    size_t func = 0;
-    str_len = std::stoi(argv[1]);
+    size_t func = 1;
+
+    str_a = argv[1];
+    str_b = argv[2];
+
     // const char *file = argv[1];
     // size_t func = std::stoi(argv[2]);
     
@@ -145,9 +158,9 @@ int main(int argc, char *argv[]) {
     unsigned int encoder_seed;
     zkp::sha256::digest merkle_root;
     zkp::sha256::digest sample_seed;
-    poly_t prover_code, prover_quad;
+    poly_t prover_code, prover_quad, statement;
     zkp::merkle_tree<zkp::sha256>::decommitment decommit;
-    std::vector<poly_t> samples;
+    // std::vector<poly_t> samples;
 
     try {
         ia >> encoder_seed;
@@ -155,11 +168,12 @@ int main(int argc, char *argv[]) {
         ia >> sample_seed;
         ia >> prover_code;
         ia >> prover_quad;
+        ia >> statement;
         ia >> decommit;
-        ia >> samples;
+        // ia >> samples;
     }
     catch (...) {
-        std::cout << "Bad Proof file, verifier rejected!" << std::endl;
+        std::cout << "Proof rejected due to serialization failed" << std::endl;
     }
 
     
@@ -180,12 +194,13 @@ int main(int argc, char *argv[]) {
     // }
     // std::cout << std::endl;
 
+    auto load = [&ia] { poly_t p; ia >> p; return p; };
 
     encoder.seed(encoder_seed);
-    zkp::verifier_context<value_type, svalue_type, poly_t> vctx(encoder, merkle_root, sample_index, samples);
+    zkp::verifier_context<value_type, svalue_type, poly_t, decltype(load)> vctx(encoder, merkle_root, sample_index, load);
     auto verify_begin = std::chrono::high_resolution_clock::now();
     try {
-        run_program(m, vctx, func, false);
+        run_program(m, vctx, func);
     }
     catch (...) {
         std::cout << "Proof Rejected!" << std::endl;
@@ -203,23 +218,37 @@ int main(int argc, char *argv[]) {
     std::cout << "verifier Merkle Tree root: ";
     show_hash(rhash);
     std::cout << "----------------------------------------" << std::endl;
+
+    auto result = vctx.stack_pop_var();
+    decltype(result) one{ 1U, vctx.encode_const(1U) };
+    auto verifier_linear = vctx.eval(result - one);
     
     bool merkle_result = merkle_root == rhash;
-    bool code_result = true, quad_result = true;
+    bool code_result = true;
+    bool quad_result = validate(encoder, prover_quad);
+    bool linear_result = validate(encoder, statement);
+
+    std::cout << std::boolalpha;
+    std::cout << "Check is valid code:          " << code_result << std::endl
+              << "Check is valid quadratic:     " << quad_result << std::endl
+              << "Check statement equal to 1:   " << linear_result << std::endl;
+    
     for (size_t i = 0; i < sample_size; i++) {
         code_result = code_result && (prover_code[sample_index[i]] == verifier_arg.code()[i]);
+        linear_result = linear_result && (statement[sample_index[i]] == verifier_linear.poly()[i]);
             // (prover_arg.linear()[sample_index[i]] == verifier_arg.linear()[i]) &&
         quad_result = quad_result && (prover_quad[sample_index[i]] == verifier_arg.quadratic()[i]);
     }
 
-    bool verify_result = code_result && quad_result && merkle_result;
+    bool verify_result = code_result && quad_result && linear_result && merkle_result;
 
 
-    std::cout << "Hash Verify result:      " << merkle_result << std::endl
-              << "Code Verify result:      " << code_result << std::endl
-              << "Quadratic Verify result: " << quad_result << std::endl << std::endl
-              << "Final Verify result:     " << verify_result << std::endl;
-    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "Check Merkle Tree root:       " << merkle_result << std::endl
+              << "Check code equality:          " << code_result << std::endl
+              << "Check quadratic equality:     " << quad_result << std::endl;
+    std::cout << "----------------------------------------" << std::endl
+              << "Final Verify result:          " << verify_result << std::endl;
+
     
     std::cout << "Verify time: "
               << std::chrono::duration_cast<std::chrono::milliseconds>(verify_end - verify_begin).count()

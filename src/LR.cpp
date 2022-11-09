@@ -91,6 +91,10 @@ int minDistance(const char* word1, const char* word2, const int m, const int n) 
     return cur[n];
 }
 
+bool statement(const char *word1, const char* word2, const int m, const int n) {
+    return minDistance(word1, word2, m, n) < 5;
+}
+
 // int main(int argc, char *argv[]) {
 //     std::cout << minDistance(argv[3], argv[4], std::stoi(argv[1]), std::stoi(argv[2])) << std::endl;
 // }

@@ -1,11 +1,13 @@
 #pragma once
 
+#include <unordered_map>
+
 #include <context.hpp>
 #include <zkp/encoding.hpp>
 #include <zkp/merkle_tree.hpp>
 #include <zkp/argument.hpp>
 #include <zkp/variable.hpp>
-#include <unordered_map>
+#include <zkp/gc.hpp>
 
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -330,7 +332,7 @@ protected:
 };
 
 
-template <typename LV, typename SV, typename Fp>
+template <typename LV, typename SV, typename Fp, typename SaveFunc>
 struct stage3_prover_context : public zkp_context<LV, SV, Fp>
 {
     using Base = zkp_context<LV, SV, Fp>;
@@ -350,8 +352,8 @@ struct stage3_prover_context : public zkp_context<LV, SV, Fp>
 
     using Base::eval, Base::encode;
 
-    stage3_prover_context(reed_solomon64& encoder, const std::vector<size_t>& si)
-        : Base(encoder), sample_index_(si)// , oa_(ss_)
+    stage3_prover_context(reed_solomon64& encoder, const std::vector<size_t>& si, SaveFunc func)
+        : Base(encoder), sample_index_(si), func_(func)
         { }
 
     field_poly encode(const typename Base::u32_type& v) override {
@@ -429,24 +431,25 @@ struct stage3_prover_context : public zkp_context<LV, SV, Fp>
         return var;
     }
 
-    const auto& get_sample() const { return samples_; }
+    // const auto& get_sample() const { return samples_; }
     // auto& get_sample() { return ss_; }
     
     void push_sample(const field_poly& sample) {
-        samples_.push_back(sample);
+        func_(sample);
+        // samples_.push_back(sample);
         // oa_ << sample;
     }
 
 protected:
     std::vector<size_t> sample_index_;
-    std::vector<field_poly> samples_;
-    // std::stringstream ss_;
-    // boost::archive::binary_oarchive oa_;
+    SaveFunc func_;
+    // std::vector<field_poly> samples_;
 };
 
 
 template <typename LV, typename SV,
           typename Fp,
+          typename LoadFunc,
           typename Hasher = sha256,
           typename RandomEngine = hash_random_engine<Hasher>>
 struct verifier_context : public zkp_context<LV, SV, Fp> {
@@ -471,16 +474,16 @@ struct verifier_context : public zkp_context<LV, SV, Fp> {
     verifier_context(reed_solomon64& encoder,
                      const typename RandomEngine::seed_type& seed,
                      const std::vector<size_t>& si,
-                     const std::vector<field_poly>& sv
-                     // boost::binary_iarchive& ia
-        )
+                     // const std::vector<field_poly>& sv,
+                     LoadFunc func)
         : Base(encoder), sample_index_(si),
           // ss_(ss), ia_(ia),
-          sampled_val_(sv),
+          // sampled_val_(sv),
           builder_(sample_index_.size()),
-          arg_(si.size(), seed)
+          arg_(si.size(), seed),
+          func_(func)
         {
-            std::reverse(sampled_val_.begin(), sampled_val_.end());
+            // std::reverse(sampled_val_.begin(), sampled_val_.end());
         }
     
     // void zstack_push(field_poly&& f) override {
@@ -576,21 +579,18 @@ struct verifier_context : public zkp_context<LV, SV, Fp> {
 
 protected:
     std::vector<size_t> sample_index_;
-    std::vector<field_poly> sampled_val_;
-    // std::stringstream& ss_;
-    // boost::archive::binary_iarchive& ia_;
+    // std::vector<field_poly> sampled_val_;
+    LoadFunc func_;
     
     typename merkle_tree<Hasher>::builder builder_;
     quasi_argument<Fp, RandomEngine> arg_;
 
     field_poly pop_sample() {
-        field_poly p = sampled_val_.back();
-        sampled_val_.pop_back();
-        return p;
-
-        // field_poly p;
-        // ia_ >> p;
+        // field_poly p = sampled_val_.back();
+        // sampled_val_.pop_back();
         // return p;
+
+        return func_();
     }
 };
 

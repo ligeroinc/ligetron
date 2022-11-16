@@ -2,6 +2,8 @@
 
 #include <type_traits>
 #include <optional>
+#include <memory>
+#include <tuple>
 #include <zkp/poly_field.hpp>
 
 namespace ligero::vm::zkp {

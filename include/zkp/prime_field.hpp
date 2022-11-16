@@ -61,6 +61,16 @@ struct prime_field : prime_field_expr {
         return *this;
     }
 
+    prime_field& operator+=(const prime_field& other) {
+        element_ = (element_ + other.element_) % modulus;
+        return *this;
+    }
+
+    prime_field& operator-=(const prime_field& other) {
+        element_ = modulo(element_ - other.element_, modulus);
+        return *this;
+    }
+
     prime_field& operator%=(const value_type& v) {
         element_ %= v;
         return *this;

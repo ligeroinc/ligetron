@@ -15,8 +15,8 @@
 
 #include <fixed_vector.hpp>
 
-// #include <zkp/nonbatch_execution.hpp>
-// #include <zkp/nonbatch_context.hpp>
+#include <zkp/nonbatch_execution.hpp>
+#include <zkp/nonbatch_context.hpp>
 
 using namespace wabt;
 using namespace ligero;
@@ -33,6 +33,17 @@ template <typename Decoder, typename Poly>
 bool validate(Decoder& dec, Poly p) {
     dec.decode(p);
     return std::all_of(p.begin(), p.end(), [](auto v) { return v == 0; });
+}
+
+template <typename Decoder, typename Poly>
+bool validate_sum(Decoder& dec, Poly p) {
+    using field = typename Poly::field_type;
+    dec.decode(p);
+    field acc = 0;
+    for (size_t i = 0; i < p.size(); i++) {
+        acc += field{p[i]};
+    }
+    return acc.data() == 0;
 }
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
@@ -54,7 +65,7 @@ template <typename Context>
 void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     store_t store;
     ctx.store(&store);
-    zkp::zkp_executor exe(ctx);
+    zkp::nonbatch_executor exe(ctx);
     auto module = instantiate(store, m, exe);
     ctx.module(&module);
 
@@ -85,26 +96,6 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     for (size_t i = 0; i < len2; i++) {
         mem[offset1 + i] = str_b[i];
     }
-    // if (fill) {
-    //     {
-    //         auto& mem = store.memorys[0].data;
-    //         mem[offset] = 's';
-    //         mem[offset+1] = 'u';
-    //         mem[offset+2] = 'n';
-    //         mem[offset+3] = 'd';
-    //         mem[offset+4] = 'a';
-    //         mem[offset+5] = 'y';
-
-    //         mem[offset1] = 's';
-    //         mem[offset1+1] = 'a';
-    //         mem[offset1+2] = 't';
-    //         mem[offset1+3] = 'u';
-    //         mem[offset1+4] = 'r';
-    //         mem[offset1+5] = 'd';
-    //         mem[offset1+6] = 'a';
-    //         mem[offset1+7] = 'y';
-    //     }
-    // }
 
     // auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
     // std::cout << "Mem: ";
@@ -144,11 +135,11 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
 int main(int argc, char *argv[]) {
     // std::string dummy;
 
-    const char *file = "edit.wasm";
+    const char *file = argv[1];
     size_t func = 1;
 
-    str_a = argv[1];
-    str_b = argv[2];
+    str_a = argv[2];
+    str_b = argv[3];
     // const char *file = argv[1];
     // size_t func = std::stoi(argv[2]);
     
@@ -183,11 +174,12 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Start Stage 1" << std::endl;
 
-    
-    zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);
+    // zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);    
+    zkp::nonbatch_stage1_context<value_t, svalue_t, poly_t, zkp::sha256> ctx(encoder);
     auto stage1_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, ctx, func);
+        ctx.finalize();
     }
     auto stage1_end = std::chrono::high_resolution_clock::now();
 
@@ -214,10 +206,11 @@ int main(int argc, char *argv[]) {
     std::cout << "Start Stage 2" << std::endl;
     
     encoder.seed(encoder_seed);
-    zkp::stage2_prover_context<value_type, svalue_type, poly_t> ctx2(encoder, stage1_root);
+    zkp::nonbatch_stage2_context<value_t, svalue_t, poly_t> ctx2(encoder, stage1_root);
     auto stage2_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, ctx2, func);
+        ctx2.finalize();
     }
     auto stage2_end = std::chrono::high_resolution_clock::now();
 
@@ -229,15 +222,17 @@ int main(int argc, char *argv[]) {
     encoder.timer_ = 0;
 
     auto stage2_result = ctx2.stack_pop_var();
-    decltype(stage2_result) one{ 1U, ctx2.encode_const(1U) };
-    auto statement = ctx2.eval(stage2_result - one);
+    // decltype(stage2_result) one{ 1U, ctx2.encode_const(1U) };
+    // auto statement = ctx2.eval(stage2_result - one);
 
+    const auto& prover_arg = ctx2.get_argument();
+
+    auto linear_poly = prover_arg.linear();
+    
     std::cout << std::boolalpha;
-    std::cout << "Validation of linear constraints:    " << validate(encoder, statement.poly())
+    std::cout << "Validation of linear constraints:    " << validate_sum(encoder, prover_arg.linear())
               << std::endl;
     
-    
-    const auto& prover_arg = ctx2.get_argument();
     std::cout << "Validation of quadratic constraints: " << validate(encoder, prover_arg.quadratic()) << std::endl
               << "----------------------------------------" << std::endl;
 
@@ -258,7 +253,7 @@ int main(int argc, char *argv[]) {
 
     auto decommit = tree.decommit(sample_index);
 
-    // std::cin >> dummy;
+//     // std::cin >> dummy;
 
     // Stage 3
     // -------------------------------------------------------------------------------- //
@@ -272,17 +267,18 @@ int main(int argc, char *argv[]) {
        << stage2_seed
        << prover_arg.code()
        << prover_arg.quadratic()
-       << statement.poly()
+       << prover_arg.linear()
        << decommit;
 
     size_t saved_rows = 0;
     auto save = [&oa, &saved_rows](const auto& poly) { oa << poly; saved_rows++; };
 
     encoder.seed(encoder_seed);
-    zkp::stage3_prover_context<value_type, svalue_type, poly_t, decltype(save)> ctx3(encoder, sample_index, save);
+    zkp::nonbatch_stage3_context<value_t, svalue_t, poly_t, decltype(save)> ctx3(encoder, sample_index, save);
     auto stage3_begin = std::chrono::high_resolution_clock::now();
     {
         run_program(m, ctx3, func);
+        ctx3.finalize();
     }
     auto stage3_end = std::chrono::high_resolution_clock::now();
 

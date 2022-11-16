@@ -23,11 +23,12 @@ find_package(Boost
 #-sMODULARIZE=1 -sEXPORT_NAME=createModule
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  add_compile_options(-std=c++20 -Og -g -fsanitize=address)
-  add_link_options(-fsanitize=address)
+  add_compile_options(-std=c++20 -Og -g)
+  # add_compile_options(-fsanitize=addres)
+  # add_link_options(-fsanitize=address)
 else()
-  add_compile_options(-std=c++20 -O3 -march=native)
-  # add_link_options(-fopenmp)
+  add_compile_options(-std=c++20 -O3 -march=native -fopenmp)
+  add_link_options(-fopenmp)
 endif()
 
 # add_compile_options(-sSTANDALONE_WASM -sALLOW_MEMORY_GROWTH -fno-exceptions -mbulk-memory -msimd128 -march=native)

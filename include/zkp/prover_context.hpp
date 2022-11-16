@@ -7,7 +7,7 @@
 #include <zkp/merkle_tree.hpp>
 #include <zkp/argument.hpp>
 #include <zkp/variable.hpp>
-#include <zkp/gc.hpp>
+// #include <zkp/gc.hpp>
 
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>

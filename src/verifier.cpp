@@ -14,6 +14,8 @@
 #include <chrono>
 
 #include <fixed_vector.hpp>
+#include <zkp/nonbatch_context.hpp>
+#include <zkp/nonbatch_execution.hpp>
 
 using namespace wabt;
 using namespace ligero::vm;
@@ -29,6 +31,18 @@ template <typename Decoder, typename Poly>
 bool validate(Decoder& dec, Poly p) {
     dec.decode(p);
     return std::all_of(p.begin(), p.end(), [](auto v) { return v == 0; });
+}
+
+template <typename Decoder, typename Poly>
+bool validate_sum(Decoder& dec, Poly p) {
+    using field = typename Poly::field_type;
+    dec.decode(p);
+    field acc = 0;
+    for (size_t i = 0; i < p.size(); i++) {
+        acc += field{p[i]};
+        std::cout << acc.data() << std::endl;
+    }
+    return acc.data() == 0;
 }
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
@@ -50,7 +64,7 @@ template <typename Context>
 void run_program(Module& m, Context& ctx, size_t func) {
     store_t store;
     ctx.store(&store);
-    zkp::zkp_executor exe(ctx);
+    zkp::nonbatch_executor exe(ctx);
     auto module = instantiate(store, m, exe);
     ctx.module(&module);
 
@@ -121,11 +135,11 @@ void run_program(Module& m, Context& ctx, size_t func) {
 int main(int argc, char *argv[]) {
     // std::string dummy;
 
-    const char *file = "edit.wasm";
+    const char *file = argv[1];
     size_t func = 1;
 
-    str_a = argv[1];
-    str_b = argv[2];
+    str_a = argv[2];
+    str_b = argv[3];
 
     // const char *file = argv[1];
     // size_t func = std::stoi(argv[2]);
@@ -197,10 +211,11 @@ int main(int argc, char *argv[]) {
     auto load = [&ia] { poly_t p; ia >> p; return p; };
 
     encoder.seed(encoder_seed);
-    zkp::verifier_context<value_type, svalue_type, poly_t, decltype(load)> vctx(encoder, merkle_root, sample_index, load);
+    zkp::nonbatch_verifier_context<value_t, svalue_t, poly_t, decltype(load)> vctx(encoder, merkle_root, sample_index, load);
     auto verify_begin = std::chrono::high_resolution_clock::now();
     try {
         run_program(m, vctx, func);
+        vctx.finalize();
     }
     catch (...) {
         std::cout << "Proof Rejected!" << std::endl;
@@ -220,13 +235,14 @@ int main(int argc, char *argv[]) {
     std::cout << "----------------------------------------" << std::endl;
 
     auto result = vctx.stack_pop_var();
-    decltype(result) one{ 1U, vctx.encode_const(1U) };
-    auto verifier_linear = vctx.eval(result - one);
+    // decltype(result) one{ 1U, vctx.encode_const(1U) };
+    // auto verifier_linear = vctx.eval(result - one);
+    auto verifier_linear = verifier_arg.linear();
     
     bool merkle_result = merkle_root == rhash;
     bool code_result = true;
     bool quad_result = validate(encoder, prover_quad);
-    bool linear_result = validate(encoder, statement);
+    bool linear_result = validate_sum(encoder, statement);
 
     std::cout << std::boolalpha;
     std::cout << "Check is valid code:          " << code_result << std::endl
@@ -235,7 +251,7 @@ int main(int argc, char *argv[]) {
     
     for (size_t i = 0; i < sample_size; i++) {
         code_result = code_result && (prover_code[sample_index[i]] == verifier_arg.code()[i]);
-        linear_result = linear_result && (statement[sample_index[i]] == verifier_linear.poly()[i]);
+        linear_result = linear_result && (statement[sample_index[i]] == verifier_linear[i]);
             // (prover_arg.linear()[sample_index[i]] == verifier_arg.linear()[i]) &&
         quad_result = quad_result && (prover_quad[sample_index[i]] == verifier_arg.quadratic()[i]);
     }

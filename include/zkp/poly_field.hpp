@@ -38,8 +38,8 @@ struct primitive_poly : public poly_field_expr
     
     template <typename Iter>
     primitive_poly(Iter begin, Iter end) : data_(begin, end) {
-        #pragma omp parallel for simd
-        for (size_t i = 0; i < data_.size(); i++) {
+        #pragma omp simd
+        for (size_t i = 0; i < std::distance(begin, end); i++) {
             if (auto s = static_cast<signed_value_type>(data_[i]); s < 0) {
                 data_[i] = s + modulus;
             }
@@ -70,8 +70,8 @@ struct primitive_poly : public poly_field_expr
 
     auto begin() { return data_.begin(); }
     auto end()   { return data_.end(); }
-    auto cbegin() const { return data_.cbegin(); }
-    auto cend()   const { return data_.cend(); }
+    auto begin() const { return data_.cbegin(); }
+    auto end()   const { return data_.cend(); }
 
     auto& data() { return data_; }
     const auto& data() const { return data_; }

@@ -1,0 +1,468 @@
+#pragma once
+
+#include <memory>
+#include <vector>
+#include <optional>
+
+#include <base.hpp>
+
+namespace ligero::vm::zkp {
+
+struct ref_expr_base { };
+
+template <typename Expr>
+concept IsRefExpr = std::derived_from<Expr, ref_expr_base>;
+
+template <typename Op, typename... Args>
+struct ref_expr : ref_expr_base {
+    Op op_;
+    std::tuple<Args...> args_;
+
+    ref_expr(Op op, Args... args) : op_(op), args_(args...) { }
+
+    template <typename Evaluator>
+    auto eval(Evaluator& e) {
+        return std::apply([&](auto&&... args) {
+            return e.eval(op_, args.eval(e)...);
+        }, std::move(args_));
+    }
+};
+
+template <IsRefExpr Op1, IsRefExpr Op2>
+auto operator+(Op1 op1, Op2 op2) {
+    return ref_expr(zkp_ops::add{}, std::move(op1), std::move(op2));
+}
+
+template <IsRefExpr Op1, IsRefExpr Op2>
+auto operator-(Op1 op1, Op2 op2) {
+    return ref_expr(zkp_ops::sub{}, std::move(op1), std::move(op2));
+}
+
+template <IsRefExpr Op1, IsRefExpr Op2>
+auto operator*(Op1 op1, Op2 op2) {
+    return ref_expr(zkp_ops::mul{}, std::move(op1), std::move(op2));
+}
+
+template <IsRefExpr Op1, IsRefExpr Op2>
+auto operator/(Op1 op1, Op2 op2) {
+    return ref_expr(zkp_ops::div{}, std::move(op1), std::move(op2));
+}
+
+// ------------------------------------------------------------ //
+
+template <typename Poly>
+struct gc_row {
+    using poly_type = Poly;
+    using field_type = typename Poly::field_type;
+    using value_type = typename Poly::value_type;
+
+    struct location {
+        location(gc_row* p, size_t off) : ptr(p), offset(off) { }
+        
+        gc_row *ptr;
+        size_t offset;
+    };
+
+    struct reference : ref_expr_base {
+        // reference() : loc_(nullptr) { }
+        reference(std::shared_ptr<location> loc)
+            : loc_(std::move(loc)) { }
+        // reference(u32* val, std::shared_ptr<value_type*> ref)
+        //     : val_(val), random_(std::move(ref)) { }
+
+        u32 val() const {
+            assert(loc_->ptr != nullptr);
+            return loc_->ptr->val_[loc_->offset];
+        }
+
+        value_type& rand() { return loc_->ptr->random_[loc_->offset]; }
+        const value_type& rand() const { return loc_->ptr->random_[loc_->offset]; }
+
+        location loc() const { return *loc_; }
+
+        template <typename... Args>
+        auto eval(Args&&...) { return *this; }
+
+        auto operator[](size_t i) const {
+            return ref_expr(zkp_ops::index_of{ i }, *this);
+        }
+        
+    // protected:
+        std::shared_ptr<location> loc_;
+        
+        // u32 *val_;
+        // std::shared_ptr<value_type*> random_;
+    };
+
+    gc_row() = default;
+    gc_row(size_t packing_size)
+        : packing_size_(packing_size),
+          val_(packing_size), random_(packing_size)
+        {
+            for (size_t i = 0; i < packing_size; i++) {
+                count_.emplace_back(std::make_shared<location>(this, i));
+            }
+        }
+
+    // Disable copy to avoid increasing unnecessary reference counting
+    gc_row(const gc_row&) = delete;
+    gc_row& operator=(const gc_row&) = delete;
+
+    // Enable move
+    gc_row(gc_row&& o)
+        : packing_size_(o.packing_size_),
+          curr_(std::move(o.curr_)),
+          val_(std::move(o.val_)),
+          random_(std::move(o.random_)),
+          count_(std::move(o.count_)) {
+        // for (auto& loc : count_) {
+        //     loc->ptr = this;
+        // }
+    }
+    
+    gc_row& operator=(gc_row&& o) {
+        assert(packing_size_ == o.packing_size_);
+        std::swap(curr_, o.curr_);
+        std::swap(val_, o.val_);
+        std::swap(random_, o.random_);
+        std::swap(count_, o.count_);
+        // for (auto& loc : count_) {
+        //     loc->ptr = this;
+        // }
+        return *this;
+    }
+
+    size_t size() const { return curr_; }
+    size_t capacity() const { return packing_size_; }
+    bool available() const { return curr_ < packing_size_; }
+
+    auto& val() { return val_; }
+    const auto& val() const { return val_; }
+    auto& random() { return random_; }
+    const auto& random() const { return random_; }
+
+    auto val_begin() { return val_.begin(); }
+    auto val_begin() const { return val_.begin(); }
+    auto val_end() { return val_.end(); }
+    auto val_end() const { return val_.end(); }
+    
+    auto rand_begin() { return random_.begin(); }
+    auto rand_begin() const { return random_.begin(); }
+    auto rand_end() { return random_.end(); }
+    auto rand_end() const { return random_.end(); }
+
+    reference push_back(s32 val) {
+        assert(curr_ < packing_size_);
+        
+        const size_t idx = curr_++;
+        
+        val_[idx] = val;
+        return reference{ count_[idx] };
+        
+        // auto ptr = std::make_shared<value_type*>(&random_[idx]);
+        // *ptr = &random_[idx];
+        // count_[idx] = ptr;
+
+        // return reference{ &val_[idx], std::move(ptr) };
+    }
+
+    std::optional<reference> try_push_back(s32 val) {
+        if (available()) {
+            return push_back(val);
+        }
+        else {
+            return std::nullopt;
+        }
+    }
+
+    template <typename RandomDistribution>
+    std::optional<gc_row> mark_and_sweep(gc_row& next_gen, RandomDistribution& dist) {
+        assert(packing_size_ == next_gen.packing_size_);
+
+        // std::cout << "gc triggered" << std::endl;
+
+        size_t copy_count = 0;
+        std::optional<gc_row> extra_row = std::nullopt;
+        for (size_t i = 0; i < count_.size(); i++) {
+            // Still referenced by other variable
+            if (!count_[i].unique()) {
+                copy_count++;
+
+                auto ref = next_gen.try_push_back(val_[i]);
+
+                // Next gen is also full - avoid recursion by creating a fresh row
+                if (!ref) {
+                    gc_row fresh(packing_size_);
+                    auto exr = next_gen.mark_and_sweep(fresh, dist);
+                    
+                    assert(!exr); // TODO: handle grow case
+                    
+                    std::swap(next_gen, fresh);
+                    next_gen.update_this();
+                    
+                    extra_row.emplace(std::move(fresh));
+
+                    // Try push again
+                    ref = next_gen.try_push_back(val_[i]);
+                }
+
+                // At this point `ref` is guaranteed good
+                assert(ref);
+                location loc = ref->loc();
+                
+                // const size_t idx = next_gen.curr_++;
+                // next_gen.val_[idx] = val_[i];
+
+                // Generating Equality constraint
+                field_type r = dist();
+
+                // ptr still point to old generation's randomness
+                // auto ptr = std::move(count_[i]);
+                
+                // Adjust randomness for old generation
+                field_type rd = field_type{random_[i]} - r;
+                random_[i] = rd.data();
+
+                // ptr now points to new generation's randomness
+                // *ptr = &next_gen.random_[idx];
+
+                // Adjust randomness for new generation too
+                field_type refd = field_type{ref->rand()} + r;
+                ref->rand() += refd.data();
+                // next_gen.random_[idx] += r;
+
+                // std::cout << "this " << this << ", ptr " << count_[i]->ptr;
+                // std::cout << " next " << next_gen.count_[idx]->ptr;
+
+                next_gen.count_[loc.offset] = count_[i];
+                *next_gen.count_[loc.offset] = loc;
+                // location loc = *next_gen.count_[idx];
+                // next_gen.count_[idx] = count_[i];  // keep the reference counting
+                // *next_gen.count_[idx] = loc;       // update with new location
+
+                // std::cout << " copied " << count_[i]->ptr << " " << count_[i]->offset << std::endl;
+            }
+        }
+
+        // std::cout << "Copied " << copy_count << " elements to next generation" << std::endl;
+        return extra_row;
+    }
+
+    void update_this() {
+        for (auto& ptr : count_) {
+            ptr->ptr = this;
+        }
+    }
+    
+// protected:
+    size_t curr_ = 0;
+    const size_t packing_size_;
+    std::vector<s32> val_;
+    Poly random_;
+    std::vector<std::shared_ptr<location>> count_;
+};
+
+
+template <typename Poly, typename RandomDistribution>
+struct gc_managed_region {
+    using field_type = typename Poly::field_type;
+    using row_type = gc_row<Poly>;
+    using ref_type = typename row_type::reference;
+    using linear_region = row_type;
+
+    gc_managed_region(size_t packing_size, RandomDistribution& dist)
+        : packing_size_(packing_size),
+          dist_(dist),
+          quad_l_(packing_size), quad_r_(packing_size), quad_o_(packing_size)
+        {
+            linear_.emplace_back(packing_size_);
+        }
+
+    template <typename Func>
+    void on_linear(Func f) {
+        on_linear_ = f;
+    }
+
+    template <typename Func>
+    void on_quadratic(Func f) {
+        on_quad_ = f;
+    }
+
+    void build_linear(ref_type z, ref_type x, ref_type y) {
+        field_type r = dist_();
+        field_type pz = field_type{z.rand()} - r;
+        field_type px = field_type{x.rand()} + r;
+        field_type py = field_type{y.rand()} + r;
+        z.rand() = pz.data();
+        x.rand() = px.data();
+        y.rand() = py.data();
+    }
+
+    void build_equal(ref_type z, ref_type x) {
+        field_type r = dist_();
+        field_type pz = field_type{z.rand()} - r;
+        field_type px = field_type{x.rand()} + r;
+        z.rand() = pz.data();
+        x.rand() = px.data();
+    }
+
+    // std::pair<ref_type, std::optional<row_type>> push_back_at(row_type& curr_row, const u32& val) {
+    //     if (auto ref = try_push_back(curr_row, val); ref) {
+    //         return std::make_pair(ref, std::nullopt);
+    //     }
+    //     else {
+    //         old_row = copy_and_replace(curr_row);
+    //         auto ref = try_push_back(curr_row, val);
+    //         assert(ref);  // TODO: handle the case gc cannot free enough space
+    //         return std::make_pair(*ref, std::move(old_row));
+            
+    //         // // Perform GC if current row is not available
+    //         // row_type next_gen(packing_size_);
+    //         // size_t copied = curr_row.mark_sweep(next_gen, dist_);
+
+    //         // std::swap(curr_row, next_gen);
+
+    //         // // Important: update pointer to latest address
+    //         // curr_row.update_this();
+            
+    //         // auto ref = curr_row.push_back(val);
+    //         // return std::make_pair(std::move(ref), std::move(next_gen));
+            
+    //     }
+    // }
+
+    void replace_linear(row_type& row) {
+        row_type next_gen(packing_size_);
+        row.mark_and_sweep(next_gen, dist_);
+        std::swap(row, next_gen);
+        row.update_this();
+        on_linear_(std::move(next_gen));
+    }
+
+    void replace_quadratic(row_type& x, row_type& y, row_type& z) {
+        // Instead of copying to a new generation, copying to linear row
+        row_type& curr_linear = linear_.back();
+        auto rx = x.mark_and_sweep(curr_linear, dist_);
+        auto ry = y.mark_and_sweep(curr_linear, dist_);
+        auto rz = z.mark_and_sweep(curr_linear, dist_);
+
+        if (rx) { on_linear_(std::move(*rx)); }
+        if (ry) { on_linear_(std::move(*ry)); }
+        if (rz) { on_linear_(std::move(*rz)); }
+
+        row_type next_x(packing_size_), next_y(packing_size_), next_z(packing_size_);
+        std::swap(x, next_x);
+        std::swap(y, next_y);
+        std::swap(z, next_z);
+        x.update_this();
+        y.update_this();
+        z.update_this();
+
+        on_quad_(std::move(next_x), std::move(next_y), std::move(next_z));
+    }
+
+    // row_type copy_and_replace(row_type& curr_row) {
+    //     // Perform GC if current row is not available
+    //     assert(!curr_row.available());
+
+    //     row_type next_gen(packing_size_);
+    //     size_t copied = curr_row.mark_sweep(next_gen, dist_);
+
+    //     std::swap(curr_row, next_gen);
+
+    //     // Important: update pointer to latest address
+    //     curr_row.update_this();
+
+    //     // At this point `next_gen` holds the full row with all reference invalidated
+    //     return next_gen;
+    // }
+
+    ref_type push_back_linear(s32 val) {
+        if (auto ref = linear_.back().try_push_back(val); ref) {
+            return *ref;
+        }
+        else {
+            replace_linear(linear_.back());
+            return *linear_.back().try_push_back(val);
+        }
+        // auto [r, row] = push_back_at(linear_.back(), val);
+        // if (row) {
+        //     on_linear_(std::move(*row));
+        // }
+        // return r;
+    }
+
+    ref_type push_back_quad(row_type& row, s32 val) {
+        if (auto ref = row.try_push_back(val); ref) {
+            return *ref;
+        }
+        else {
+            replace_quadratic(quad_l_, quad_r_, quad_o_);
+            return *row.try_push_back(val);
+        }
+    }
+
+    ref_type multiply(ref_type x, ref_type y) {
+        assert(quad_l_.size() == quad_r_.size() && quad_r_.size() == quad_o_.size());
+
+            
+        auto refl = push_back_quad(quad_l_, x.val());
+        build_equal(refl, x);
+
+        auto refr = push_back_quad(quad_r_, y.val());
+        build_equal(refr, y);
+
+        auto z = x.val() * y.val();
+        auto refo = push_back_quad(quad_o_, z);
+        
+        return refo;
+    }
+
+    ref_type divide(ref_type x, ref_type y) {
+        auto z = x.val() / y.val();
+        
+        auto refl = push_back_quad(quad_l_, z);
+        
+        auto refr = push_back_quad(quad_r_, y.val());
+        build_equal(refr, y);
+        
+        auto refo = push_back_quad(quad_o_, x.val());
+        build_equal(refo, x);
+
+        return refl;
+    }
+
+    ref_type index(ref_type x, u32 i) {
+        // std::cout << "index " << x.loc_->ptr << " " << x.loc_->offset << std::endl;
+        // std::cout << "linear " << linear_.back().count_[x.loc_->offset]->ptr << std::endl;
+        auto xv = x.val();
+        u32 bit = (xv >> i) & u32{1};
+        auto rl = push_back_quad(quad_l_, bit);
+        auto rr = push_back_quad(quad_r_, bit);
+        auto ro = push_back_quad(quad_o_, bit);
+        
+        return ro;
+    }
+
+    void finalize() {
+        for (linear_region& region : linear_) {
+            // std::cout << "finalize linear row of size " << region.size() << std::endl;
+            on_linear_(std::move(region));
+        }
+        // std::cout << "finalize quad row of size " << quad_l_.size() << std::endl;
+        // std::cout << "finalize quad row of size " << quad_r_.size() << std::endl;
+        // std::cout << "finalize quad row of size " << quad_o_.size() << std::endl;
+        on_quad_(std::move(quad_l_), std::move(quad_r_), std::move(quad_o_));
+    }
+
+protected:
+    const size_t packing_size_;
+    RandomDistribution& dist_;
+    std::vector<linear_region> linear_;
+    row_type quad_l_, quad_r_, quad_o_;
+
+    std::function<void(linear_region)> on_linear_;
+    std::function<void(row_type, row_type, row_type)> on_quad_;
+};
+
+}  // namespace ligero::vm::zkp

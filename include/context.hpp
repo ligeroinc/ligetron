@@ -130,6 +130,9 @@ template <typename LocalValue, typename StackValue, typename Op = standard_op>
 struct standard_context : public context_base<LocalValue, StackValue>
 {
     using operator_type = Op;
+    // using Base = context_base<LocalValue, StackValue>;
+    // using Base::u32_type, Base::s32_type, Base::u64_type, Base::s64_type;
+    // using Base::label_type, Base::frame_type, Base::frame_ptr, Base::frame_pointer;
 };
 
 

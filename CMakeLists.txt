@@ -23,8 +23,8 @@ find_package(Boost
 #-sMODULARIZE=1 -sEXPORT_NAME=createModule
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  add_compile_options(-std=c++20 -Og -g)
-  # add_compile_options(-fsanitize=addres)
+  add_compile_options(-std=c++20 -Og -g -pg)
+  # add_compile_options(-fsanitize=address)
   # add_link_options(-fsanitize=address)
 else()
   add_compile_options(-std=c++20 -O3 -march=native -fopenmp)
@@ -63,3 +63,6 @@ endmacro()
 add_executable(prover src/prover.cpp)
 add_executable(verifier src/verifier.cpp)
 link_binaries(prover verifier)
+
+# add_executable(eval src/eval.cpp)
+# link_binaries(eval)

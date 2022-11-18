@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <zkp/hash.hpp>
+#include <util/timer.hpp>
 
 namespace ligero::vm::zkp {
 
@@ -41,12 +42,12 @@ struct merkle_tree {
             { t[i] };
         }
         builder& operator<<(const T& val) {
+            auto t = make_timer("MerkleTree", "hash");
             assert(val.size() == hashers_.size());
             #pragma omp parallel for
             for (size_t i = 0; i < hashers_.size(); i++) {
                 hashers_[i] << val[i];
             }
-            count++;
             return *this;
         }
 
@@ -64,7 +65,6 @@ struct merkle_tree {
         auto end()   { return hashers_.end();   }
         const auto& data() const { return hashers_; }
 
-        int count = 0;
     protected:
         std::vector<hasher_type> hashers_;
     };

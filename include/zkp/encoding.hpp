@@ -5,6 +5,7 @@
 #include <zkp/poly_field.hpp>
 #include <zkp/random.hpp>
 #include <zkp/number_theory.hpp>
+#include <util/timer.hpp>
 
 #include <chrono>
 
@@ -30,14 +31,12 @@ struct reed_solomon64 {
 
     template <typename Poly>
     Poly& encode(Poly& poly) {
-        auto encode_begin = std::chrono::high_resolution_clock::now();
+        auto t = make_timer("NTT", "encode");
         poly.pad(l_);
         poly.pad_random(d_, random_);
         ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
         poly.pad(n_);
         ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
-        auto encode_end = std::chrono::high_resolution_clock::now();
-        timer_ += std::chrono::duration_cast<std::chrono::microseconds>(encode_end - encode_begin).count();
         return poly;
     }
 
@@ -102,8 +101,6 @@ struct reed_solomon64 {
     //     for (size_t i = 0; i < d_ - l_; i++)
     //         dist(random_);
     // }
-    size_t timer_ = 0;
-
 protected:
     const uint64_t modulus_;
     const size_t l_, d_, n_;

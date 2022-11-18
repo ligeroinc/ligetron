@@ -103,7 +103,7 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     //     std::cout << *(v + i) << " ";
     // }
     // std::cout << std::endl;
-
+    auto t = make_timer("stage1", "run", "invoke");
     invoke(module, exe, func, offset, offset1, len1, len2);
 
     // std::cout << "Mem: ";
@@ -176,19 +176,18 @@ int main(int argc, char *argv[]) {
 
     // zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);    
     zkp::nonbatch_stage1_context<value_t, svalue_t, poly_t, zkp::sha256> ctx(encoder);
-    auto stage1_begin = std::chrono::high_resolution_clock::now();
     {
+        auto t = make_timer("stage1", "run");
         run_program(m, ctx, func);
         ctx.finalize();
     }
-    auto stage1_end = std::chrono::high_resolution_clock::now();
 
-    size_t stage1_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage1_end - stage1_begin).count();
-    std::cout << "Prover Stage1 time: "
-              << stage1_time << "ms"
-              << " (NTT: " << encoder.timer_ / 1000 << "ms)"
-              << std::endl;
-    encoder.timer_ = 0;
+    // size_t stage1_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage1_end - stage1_begin).count();
+    // std::cout << "Prover Stage1 time: "
+    //           << stage1_time << "ms"
+    //           << " (NTT: " << encoder.timer_ / 1000 << "ms)"
+    //           << std::endl;
+    // encoder.timer_ = 0;
 
     zkp::merkle_tree<zkp::sha256> tree = ctx.builder();
     auto stage1_root = tree.root();
@@ -207,19 +206,18 @@ int main(int argc, char *argv[]) {
     
     encoder.seed(encoder_seed);
     zkp::nonbatch_stage2_context<value_t, svalue_t, poly_t> ctx2(encoder, stage1_root);
-    auto stage2_begin = std::chrono::high_resolution_clock::now();
     {
+        auto t = make_timer("stage2", "run");
         run_program(m, ctx2, func);
         ctx2.finalize();
     }
-    auto stage2_end = std::chrono::high_resolution_clock::now();
 
-    size_t stage2_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage2_end - stage2_begin).count();
-    std::cout << "Stage2 time: "
-              << stage2_time << "ms"
-              << " (NTT: " << encoder.timer_ / 1000 << "ms)"
-              << std::endl;
-    encoder.timer_ = 0;
+    // size_t stage2_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage2_end - stage2_begin).count();
+    // std::cout << "Stage2 time: "
+    //           << stage2_time << "ms"
+    //           << " (NTT: " << encoder.timer_ / 1000 << "ms)"
+    //           << std::endl;
+    // encoder.timer_ = 0;
 
     auto stage2_result = ctx2.stack_pop_var();
     // decltype(stage2_result) one{ 1U, ctx2.encode_const(1U) };
@@ -275,20 +273,19 @@ int main(int argc, char *argv[]) {
 
     encoder.seed(encoder_seed);
     zkp::nonbatch_stage3_context<value_t, svalue_t, poly_t, decltype(save)> ctx3(encoder, sample_index, save);
-    auto stage3_begin = std::chrono::high_resolution_clock::now();
     {
+        auto t = make_timer("stage3", "run");
         run_program(m, ctx3, func);
         ctx3.finalize();
     }
-    auto stage3_end = std::chrono::high_resolution_clock::now();
 
-    size_t stage3_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage3_end - stage3_begin).count();
-    std::cout << "Stage3 time: "
-              << stage3_time
-              << "ms"
-              << " (NTT: " << encoder.timer_ / 1000 << "ms)"
-              << std::endl;
-    encoder.timer_ = 0;
+    // size_t stage3_time = std::chrono::duration_cast<std::chrono::milliseconds>(stage3_end - stage3_begin).count();
+    // std::cout << "Stage3 time: "
+    //           << stage3_time
+    //           << "ms"
+    //           << " (NTT: " << encoder.timer_ / 1000 << "ms)"
+    //           << std::endl;
+    // encoder.timer_ = 0;
 
     // std::cout << "----------------------------------------" << std::endl
     std::cout << "Saved rows: " << saved_rows << std::endl
@@ -300,10 +297,10 @@ int main(int argc, char *argv[]) {
     // std::cin >> dummy;
 
     std::cout << std::endl << "Done!" << std::endl << std::endl
-              << "Total prover time: "
-              << std::setprecision(2)
-              << (stage1_time + stage2_time + stage3_time) / 1000.0
-              << "s"
+              // << "Total prover time: "
+              // << std::setprecision(2)
+              // << (stage1_time + stage2_time + stage3_time) / 1000.0
+              // << "s"
               << std::endl << std::endl
               << "| | | Push button below to download the proof"
               << std::endl
@@ -329,6 +326,7 @@ int main(int argc, char *argv[]) {
     // EM_ASM({
     //         emscripten_save_file($0, $1);
     //     }, str.c_str(), str.size());
-    
+
+    show_timer();
     return 0;
 }

@@ -236,7 +236,7 @@ public:
     }
 
     result_t run(const op::ret&) override {
-        std::cout << "Ret" << std::endl;
+        // std::cout << "Ret" << std::endl;
         const size_t arity = ctx_.current_frame()->arity;
         // auto top = stack_.rbegin() + arity;
         // auto it = top;
@@ -434,12 +434,12 @@ public:
 
     result_t run(const op::inn_clz& ins) override {
         if (ins.type == int_kind::i32) {
-            u32 c = ctx_.template stack_pop<u32>();
+            u32 c = ctx_.stack_pop().template as<u32>();
             u32 count = typename opt::template countl_zero<u32>{}(c);
             ctx_.stack_push(count);
         }
         else {
-            u64 c = ctx_.template stack_pop<u64>();
+            u64 c = ctx_.stack_pop().template as<u64>();
             u64 count = typename opt::template countl_zero<u64>{}(c);
             ctx_.stack_push(count);
         }
@@ -448,12 +448,12 @@ public:
 
     result_t run(const op::inn_ctz& ins) override {
         if (ins.type == int_kind::i32) {
-            u32 c = ctx_.template stack_pop<u32>();
+            u32 c = ctx_.stack_pop().template as<u32>();
             u32 count = typename opt::template countr_zero<u32>{}(c);
             ctx_.stack_push(count);
         }
         else {
-            u64 c = ctx_.template stack_pop<u64>();
+            u64 c = ctx_.template stack_pop().template as<u64>();
             u64 count = typename opt::template countr_zero<u64>{}(c);
             ctx_.stack_push(count);
         }
@@ -462,12 +462,12 @@ public:
 
     result_t run(const op::inn_popcnt& ins) override {
         if (ins.type == int_kind::i32) {
-            u32 c = ctx_.template stack_pop<u32>();
+            u32 c = ctx_.stack_pop().template as<u32>();
             u32 count = typename opt::template popcount<u32>{}(c);
             ctx_.stack_push(count);
         }
         else {
-            u64 c = ctx_.template stack_pop<u64>();
+            u64 c = ctx_.stack_pop().template as<u64>();
             u64 count = typename opt::template popcount<u64>{}(c);
             ctx_.stack_push(count);
         }
@@ -475,22 +475,22 @@ public:
     }
 
     result_t run(const op::inn_add& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::plus>(ins.type);
     }
 
     result_t run(const op::inn_sub& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::minus>(ins.type);
     }
 
     result_t run(const op::inn_mul& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::multiplies>(ins.type);
     }
 
     result_t run(const op::inn_div_sx& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
             return run_binop<typename opt::divides, s32, s64>(ins.type);
         }
@@ -500,7 +500,7 @@ public:
     }
 
     result_t run(const op::inn_rem_sx& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
             return run_binop<typename opt::modulus, s32, s64>(ins.type);
         }
@@ -510,49 +510,49 @@ public:
     }
 
     result_t run(const op::inn_and& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::bit_and>(ins.type);
     }
 
     result_t run(const op::inn_or& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::bit_or>(ins.type);
     }
 
     result_t run(const op::inn_xor& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::bit_xor>(ins.type);
     }
 
     result_t run(const op::inn_shl& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::shiftl>(ins.type);
     }
 
     result_t run(const op::inn_shr_sx& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::shiftr>(ins.type);
     }
 
     result_t run(const op::inn_rotl& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::rotatel>(ins.type);
     }
 
     result_t run(const op::inn_rotr& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::rotater>(ins.type);
     }
 
     result_t run(const op::inn_eqz& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         if (ins.type == int_kind::i32) {
-            u32 c = ctx_.template stack_pop<u32>();
+            u32 c = ctx_.stack_pop().template as<u32>();
             u32 r = typename opt::equal_to{}(c, u32{0});
             ctx_.stack_push(r);
         }
         else {
-            u64 c = ctx_.template stack_pop<u64>();
+            u64 c = ctx_.stack_pop().template as<u64>();
             u64 r = typename opt::equal_to{}(c, u64{0});
             ctx_.stack_push(r);
         }
@@ -560,17 +560,17 @@ public:
     }
 
     result_t run(const op::inn_eq& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::equal_to>(ins.type);
     }
 
     result_t run(const op::inn_ne& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         return run_binop<typename opt::not_equal_to>(ins.type);
     }
 
     result_t run(const op::inn_lt_sx& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
             return run_binop<typename opt::less, s32, s64>(ins.type);
         }
@@ -580,7 +580,7 @@ public:
     }
 
     result_t run(const op::inn_gt_sx& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
             return run_binop<typename opt::greater, s32, s64>(ins.type);
         }
@@ -590,7 +590,7 @@ public:
     }
 
     result_t run(const op::inn_le_sx& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
             return run_binop<typename opt::less_equal, s32, s64>(ins.type);
         }
@@ -600,7 +600,7 @@ public:
     }
 
     result_t run(const op::inn_ge_sx& ins) override {
-        std::cout << ins.name();
+        // std::cout << ins.name();
         if (ins.sign == sign_kind::sign) {
             return run_binop<typename opt::greater_equal, s32, s64>(ins.type);
         }
@@ -626,12 +626,12 @@ public:
 
     result_t run(const op::i64_extend_i32_sx& ins) override {
         if (ins.sign == sign_kind::sign) {
-            u32 sv = ctx_.template stack_pop<u32>();
+            u32 sv = ctx_.stack_pop().template as<u32>();
             u64 c = static_cast<u64>(static_cast<s64>(static_cast<s32>(sv)));
             ctx_.stack_push(c);
         }
         else {
-            u32 sv = ctx_.template stack_pop<u32>();
+            u32 sv = ctx_.stack_pop().template as<u32>();
             u64 c = sv;
             ctx_.stack_push(c);
         }
@@ -639,7 +639,7 @@ public:
     }
 
     result_t run(const op::i32_wrap_i64& ins) override {
-        u64 sv = ctx_.template stack_pop<u64>();
+        u64 sv = ctx_.stack_pop().template as<u64>();
         ctx_.stack_push(static_cast<u32>(sv));
         return {};
     }
@@ -648,20 +648,20 @@ private:
     template <typename Op, typename T32 = u32, typename T64 = u64>
     result_t run_binop(int_kind k) {
         if (k == int_kind::i32) {
-            T32 y = ctx_.template stack_pop<u32>();
-            T32 x = ctx_.template stack_pop<u32>();
+            T32 y = ctx_.stack_pop().template as<u32>();
+            T32 x = ctx_.stack_pop().template as<u32>();
             u32 result = static_cast<u32>(Op{}(x, y));
             ctx_.stack_push(result);
-            std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+            // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
         }
         else {
-            T64 y = ctx_.template stack_pop<u64>();
-            T64 x = ctx_.template stack_pop<u64>();
+            T64 y = ctx_.stack_pop().template as<u64>();
+            T64 x = ctx_.stack_pop().template as<u64>();
             u64 result = static_cast<u64>(Op{}(x, y));
             ctx_.stack_push(result);
-            std::cout << " f(" << x << ", " << y << ") = " << result << " ";
+            // std::cout << " f(" << x << ", " << y << ") = " << result << " ";
         }
-        ctx_.show_stack();
+        // ctx_.show_stack();
         return {};
     }
 };
@@ -898,6 +898,15 @@ struct basic_executor :
     using basic_exe_variable<Context>::run;
     using basic_exe_numeric<Context>::run;
     using basic_exe_memory<Context>::run;
+
+    using value_type = typename Context::value_type;
+    using svalue_type = typename Context::svalue_type;
+    
+    using u32_type = typename Context::u32_type;
+    using u64_type = typename Context::u64_type;
+    using frame_type = typename Context::frame_type;
+    using frame_ptr = typename svalue_type::frame_ptr;
+    using frame_pointer = typename Context::frame_pointer;
 
     basic_executor(Context& ctx)
         : ctx_(ctx),

@@ -45,7 +45,10 @@ struct hash_random_dist {
     hash_random_dist(T modulus, const typename Engine::seed_type& seed)
         : engine_(seed), dist_(T{0}, modulus - T{1}) { }
 
-    auto operator()() { return dist_(engine_); }
+    auto operator()() {
+        auto t = make_timer("Random", "HashDistribution");
+        return dist_(engine_);
+    }
 
     Engine engine_;
     random::uniform_int_distribution<T> dist_;
@@ -74,13 +77,15 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
     using row_type = typename region_type::row_type;
     using var_type = typename region_type::ref_type;
 
-    nonbatch_context_base(reed_solomon64& encoder, RandomDist dist = RandomDist{})
+    nonbatch_context_base(reed_solomon64& encoder,
+                          RandomDist dist = RandomDist{},
+                          bool build_constraints = false)
         : encoder_(encoder),
           dist_(std::move(dist)),
-          region_(encoder.plain_size(), dist_)
+          region_(encoder.plain_size(), dist_, build_constraints)
         {
-            region_.on_linear([&](auto row) { return on_linear_full(std::move(row)); });
-            region_.on_quadratic([&](auto... rows) { return on_quadratic_full(std::move(rows)...); });
+            region_.on_linear([&](auto& row) { return on_linear_full(row); });
+            region_.on_quadratic([&](auto&... rows) { return on_quadratic_full(rows...); });
         }
     
     virtual ~nonbatch_context_base() = default;
@@ -147,8 +152,8 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
         return x;
     }
 
-    virtual void on_linear_full(row_type row) = 0;
-    virtual void on_quadratic_full(row_type x, row_type y, row_type z) = 0;
+    virtual void on_linear_full(row_type& row) = 0;
+    virtual void on_quadratic_full(row_type& x, row_type& y, row_type& z) = 0;
 
     void finalize() {
         region_.finalize();
@@ -189,11 +194,12 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
 public:
     size_t linear_count = 0, quad_count = 0;
 protected:
-    std::vector<var_type> zstack_;
+
     reed_solomon64& encoder_;
 
     RandomDist dist_;
     gc_managed_region<field_poly, RandomDist> region_;
+    std::vector<var_type> zstack_;
 };
 
 template <typename LV, typename SV, typename Fp, typename RandomDist>
@@ -239,16 +245,17 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, zero_dist> 
     //     builder_ << p;
     // }
 
-    void on_linear_full(row_type row) override {
+    void on_linear_full(row_type& row) override {
+        // auto t = make_timer("Context", __func__);
         field_poly p(row.val_begin(), row.val_end());
         this->encoder_.encode(p);
         builder_ << p;
     }
 
-    void on_quadratic_full(row_type x, row_type y, row_type z) override {
-        on_linear_full(std::move(x));
-        on_linear_full(std::move(y));
-        on_linear_full(std::move(z));
+    void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {
+        on_linear_full(x);
+        on_linear_full(y);
+        on_linear_full(z);
     }
 
     auto&& builder() {
@@ -286,7 +293,7 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
     using row_type = typename Base::row_type;
     
     nonbatch_stage2_context(reed_solomon64& encoder, const typename RandomDist::seed_type& seed)
-        : nonbatch_context<LV, SV, Fp, RandomDist>(encoder, RandomDist{field_poly::modulus, seed}),
+        : nonbatch_context<LV, SV, Fp, RandomDist>(encoder, RandomDist{field_poly::modulus, seed}, true),
           arg_(encoder, encoder.encoded_size(), seed) { }
 
     // void assert_linear(const field_poly& z, const field_poly& x, const field_poly& y) override {
@@ -399,6 +406,7 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
     using frame_pointer = typename Base::frame_pointer;
 
     using row_type = typename Base::row_type;
+    // using row_ptr = typename Base::row_ptr;
 
     nonbatch_verifier_context(reed_solomon64& encoder,
                               const typename RandomDist::seed_type& seed,
@@ -412,7 +420,7 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
             // std::reverse(sampled_val_.begin(), sampled_val_.end());
         }
 
-    void on_linear_full(row_type row) override {
+    void on_linear_full(row_type& row) override {
         field_poly saved_row = pop_sample();
         builder_ << saved_row;
 
@@ -426,7 +434,7 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
         arg_.update_linear(saved_row, sprand);
     }
 
-    void on_quadratic_full(row_type x, row_type y, row_type z) override {
+    void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {
         field_poly saved_x = pop_sample();
         field_poly saved_y = pop_sample();
         field_poly saved_z = pop_sample();

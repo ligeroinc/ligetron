@@ -5,6 +5,7 @@
 #include <optional>
 
 #include <base.hpp>
+#include <util/timer.hpp>
 
 namespace ligero::vm::zkp {
 
@@ -64,11 +65,25 @@ struct gc_row {
     };
 
     struct reference : ref_expr_base {
+        reference(std::shared_ptr<location> loc) : loc_(std::move(loc)) { }
+        
         // reference() : loc_(nullptr) { }
-        reference(std::shared_ptr<location> loc)
-            : loc_(std::move(loc)) { }
-        // reference(u32* val, std::shared_ptr<value_type*> ref)
-        //     : val_(val), random_(std::move(ref)) { }
+        // reference(location *loc) : loc_(loc) { }
+
+        // ~reference() { loc_->count--; }
+
+        // reference(const reference& ref) : loc_(ref.loc_) { loc_->count++; }
+        // reference& operator=(const reference& ref) {
+        //     if (loc_) {
+        //         loc_->count--;
+        //     }
+        //     ref.loc_++;
+        //     loc_ = ref.loc_;
+        //     return *this;
+        // }
+
+        // reference(reference&&) = default;
+        // reference& operator=(reference&&) = default;
 
         u32 val() const {
             assert(loc_->ptr != nullptr);
@@ -87,11 +102,9 @@ struct gc_row {
             return ref_expr(zkp_ops::index_of{ i }, *this);
         }
         
-    // protected:
+    protected:
         std::shared_ptr<location> loc_;
-        
-        // u32 *val_;
-        // std::shared_ptr<value_type*> random_;
+        // location *loc_;
     };
 
     gc_row() = default;
@@ -100,7 +113,7 @@ struct gc_row {
           val_(packing_size), random_(packing_size)
         {
             for (size_t i = 0; i < packing_size; i++) {
-                count_.emplace_back(std::make_shared<location>(this, i));
+                count_.emplace_back(std::make_unique<location>(this, i));
             }
         }
 
@@ -109,28 +122,23 @@ struct gc_row {
     gc_row& operator=(const gc_row&) = delete;
 
     // Enable move
-    gc_row(gc_row&& o)
-        : packing_size_(o.packing_size_),
-          curr_(std::move(o.curr_)),
-          val_(std::move(o.val_)),
-          random_(std::move(o.random_)),
-          count_(std::move(o.count_)) {
-        // for (auto& loc : count_) {
-        //     loc->ptr = this;
-        // }
-    }
+    gc_row(gc_row&&) = default;
+    gc_row& operator=(gc_row&&) = default;
+    // gc_row(gc_row&& o)
+    //     : packing_size_(o.packing_size_),
+    //       curr_(std::move(o.curr_)),
+    //       val_(std::move(o.val_)),
+    //       random_(std::move(o.random_)),
+    //       count_(std::move(o.count_)) { }
     
-    gc_row& operator=(gc_row&& o) {
-        assert(packing_size_ == o.packing_size_);
-        std::swap(curr_, o.curr_);
-        std::swap(val_, o.val_);
-        std::swap(random_, o.random_);
-        std::swap(count_, o.count_);
-        // for (auto& loc : count_) {
-        //     loc->ptr = this;
-        // }
-        return *this;
-    }
+    // gc_row& operator=(gc_row&& o) {
+    //     assert(packing_size_ == o.packing_size_);
+    //     std::swap(curr_, o.curr_);
+    //     std::swap(val_, o.val_);
+    //     std::swap(random_, o.random_);
+    //     std::swap(count_, o.count_);
+    //     return *this;
+    // }
 
     size_t size() const { return curr_; }
     size_t capacity() const { return packing_size_; }
@@ -153,7 +161,6 @@ struct gc_row {
 
     reference push_back(s32 val) {
         assert(curr_ < packing_size_);
-        
         const size_t idx = curr_++;
         
         val_[idx] = val;
@@ -176,34 +183,37 @@ struct gc_row {
     }
 
     template <typename RandomDistribution>
-    std::optional<gc_row> mark_and_sweep(gc_row& next_gen, RandomDistribution& dist) {
-        assert(packing_size_ == next_gen.packing_size_);
+    std::optional<std::unique_ptr<gc_row>>
+    mark_and_sweep(std::unique_ptr<gc_row>& next_gen, RandomDistribution& dist) {
+        assert(packing_size_ == next_gen->packing_size_);
+
+        // auto t = make_timer("GC", "MarkSweep");
 
         // std::cout << "gc triggered" << std::endl;
 
         size_t copy_count = 0;
-        std::optional<gc_row> extra_row = std::nullopt;
+        std::optional<std::unique_ptr<gc_row>> extra_row = std::nullopt;
         for (size_t i = 0; i < count_.size(); i++) {
             // Still referenced by other variable
             if (!count_[i].unique()) {
                 copy_count++;
 
-                auto ref = next_gen.try_push_back(val_[i]);
+                auto ref = next_gen->try_push_back(val_[i]);
 
                 // Next gen is also full - avoid recursion by creating a fresh row
                 if (!ref) {
-                    gc_row fresh(packing_size_);
-                    auto exr = next_gen.mark_and_sweep(fresh, dist);
+                    auto fresh = std::make_unique<gc_row>(packing_size_);
+                    auto exr = next_gen->mark_and_sweep(fresh, dist);
                     
                     assert(!exr); // TODO: handle grow case
                     
                     std::swap(next_gen, fresh);
-                    next_gen.update_this();
+                    // next_gen->update_this();
                     
                     extra_row.emplace(std::move(fresh));
 
                     // Try push again
-                    ref = next_gen.try_push_back(val_[i]);
+                    ref = next_gen->try_push_back(val_[i]);
                 }
 
                 // At this point `ref` is guaranteed good
@@ -233,9 +243,10 @@ struct gc_row {
 
                 // std::cout << "this " << this << ", ptr " << count_[i]->ptr;
                 // std::cout << " next " << next_gen.count_[idx]->ptr;
-
-                next_gen.count_[loc.offset] = count_[i];
-                *next_gen.count_[loc.offset] = loc;
+                
+                next_gen->count_[loc.offset] = count_[i];
+                *next_gen->count_[loc.offset] = loc;
+                
                 // location loc = *next_gen.count_[idx];
                 // next_gen.count_[idx] = count_[i];  // keep the reference counting
                 // *next_gen.count_[idx] = loc;       // update with new location
@@ -248,15 +259,27 @@ struct gc_row {
         return extra_row;
     }
 
-    void update_this() {
-        for (auto& ptr : count_) {
-            ptr->ptr = this;
+    void reset() {
+        curr_ = 0;
+        std::fill(val_.begin(), val_.end(), 0);
+        std::fill(random_.begin(), random_.end(), 0);
+        for (size_t i = 0; i < packing_size_; i++) {
+            // count_[i]->ptr = this;
+            // count_[i]->offset = i;
+            // count_[i]->count = 1;
+            if (!count_[i].unique()) {
+                count_[i] = std::make_shared<location>(this, i);
+            }
+            else {
+                count_[i]->ptr = this;
+                count_[i]->offset = i;
+            }
         }
     }
     
 // protected:
     size_t curr_ = 0;
-    const size_t packing_size_;
+    size_t packing_size_;
     std::vector<s32> val_;
     Poly random_;
     std::vector<std::shared_ptr<location>> count_;
@@ -268,42 +291,53 @@ struct gc_managed_region {
     using field_type = typename Poly::field_type;
     using row_type = gc_row<Poly>;
     using ref_type = typename row_type::reference;
-    using linear_region = row_type;
+    using row_ptr = std::unique_ptr<row_type>;
 
-    gc_managed_region(size_t packing_size, RandomDistribution& dist)
-        : packing_size_(packing_size),
+    gc_managed_region(size_t packing_size, RandomDistribution& dist, bool build_constraints = false)
+        : build_constraints_(build_constraints),
+          packing_size_(packing_size),
           dist_(dist),
-          quad_l_(packing_size), quad_r_(packing_size), quad_o_(packing_size)
+          quad_l_(std::make_unique<row_type>(packing_size)),
+          quad_r_(std::make_unique<row_type>(packing_size)),
+          quad_o_(std::make_unique<row_type>(packing_size)),
+          next_linear_(std::make_unique<row_type>(packing_size)),
+          next_ql_(std::make_unique<row_type>(packing_size)),
+          next_qr_(std::make_unique<row_type>(packing_size)),
+          next_qo_(std::make_unique<row_type>(packing_size))
         {
-            linear_.emplace_back(packing_size_);
+            linear_.emplace_back(std::make_unique<row_type>(packing_size_));
         }
 
     template <typename Func>
     void on_linear(Func f) {
-        on_linear_ = f;
+        on_linear_ = std::move(f);
     }
 
     template <typename Func>
     void on_quadratic(Func f) {
-        on_quad_ = f;
+        on_quad_ = std::move(f);
     }
 
-    void build_linear(ref_type z, ref_type x, ref_type y) {
-        field_type r = dist_();
-        field_type pz = field_type{z.rand()} - r;
-        field_type px = field_type{x.rand()} + r;
-        field_type py = field_type{y.rand()} + r;
-        z.rand() = pz.data();
-        x.rand() = px.data();
-        y.rand() = py.data();
+    void build_linear(ref_type& z, ref_type& x, ref_type& y) {
+        if (build_constraints_) {
+            field_type r = dist_();
+            field_type pz = field_type{z.rand()} - r;
+            field_type px = field_type{x.rand()} + r;
+            field_type py = field_type{y.rand()} + r;
+            z.rand() = pz.data();
+            x.rand() = px.data();
+            y.rand() = py.data();
+        }
     }
 
-    void build_equal(ref_type z, ref_type x) {
-        field_type r = dist_();
-        field_type pz = field_type{z.rand()} - r;
-        field_type px = field_type{x.rand()} + r;
-        z.rand() = pz.data();
-        x.rand() = px.data();
+    void build_equal(ref_type& z, ref_type& x) {
+        if (build_constraints_) {
+            field_type r = dist_();
+            field_type pz = field_type{z.rand()} - r;
+            field_type px = field_type{x.rand()} + r;
+            z.rand() = pz.data();
+            x.rand() = px.data();
+        }
     }
 
     // std::pair<ref_type, std::optional<row_type>> push_back_at(row_type& curr_row, const u32& val) {
@@ -331,34 +365,45 @@ struct gc_managed_region {
     //     }
     // }
 
-    void replace_linear(row_type& row) {
-        row_type next_gen(packing_size_);
-        row.mark_and_sweep(next_gen, dist_);
-        std::swap(row, next_gen);
-        row.update_this();
-        on_linear_(std::move(next_gen));
+    void replace_linear(row_ptr& row) {
+        row->mark_and_sweep(next_linear_, dist_);
+        std::swap(row, next_linear_);
+        // row->update_this();
+        on_linear_(*next_linear_);
+        next_linear_->reset();
     }
 
-    void replace_quadratic(row_type& x, row_type& y, row_type& z) {
+    void replace_quadratic(row_ptr& x, row_ptr& y, row_ptr& z) {
         // Instead of copying to a new generation, copying to linear row
-        row_type& curr_linear = linear_.back();
-        auto rx = x.mark_and_sweep(curr_linear, dist_);
-        auto ry = y.mark_and_sweep(curr_linear, dist_);
-        auto rz = z.mark_and_sweep(curr_linear, dist_);
+        row_ptr& curr_linear = linear_.back();
+        auto rx = x->mark_and_sweep(curr_linear, dist_);
+        auto ry = y->mark_and_sweep(curr_linear, dist_);
+        auto rz = z->mark_and_sweep(curr_linear, dist_);
 
-        if (rx) { on_linear_(std::move(*rx)); }
-        if (ry) { on_linear_(std::move(*ry)); }
-        if (rz) { on_linear_(std::move(*rz)); }
+        if (rx) { on_linear_(**rx); }
+        if (ry) { on_linear_(**ry); }
+        if (rz) { on_linear_(**rz); }
 
-        row_type next_x(packing_size_), next_y(packing_size_), next_z(packing_size_);
-        std::swap(x, next_x);
-        std::swap(y, next_y);
-        std::swap(z, next_z);
-        x.update_this();
-        y.update_this();
-        z.update_this();
+        // auto t3 = make_timer("Region", __func__, "make");
+        // auto next_x = std::make_unique<row_type>(packing_size_);
+        // auto next_y = std::make_unique<row_type>(packing_size_);
+        // auto next_z = std::make_unique<row_type>(packing_size_);
+        // t3.stop();
 
-        on_quad_(std::move(next_x), std::move(next_y), std::move(next_z));
+        std::swap(x, next_ql_);
+        std::swap(y, next_qr_);
+        std::swap(z, next_qo_);
+        // x->update_this();
+        // y->update_this();
+        // z->update_this();
+
+
+        on_quad_(*next_ql_, *next_qr_, *next_qo_);
+        // on_quad_(nullptr, nullptr, nullptr);
+
+        next_ql_->reset();
+        next_qr_->reset();
+        next_qo_->reset();
     }
 
     // row_type copy_and_replace(row_type& curr_row) {
@@ -378,34 +423,37 @@ struct gc_managed_region {
     // }
 
     ref_type push_back_linear(s32 val) {
-        if (auto ref = linear_.back().try_push_back(val); ref) {
-            return *ref;
-        }
-        else {
+        if (!linear_.back()->available()) {
             replace_linear(linear_.back());
-            return *linear_.back().try_push_back(val);
         }
-        // auto [r, row] = push_back_at(linear_.back(), val);
-        // if (row) {
-        //     on_linear_(std::move(*row));
+        return linear_.back()->push_back(val);
+        // if (auto ref = linear_.back()->try_push_back(val); ref) {
+        //     return *ref;
         // }
-        // return r;
+        // else {
+        //     replace_linear(linear_.back());
+        //     return *linear_.back()->try_push_back(val);
+        // }
     }
 
-    ref_type push_back_quad(row_type& row, s32 val) {
-        if (auto ref = row.try_push_back(val); ref) {
-            return *ref;
-        }
-        else {
+    ref_type push_back_quad(row_ptr& row, s32 val) {
+        if (!row->available()) {
             replace_quadratic(quad_l_, quad_r_, quad_o_);
-            return *row.try_push_back(val);
         }
+        return row->push_back(val);
+        // if (auto ref = row->try_push_back(val); ref) {
+        //     t.stop();
+        //     return *ref;
+        // }
+        // else {
+        //     replace_quadratic(quad_l_, quad_r_, quad_o_);
+        //     return *row->try_push_back(val);
+        // }
     }
 
-    ref_type multiply(ref_type x, ref_type y) {
-        assert(quad_l_.size() == quad_r_.size() && quad_r_.size() == quad_o_.size());
+    ref_type multiply(ref_type& x, ref_type& y) {
+        assert(quad_l_->size() == quad_r_->size() && quad_r_->size() == quad_o_->size());
 
-            
         auto refl = push_back_quad(quad_l_, x.val());
         build_equal(refl, x);
 
@@ -418,7 +466,7 @@ struct gc_managed_region {
         return refo;
     }
 
-    ref_type divide(ref_type x, ref_type y) {
+    ref_type divide(ref_type& x, ref_type& y) {
         auto z = x.val() / y.val();
         
         auto refl = push_back_quad(quad_l_, z);
@@ -432,7 +480,7 @@ struct gc_managed_region {
         return refl;
     }
 
-    ref_type index(ref_type x, u32 i) {
+    ref_type index(const ref_type& x, u32 i) {
         // std::cout << "index " << x.loc_->ptr << " " << x.loc_->offset << std::endl;
         // std::cout << "linear " << linear_.back().count_[x.loc_->offset]->ptr << std::endl;
         auto xv = x.val();
@@ -445,24 +493,28 @@ struct gc_managed_region {
     }
 
     void finalize() {
-        for (linear_region& region : linear_) {
+        for (auto& region : linear_) {
             // std::cout << "finalize linear row of size " << region.size() << std::endl;
-            on_linear_(std::move(region));
+            on_linear_(*region);
         }
         // std::cout << "finalize quad row of size " << quad_l_.size() << std::endl;
         // std::cout << "finalize quad row of size " << quad_r_.size() << std::endl;
         // std::cout << "finalize quad row of size " << quad_o_.size() << std::endl;
-        on_quad_(std::move(quad_l_), std::move(quad_r_), std::move(quad_o_));
+        on_quad_(*quad_l_, *quad_r_, *quad_o_);
     }
 
 protected:
-    const size_t packing_size_;
+    bool build_constraints_;
+    size_t packing_size_;
     RandomDistribution& dist_;
-    std::vector<linear_region> linear_;
-    row_type quad_l_, quad_r_, quad_o_;
+    std::vector<row_ptr> linear_;
+    row_ptr quad_l_, quad_r_, quad_o_;
 
-    std::function<void(linear_region)> on_linear_;
-    std::function<void(row_type, row_type, row_type)> on_quad_;
+    row_ptr next_linear_;
+    row_ptr next_ql_, next_qr_, next_qo_;
+
+    std::function<void(row_type&)> on_linear_;
+    std::function<void(row_type&, row_type&, row_type&)> on_quad_;
 };
 
 }  // namespace ligero::vm::zkp

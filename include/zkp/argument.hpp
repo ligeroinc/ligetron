@@ -85,12 +85,12 @@ struct nonbatch_argument {
         return *this;
     }
 
-    nonbatch_argument& update_code(const Row& r) {
-        poly_type p(r.val_begin(), r.val_end());
-        encoder_.encode(p);
-        update_code(p);
-        return *this;
-    }
+    // nonbatch_argument& update_code(const Row& r) {
+    //     poly_type p(r.val_begin(), r.val_end());
+    //     encoder_.encode(p);
+    //     update_code(p);
+    //     return *this;
+    // }
 
     nonbatch_argument& update_linear(const poly_type& p, const poly_type& rand) {
         poly_type tmp = p * rand;
@@ -104,22 +104,22 @@ struct nonbatch_argument {
         return *this;
     }
 
-    nonbatch_argument& update_linear(const Row& r) {
-        poly_type p(r.val_begin(), r.val_end());
-        encoder_.encode(p);
+    // nonbatch_argument& update_linear(const Row& r) {
+    //     poly_type p(r.val_begin(), r.val_end());
+    //     encoder_.encode(p);
 
-        poly_type random = r.random();
-        // std::cout << "random: ";
-        // for (const auto& r : random) {
-        //     std::cout << r << " ";
-        // }
-        // std::cout << std::endl;
-        encoder_.encode(random);
+    //     poly_type random = r.random();
+    //     // std::cout << "random: ";
+    //     // for (const auto& r : random) {
+    //     //     std::cout << r << " ";
+    //     // }
+    //     // std::cout << std::endl;
+    //     encoder_.encode(random);
 
-        update_code(p);
-        update_linear(p, random);
-        return *this;
-    }
+    //     update_code(p);
+    //     update_linear(p, random);
+    //     return *this;
+    // }
 
     nonbatch_argument& update_quadratic(const poly_type& x, const poly_type& y, const poly_type& z) {
         poly_type p = x * y - z;
@@ -127,27 +127,27 @@ struct nonbatch_argument {
         return *this;
     }
 
-    nonbatch_argument& update_quadratic(const Row& a, const Row& b, const Row& c) {
-        poly_type pa(a.val_begin(), a.val_end());
-        poly_type pb(b.val_begin(), b.val_end());
-        poly_type pc(c.val_begin(), c.val_end());
-        poly_type ra(a.random()), rb(b.random()), rc(c.random());
+    // nonbatch_argument& update_quadratic(const Row& a, const Row& b, const Row& c) {
+    //     poly_type pa(a.val_begin(), a.val_end());
+    //     poly_type pb(b.val_begin(), b.val_end());
+    //     poly_type pc(c.val_begin(), c.val_end());
+    //     poly_type ra(a.random()), rb(b.random()), rc(c.random());
 
-        encoder_.encode(pa);
-        encoder_.encode(pb);
-        encoder_.encode(pc);
+    //     encoder_.encode(pa);
+    //     encoder_.encode(pb);
+    //     encoder_.encode(pc);
 
-        encoder_.encode(ra);
-        encoder_.encode(rb);
-        encoder_.encode(rc);
+    //     encoder_.encode(ra);
+    //     encoder_.encode(rb);
+    //     encoder_.encode(rc);
 
-        update_linear(pa, ra);
-        update_linear(pb, rb);
-        update_linear(pc, rc);
+    //     update_linear(pa, ra);
+    //     update_linear(pb, rb);
+    //     update_linear(pc, rc);
         
-        update_quadratic(pa, pb, pc);
-        return *this;
-    }
+    //     update_quadratic(pa, pb, pc);
+    //     return *this;
+    // }
 
     template <typename Archive>
     void serialize(Archive& ar, unsigned int version) {

@@ -36,8 +36,8 @@ struct prime_field : prime_field_expr {
     inline static value_type modulus = Fp::modulus;
     
     constexpr prime_field() : element_() { }
-    constexpr prime_field(const value_type& e) : element_(modulo(e, modulus)) { }
-    constexpr prime_field(value_type&& e) : element_(modulo(std::move(e), modulus)) { }
+    constexpr prime_field(const value_type& e) : element_(modulo_neg(e, modulus)) { }
+    constexpr prime_field(value_type&& e) : element_(modulo_neg(std::move(e), modulus)) { }
     
     constexpr prime_field(const prime_field& fp) : element_(fp.element_) { }
     constexpr prime_field(prime_field&& fp) : element_(std::move(fp.element_)) { }
@@ -51,7 +51,7 @@ struct prime_field : prime_field_expr {
     }
     
     prime_field& operator=(const value_type& e) {
-        element_ = modulo(e, modulus);
+        element_ = modulo_neg(e, modulus);
         return *this;
     }
     
@@ -67,7 +67,7 @@ struct prime_field : prime_field_expr {
     }
 
     prime_field& operator-=(const prime_field& other) {
-        element_ = modulo(element_ - other.element_, modulus);
+        element_ = modulo_neg(element_ - other.element_, modulus);
         return *this;
     }
 

@@ -228,6 +228,7 @@ int main(int argc, char *argv[]) {
     auto linear_poly = prover_arg.linear();
     
     std::cout << std::boolalpha;
+    std::cout << "Num quadratic constraints: " << ctx2.constraints_count() << std::endl;
     std::cout << "Validation of linear constraints:    " << validate_sum(encoder, prover_arg.linear())
               << std::endl;
     

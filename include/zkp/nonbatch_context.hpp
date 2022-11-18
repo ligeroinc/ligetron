@@ -46,7 +46,7 @@ struct hash_random_dist {
         : engine_(seed), dist_(T{0}, modulus - T{1}) { }
 
     auto operator()() {
-        auto t = make_timer("Random", "HashDistribution");
+        // auto t = make_timer("Random", "HashDistribution");
         return dist_(engine_);
     }
 
@@ -86,6 +86,18 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
         {
             region_.on_linear([&](auto& row) { return on_linear_full(row); });
             region_.on_quadratic([&](auto&... rows) { return on_quadratic_full(rows...); });
+
+            std::random_device rd;
+            
+            linear_seed_ = rd();
+            ql_seed_ = rd();
+            qr_seed_ = rd();
+            qo_seed_ = rd();
+            
+            linear_rand_.seed(linear_seed_);
+            ql_rand_.seed(ql_seed_);
+            qr_rand_.seed(qr_seed_);
+            qo_rand_.seed(qo_seed_);
         }
     
     virtual ~nonbatch_context_base() = default;
@@ -194,12 +206,13 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
 public:
     size_t linear_count = 0, quad_count = 0;
 protected:
-
+    std::vector<var_type> zstack_;
     reed_solomon64& encoder_;
 
     RandomDist dist_;
     gc_managed_region<field_poly, RandomDist> region_;
-    std::vector<var_type> zstack_;
+    unsigned int linear_seed_, ql_seed_, qr_seed_, qo_seed_;
+    std::mt19937 linear_rand_, ql_rand_, qr_rand_, qo_rand_;
 };
 
 template <typename LV, typename SV, typename Fp, typename RandomDist>
@@ -245,17 +258,38 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, zero_dist> 
     //     builder_ << p;
     // }
 
+    void process_row(row_type& row, std::mt19937& rand) {
+
+    }
+
     void on_linear_full(row_type& row) override {
         // auto t = make_timer("Context", __func__);
         field_poly p(row.val_begin(), row.val_end());
-        this->encoder_.encode(p);
+        this->encoder_.encode_with(p, this->linear_rand_);
         builder_ << p;
     }
 
     void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {
-        on_linear_full(x);
-        on_linear_full(y);
-        on_linear_full(z);
+        field_poly px(x.val_begin(), x.val_end());
+        field_poly py(y.val_begin(), y.val_end());
+        field_poly pz(z.val_begin(), z.val_end());
+        
+        #pragma omp parallel sections num_threads(3)
+        {
+            #pragma omp section
+            {
+                this->encoder_.encode_with(px, this->ql_rand_);
+            }
+            #pragma omp section
+            {
+                this->encoder_.encode_with(py, this->qr_rand_);
+            }
+            #pragma omp section
+            {
+                this->encoder_.encode_with(pz, this->qo_rand_);
+            }
+        }
+        builder_ << px << py << pz;
     }
 
     auto&& builder() {
@@ -307,12 +341,51 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
     //     }
     // }
 
-    void on_linear_full(row_type row) override {
-        arg_.update_linear(row);
+    void on_linear_full(row_type& row) override {
+        field_poly p(row.val_begin(), row.val_end());
+        this->encoder_.encode_with(p, this->linear_rand_);
+        this->encoder_.encode_with(row.random(), this->linear_rand_);
+        arg_.update_code(p);
+        arg_.update_linear(p, row.random());
     }
 
-    void on_quadratic_full(row_type x, row_type y, row_type z) override {
-        arg_.update_quadratic(x, y, z);
+    void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {
+        num_constraints_++;
+
+        field_poly px(x.val_begin(), x.val_end());
+        field_poly py(y.val_begin(), y.val_end());
+        field_poly pz(z.val_begin(), z.val_end());
+        
+        #pragma omp parallel sections num_threads(3)
+        {
+            #pragma omp section
+            {
+                this->encoder_.encode_with(px, this->ql_rand_);
+                this->encoder_.encode_with(x.random(), this->ql_rand_);
+
+            }
+
+            #pragma omp section
+            {
+                this->encoder_.encode_with(py, this->qr_rand_);
+                this->encoder_.encode_with(y.random(), this->qr_rand_);
+
+            }
+
+            #pragma omp section
+            {
+                this->encoder_.encode_with(pz, this->qo_rand_);
+                this->encoder_.encode_with(z.random(), this->qo_rand_);
+
+            }
+        }
+        arg_.update_code(px);
+        arg_.update_linear(px, x.random());
+        arg_.update_code(py);
+        arg_.update_linear(py, y.random());
+        arg_.update_code(pz);
+        arg_.update_linear(pz, z.random());
+        arg_.update_quadratic(px, py, pz);
     }
 
     // void process_witness(const field_poly& p) override {
@@ -324,8 +397,10 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
     // }
 
     const auto& get_argument() const { return arg_; }
+    size_t constraints_count() const { return num_constraints_; }
     
 protected:
+    size_t num_constraints_ = 0;
     nonbatch_argument<reed_solomon64, row_type, RandomDist> arg_;
 };
 
@@ -354,20 +429,43 @@ struct nonbatch_stage3_context : public nonbatch_context<LV, SV, Fp, zero_dist>
         : Base(encoder), sample_index_(si), func_(func)
         { }
 
-    void on_linear_full(row_type row) override {
-        field_poly p(row.val_begin(), row.val_end());
-        this->encoder_.encode(p);
+    void sample_row(const field_poly& p) {
         field_poly sp(sample_index_.size());
         for (size_t i = 0; i < sample_index_.size(); i++) {
             sp[i] = p[sample_index_[i]];
         }
         push_sample(sp);
     }
+    
+    void on_linear_full(row_type& row) override {
+        field_poly p(row.val_begin(), row.val_end());
+        this->encoder_.encode_with(p, this->linear_rand_);
+        sample_row(p);
+    }
 
-    void on_quadratic_full(row_type x, row_type y, row_type z) override {
-        on_linear_full(std::move(x));
-        on_linear_full(std::move(y));
-        on_linear_full(std::move(z));
+    void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {
+        field_poly px(x.val_begin(), x.val_end());
+        field_poly py(y.val_begin(), y.val_end());
+        field_poly pz(z.val_begin(), z.val_end());
+
+        #pragma omp parallel sections num_threads(3)
+        {
+            #pragma omp section
+            {
+                this->encoder_.encode_with(px, this->ql_rand_);
+            }
+            #pragma omp section
+            {
+                this->encoder_.encode_with(py, this->qr_rand_);
+            }
+            #pragma omp section
+            {
+                this->encoder_.encode_with(pz, this->qo_rand_);
+            }
+        }
+        sample_row(px);
+        sample_row(py);
+        sample_row(pz);
     }
 
     void push_sample(const field_poly& sample) {
@@ -424,8 +522,8 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
         field_poly saved_row = pop_sample();
         builder_ << saved_row;
 
-        field_poly rand = row.random();
-        this->encoder_.encode(rand);
+        field_poly& rand = row.random();
+        this->encoder_.encode_with(rand, this->linear_rand_);
         field_poly sprand(sample_index_.size());
         for (size_t i = 0; i < sample_index_.size(); i++) {
             sprand[i] = rand[sample_index_[i]];
@@ -442,8 +540,8 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
         builder_ << saved_x << saved_y << saved_z;
 
         {
-            field_poly rand = x.random();
-            this->encoder_.encode(rand);
+            field_poly& rand = x.random();
+            this->encoder_.encode_with(rand, this->ql_rand_);
             field_poly sprand(sample_index_.size());
             for (size_t i = 0; i < sample_index_.size(); i++) {
                 sprand[i] = rand[sample_index_[i]];
@@ -452,8 +550,8 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
         }
 
         {
-            field_poly rand = y.random();
-            this->encoder_.encode(rand);
+            field_poly& rand = y.random();
+            this->encoder_.encode_with(rand, this->qr_rand_);
             field_poly sprand(sample_index_.size());
             for (size_t i = 0; i < sample_index_.size(); i++) {
                 sprand[i] = rand[sample_index_[i]];
@@ -462,8 +560,8 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
         }
 
         {
-            field_poly rand = z.random();
-            this->encoder_.encode(rand);
+            field_poly& rand = z.random();
+            this->encoder_.encode_with(rand, this->qo_rand_);
             field_poly sprand(sample_index_.size());
             for (size_t i = 0; i < sample_index_.size(); i++) {
                 sprand[i] = rand[sample_index_[i]];

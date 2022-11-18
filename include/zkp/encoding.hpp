@@ -29,11 +29,21 @@ struct reed_solomon64 {
             }
         }
 
-    template <typename Poly>
-    Poly& encode(Poly& poly) {
-        auto t = make_timer("NTT", "encode");
+    // template <typename Poly>
+    // Poly& encode(Poly& poly) {
+    //     // auto t = make_timer("NTT", __func__);
+    //     poly.pad(l_);
+    //     poly.pad_random(d_, random_);
+    //     ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
+    //     poly.pad(n_);
+    //     ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
+    //     return poly;
+    // }
+
+    template <typename Poly, typename RandGen>
+    Poly& encode_with(Poly& poly, RandGen& rand) {
         poly.pad(l_);
-        poly.pad_random(d_, random_);
+        poly.pad_random(d_, rand);
         ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
         poly.pad(n_);
         ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
@@ -48,15 +58,6 @@ struct reed_solomon64 {
         ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
         return poly;
     }
-
-    // template <typename Poly>
-    // void encode(relation<Poly> *ptr) {
-    //     if (auto *p = dynamic_cast<binary_relation<Poly>*>(ptr); p != nullptr) {
-    //         encode(p->a());
-    //         encode(p->b());
-    //         encode(p->c());
-    //     }
-    // }
 
     template <typename Iter>
     void encode(Iter begin, Iter end) {

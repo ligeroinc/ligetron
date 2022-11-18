@@ -41,7 +41,7 @@ struct primitive_poly : public poly_field_expr
         #pragma omp simd
         for (size_t i = 0; i < std::distance(begin, end); i++) {
             if (auto s = static_cast<signed_value_type>(data_[i]); s < 0) {
-                data_[i] = s + modulus;
+                data_[i] = modulo_neg<signed_value_type>(s, modulus);
             }
         }
         reduce_coefficient();

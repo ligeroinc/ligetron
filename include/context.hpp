@@ -38,7 +38,7 @@ struct context_base {
         return top;
     }
 
-    svalue_type& stack_peek() {
+    virtual svalue_type& stack_peek() {
         return stack_.back();
     }
 
@@ -46,41 +46,36 @@ struct context_base {
         stack_push(v);
     }
 
-    // template <typename T>
-    // T stack_pop() {
-    //     auto tmp = stack_pop_raw();
-    //     return std::get<T>(std::move(tmp));
-    // }
-    
-    // template <typename T>
-    // T stack_pop() {
-        // svalue_t top = std::move(stack_.back());
-        // stack_.pop_back();
-        // return std::get<T>(std::move(top));
-    // }
+    virtual void drop_n_below(size_t n, size_t pos = 0) {
+        auto it = stack_.rbegin() + pos;
+        stack_.erase((it + n).base(), it.base());
+    }
 
-    void show_stack() const {
-        std::cout << "stack: ";
-        for (const auto& v : stack_) {
-            std::cout << v.to_string() << " ";
-            // std::visit(prelude::overloaded {
-            //         [](u32 x) { std::cout << "(" << x << " : i32) "; },
-            //         [](u64 x) { std::cout << "(" << x << " : i64) "; },
-            //         [](label l) { std::cout << "Label<" << l.arity << "> "; },
-            //         [](const frame_ptr& f) { std::cout << "Frame<" << f->arity << "> "; }
-            //     }, v);
+    virtual void push_arguments(frame_pointer fp, u32 n) {
+        std::vector<value_type> arguments;
+        for (size_t i = 0; i < n; i++) {
+            svalue_type sv = stack_pop();
+            arguments.push_back(std::move(sv.template as<value_type>()));
         }
-        std::cout << std::endl;
+        std::reverse(arguments.begin(), arguments.end());
+        fp->locals = std::move(arguments);
     }
 
-    value_type local_get(index_t i) const {
-        return current_frame()->locals[i];
+    virtual void push_local(frame_pointer fp, value_kind k) {
+        fp->locals.emplace_back(u32_type{0U});
     }
 
-    template <typename T>
-    void local_set(index_t i, T&& v) {
-        current_frame()->locals[i] = std::forward<T>(v);
-    }
+    // virtual value_type local_get(index_t i) const {
+    //     return current_frame()->locals[i];
+    // }
+
+    // virtual void local_set(index_t i, value_type v) {
+    //     current_frame()->locals[i] = std::move(v);
+    // }
+
+    // virtual void local_tee(index_t i) {
+    //     local_set(i, stack_peek().template as<value_type>());
+    // }
 
     frame_pointer current_frame() const {
         return frames_.back();
@@ -110,9 +105,18 @@ struct context_base {
     auto stack_bottom() { return stack_.rend(); }
     auto stack_top() { return stack_.rbegin(); }
 
-    virtual void drop_n_below(size_t n, size_t pos = 0) {
-        auto it = stack_.rbegin() + pos;
-        stack_.erase((it + n).base(), it.base());
+    void show_stack() const {
+        std::cout << "stack: ";
+        for (const auto& v : stack_) {
+            std::cout << v.to_string() << " ";
+            // std::visit(prelude::overloaded {
+            //         [](u32 x) { std::cout << "(" << x << " : i32) "; },
+            //         [](u64 x) { std::cout << "(" << x << " : i64) "; },
+            //         [](label l) { std::cout << "Label<" << l.arity << "> "; },
+            //         [](const frame_ptr& f) { std::cout << "Frame<" << f->arity << "> "; }
+            //     }, v);
+        }
+        std::cout << std::endl;
     }
 
 /* ------------------------------------------------------------ */

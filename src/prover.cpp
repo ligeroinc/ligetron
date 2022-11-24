@@ -6,9 +6,9 @@
 #include <runtime.hpp>
 #include <execution.hpp>
 // #include <zkp/circuit.hpp>
-#include <context.hpp>
-#include <zkp/prover_context.hpp>
-#include <zkp/prover_execution.hpp>
+// #include <context.hpp>
+// #include <zkp/prover_context.hpp>
+// #include <zkp/prover_execution.hpp>
 #include <zkp/poly_field.hpp>
 
 #include <chrono>
@@ -39,7 +39,7 @@ template <typename Decoder, typename Poly>
 bool validate_sum(Decoder& dec, Poly p) {
     using field = typename Poly::field_type;
     dec.decode(p);
-    field acc = 0;
+    field acc = 0UL;
     for (size_t i = 0; i < p.size(); i++) {
         acc += field{p[i]};
     }
@@ -48,16 +48,13 @@ bool validate_sum(Decoder& dec, Poly p) {
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
 constexpr uint64_t modulus = 1125625028935681ULL;
+// constexpr uint64_t modulus = 37;
 constexpr size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
 
-using u32vec = fixed_vector<u32, l>;
-using s32vec = fixed_vector<s32, l>;
-using u64vec = fixed_vector<u64, l>;
-using s64vec = fixed_vector<s64, l>;
-using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
-using frame_type = frame<value_type>;
-using svalue_type = stack_value<value_type, label, frame_type>;
+// using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
+using frame_type = zkp_frame<value_t, typename zkp::gc_row<poly_t>::reference>;
+using svalue_type = stack_value<value_t, label, frame_type>;
 
 std::string str_a, str_b;
 
@@ -165,8 +162,8 @@ int main(int argc, char *argv[]) {
     // std::cout << "l: " << l << " d: " << d << " K: " << n << std::endl;
 
     std::random_device rd;
-    const unsigned int encoder_seed = rd();
-    zkp::reed_solomon64 encoder(modulus, l, d, n, encoder_seed);
+    zkp::random_seeds encoder_seed { rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
+    zkp::reed_solomon64 encoder(modulus, l, d, n);
 
     
     // Stage 1
@@ -175,10 +172,11 @@ int main(int argc, char *argv[]) {
     std::cout << "Start Stage 1" << std::endl;
 
     // zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);    
-    zkp::nonbatch_stage1_context<value_t, svalue_t, poly_t, zkp::sha256> ctx(encoder);
+    zkp::nonbatch_stage1_context<value_t, svalue_type, poly_t, zkp::sha256> ctx(encoder, encoder_seed);
     {
         auto t = make_timer("stage1", "run");
         run_program(m, ctx, func);
+        ctx.assert_one(ctx.stack_pop_var());
         ctx.finalize();
     }
 
@@ -204,11 +202,11 @@ int main(int argc, char *argv[]) {
     // -------------------------------------------------------------------------------- //
     std::cout << "Start Stage 2" << std::endl;
     
-    encoder.seed(encoder_seed);
-    zkp::nonbatch_stage2_context<value_t, svalue_t, poly_t> ctx2(encoder, stage1_root);
+    zkp::nonbatch_stage2_context<value_t, svalue_type, poly_t> ctx2(encoder, encoder_seed, stage1_root);
     {
         auto t = make_timer("stage2", "run");
         run_program(m, ctx2, func);
+        ctx2.assert_one(ctx2.stack_pop_var());
         ctx2.finalize();
     }
 
@@ -219,7 +217,7 @@ int main(int argc, char *argv[]) {
     //           << std::endl;
     // encoder.timer_ = 0;
 
-    auto stage2_result = ctx2.stack_pop_var();
+    // auto stage2_result = ctx2.stack_pop_var();
     // decltype(stage2_result) one{ 1U, ctx2.encode_const(1U) };
     // auto statement = ctx2.eval(stage2_result - one);
 
@@ -260,11 +258,13 @@ int main(int argc, char *argv[]) {
 
     std::ofstream proof("proof.data", std::ios::out | std::ios::binary | std::ios::trunc);
     boost::archive::binary_oarchive oa(proof);
-    
+
+    poly_t code = prover_arg.code();
+    encoder.partial_decode(code);
     oa << encoder_seed
        << stage1_root
        << stage2_seed
-       << prover_arg.code()
+       << code
        << prover_arg.quadratic()
        << prover_arg.linear()
        << decommit;
@@ -272,11 +272,11 @@ int main(int argc, char *argv[]) {
     size_t saved_rows = 0;
     auto save = [&oa, &saved_rows](const auto& poly) { oa << poly; saved_rows++; };
 
-    encoder.seed(encoder_seed);
-    zkp::nonbatch_stage3_context<value_t, svalue_t, poly_t, decltype(save)> ctx3(encoder, sample_index, save);
+    zkp::nonbatch_stage3_context<value_t, svalue_type, poly_t, decltype(save)> ctx3(encoder, encoder_seed, sample_index, save);
     {
         auto t = make_timer("stage3", "run");
         run_program(m, ctx3, func);
+        ctx3.assert_one(ctx3.stack_pop_var());
         ctx3.finalize();
     }
 
@@ -291,7 +291,7 @@ int main(int argc, char *argv[]) {
     // std::cout << "----------------------------------------" << std::endl
     std::cout << "Saved rows: " << saved_rows << std::endl
               << "----------------------------------------" << std::endl;
-    std::cout << "Quadratic constraints: " << ctx3.quad_count << std::endl;
+    // std::cout << "Quadratic constraints: " << ctx3.quad_count << std::endl;
               // << "Total count: " << ctx3.linear_count + ctx3.quad_count << std::endl;
 // << "Linear constraints: " << ctx3.linear_count << std::endl
 

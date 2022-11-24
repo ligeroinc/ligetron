@@ -29,6 +29,13 @@ struct frame {
     module_instance *module;
 };
 
+template <typename LocalValue, typename Reference>
+struct zkp_frame : public frame<LocalValue> {
+    using frame<LocalValue>::frame;
+
+    std::vector<Reference> refs;
+};
+
 template <typename U32 = u32,
           typename S32 = s32,
           typename U64 = u64,

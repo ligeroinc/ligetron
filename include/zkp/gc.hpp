@@ -65,6 +65,7 @@ struct gc_row {
     };
 
     struct reference : ref_expr_base {
+        reference() : loc_(nullptr) { }
         reference(std::shared_ptr<location> loc) : loc_(std::move(loc)) { }
         
         // reference() : loc_(nullptr) { }
@@ -85,7 +86,7 @@ struct gc_row {
         // reference(reference&&) = default;
         // reference& operator=(reference&&) = default;
 
-        u32 val() const {
+        s32 val() const {
             assert(loc_->ptr != nullptr);
             return loc_->ptr->val_[loc_->offset];
         }
@@ -98,14 +99,27 @@ struct gc_row {
         template <typename... Args>
         auto eval(Args&&...) { return *this; }
 
-        auto operator[](size_t i) const {
-            return ref_expr(zkp_ops::index_of{ i }, *this);
-        }
+        // auto operator[](size_t i) const {
+        //     return ref_expr(zkp_ops::index_of{ i }, *this);
+        // }
         
     protected:
         std::shared_ptr<location> loc_;
         // location *loc_;
     };
+
+    // struct decomposed_reference {
+    //     decomposed_reference(reference ref, std::pair<field_type, field_type> random)
+    //         : ref_(std::move(ref)), randomness_(std::move(random)) { }
+
+    //     auto operator[](size_t i) const {
+    //         return packed_ref_expr(zkp_ops::index_of{i}, randomness_, ref_);
+    //     }
+        
+    // protected:
+    //     reference ref_;
+    //     std::pair<field_type, field_type> randomness_;
+    // };
 
     gc_row() = default;
     gc_row(size_t packing_size)
@@ -164,6 +178,8 @@ struct gc_row {
         const size_t idx = curr_++;
         
         val_[idx] = val;
+
+        // auto t = make_timer("shared_ptr");
         return reference{ count_[idx] };
         
         // auto ptr = std::make_shared<value_type*>(&random_[idx]);
@@ -182,9 +198,9 @@ struct gc_row {
         }
     }
 
-    template <typename RandomDistribution>
+    template <typename RandomDist>
     std::optional<std::unique_ptr<gc_row>>
-    mark_and_sweep(std::unique_ptr<gc_row>& next_gen, RandomDistribution& dist) {
+    mark_and_sweep(std::unique_ptr<gc_row>& next_gen, RandomDist& dist) {
         assert(packing_size_ == next_gen->packing_size_);
 
         // auto t = make_timer("GC", "MarkSweep");
@@ -224,21 +240,23 @@ struct gc_row {
                 // next_gen.val_[idx] = val_[i];
 
                 // Generating Equality constraint
-                field_type r = dist();
+                if constexpr (RandomDist::enabled) {
+                    field_type r = dist();
 
-                // ptr still point to old generation's randomness
-                // auto ptr = std::move(count_[i]);
+                    // ptr still point to old generation's randomness
+                    // auto ptr = std::move(count_[i]);
                 
-                // Adjust randomness for old generation
-                field_type rd = field_type{random_[i]} - r;
-                random_[i] = rd.data();
+                    // Adjust randomness for old generation
+                    field_type rd = field_type{random_[i]} - r;
+                    random_[i] = rd.data();
 
-                // ptr now points to new generation's randomness
-                // *ptr = &next_gen.random_[idx];
+                    // ptr now points to new generation's randomness
+                    // *ptr = &next_gen.random_[idx];
 
-                // Adjust randomness for new generation too
-                field_type refd = field_type{ref->rand()} + r;
-                ref->rand() += refd.data();
+                    // Adjust randomness for new generation too
+                    field_type refd = field_type{ref->rand()} + r;
+                    ref->rand() += refd.data();
+                }
                 // next_gen.random_[idx] += r;
 
                 // std::cout << "this " << this << ", ptr " << count_[i]->ptr;
@@ -286,16 +304,17 @@ struct gc_row {
 };
 
 
-template <typename Poly, typename RandomDistribution>
+template <typename Poly, typename RandomDist>
 struct gc_managed_region {
     using field_type = typename Poly::field_type;
+    using signed_value_type = typename Poly::signed_value_type;
+    
     using row_type = gc_row<Poly>;
     using ref_type = typename row_type::reference;
     using row_ptr = std::unique_ptr<row_type>;
 
-    gc_managed_region(size_t packing_size, RandomDistribution& dist, bool build_constraints = false)
-        : build_constraints_(build_constraints),
-          packing_size_(packing_size),
+    gc_managed_region(size_t packing_size, RandomDist& dist)
+        : packing_size_(packing_size),
           dist_(dist),
           quad_l_(std::make_unique<row_type>(packing_size)),
           quad_r_(std::make_unique<row_type>(packing_size)),
@@ -319,11 +338,13 @@ struct gc_managed_region {
     }
 
     void build_linear(ref_type& z, ref_type& x, ref_type& y) {
-        if (build_constraints_) {
-            field_type r = dist_();
-            field_type pz = field_type{z.rand()} - r;
-            field_type px = field_type{x.rand()} + r;
-            field_type py = field_type{y.rand()} + r;
+        // auto t = make_timer(__func__);
+        if constexpr (RandomDist::enabled) {
+            // auto t1 = make_timer(__func__, "active");
+            auto r = static_cast<signed_value_type>(dist_());
+            field_type pz = static_cast<signed_value_type>(z.rand()) - r;
+            field_type px = static_cast<signed_value_type>(x.rand()) + r;
+            field_type py = static_cast<signed_value_type>(y.rand()) + r;
             z.rand() = pz.data();
             x.rand() = px.data();
             y.rand() = py.data();
@@ -331,10 +352,12 @@ struct gc_managed_region {
     }
 
     void build_equal(ref_type& z, ref_type& x) {
-        if (build_constraints_) {
-            field_type r = dist_();
-            field_type pz = field_type{z.rand()} - r;
-            field_type px = field_type{x.rand()} + r;
+        // auto t = make_timer(__func__);
+        if constexpr (RandomDist::enabled) {
+            // auto t1 = make_timer(__func__, "active");
+            auto r = static_cast<signed_value_type>(dist_());
+            field_type pz = static_cast<signed_value_type>(z.rand()) - r;
+            field_type px = static_cast<signed_value_type>(x.rand()) + r;
             z.rand() = pz.data();
             x.rand() = px.data();
         }
@@ -480,7 +503,59 @@ struct gc_managed_region {
         return refl;
     }
 
-    ref_type index(const ref_type& x, u32 i) {
+    std::pair<field_type, field_type> adjust_random(ref_type& ref) {
+        field_type rf(ref.rand(), no_reduce_coeffs);
+        field_type rl(dist_(), no_reduce_coeffs);
+        field_type rr(dist_(), no_reduce_coeffs);
+        // ref.rand() = rf - rl - rr;
+        // auto tmp = rl.data();
+        // DEBUG << "Val: " << ref.val();
+        // DEBUG << "Before Random: " << rf.data();
+        // DEBUG << "R: " << tmp;
+        ref.rand() = rf - rl - rr;
+            // - rl * field_type(ref.val(), no_reduce_coeffs)
+            // - rr * field_type(ref.val(), no_reduce_coeffs);
+        return std::make_pair(rl, rr);
+    }
+
+    // ref_type index(const ref_type& x, u32 i) {
+    //     auto xv = x.val();
+    //     u32 bit = (xv >> i) & u32{1};
+    //     auto rl = push_back_quad(quad_l_, bit);
+    //     auto rr = push_back_quad(quad_r_, bit);
+    //     auto ro = push_back_quad(quad_o_, bit);
+
+    //     // if constexpr (RandomDist::enabled) {
+    //     //     field_type r1(dist_(), no_reduce_coeffs);
+    //     //     field_type r2(dist_(), no_reduce_coeffs);
+    //     //     x.rand() = field_type(x.rand(), no_reduce_coeffs) - r1 - r2;
+            
+    //     // }
+        
+    //     return ro;
+    // }
+
+    ref_type index_sign(const ref_type& x, u32 i, const std::pair<field_type, field_type>& randomness) {
+        auto xv = x.val();
+        u32 bit = (xv >> i) & u32{1};
+        auto rl = push_back_quad(quad_l_, bit);
+        auto rr = push_back_quad(quad_r_, bit);
+        auto ro = push_back_quad(quad_o_, bit);
+
+        if constexpr(RandomDist::enabled) {
+            const auto& [left, right] = randomness;
+            field_type l(rl.rand(), no_reduce_coeffs);
+            field_type r(rr.rand(), no_reduce_coeffs);
+
+            // Use -2^31 to compensate the difference
+            rl.rand() = l + left * field_type(-(1L << i));
+            rr.rand() = r + right * field_type(-(1L << i));
+        }
+        
+        return ro;
+    }
+
+    ref_type index(const ref_type& x, u32 i, const std::pair<field_type, field_type>& randomness) {
         // std::cout << "index " << x.loc_->ptr << " " << x.loc_->offset << std::endl;
         // std::cout << "linear " << linear_.back().count_[x.loc_->offset]->ptr << std::endl;
         auto xv = x.val();
@@ -488,6 +563,15 @@ struct gc_managed_region {
         auto rl = push_back_quad(quad_l_, bit);
         auto rr = push_back_quad(quad_r_, bit);
         auto ro = push_back_quad(quad_o_, bit);
+
+        if constexpr(RandomDist::enabled) {
+            const auto& [left, right] = randomness;
+            field_type l(rl.rand(), no_reduce_coeffs);
+            field_type r(rr.rand(), no_reduce_coeffs);
+
+            rl.rand() = l + left * field_type(1UL << i);
+            rr.rand() = r + right * field_type(1UL << i);
+        }
         
         return ro;
     }
@@ -504,9 +588,8 @@ struct gc_managed_region {
     }
 
 protected:
-    bool build_constraints_;
     size_t packing_size_;
-    RandomDistribution& dist_;
+    RandomDist& dist_;
     std::vector<row_ptr> linear_;
     row_ptr quad_l_, quad_r_, quad_o_;
 

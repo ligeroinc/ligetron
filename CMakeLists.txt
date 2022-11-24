@@ -24,8 +24,8 @@ find_package(Boost
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
   add_compile_options(-std=c++20 -Og -g -pg)
-  # add_compile_options(-fsanitize=address)
-  # add_link_options(-fsanitize=address)
+  add_compile_options(-fsanitize=address)
+  add_link_options(-fsanitize=address)
 else()
   add_compile_options(-std=c++20 -O3 -march=native -fopenmp)
   # add_link_options(-pg)

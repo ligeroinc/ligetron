@@ -250,11 +250,11 @@ using threadsafe_timer = singleton<timer_t<milli, thread_model::max_hardware_thr
 
 template <typename... Args>
 auto make_timer(Args... args) {
-    return timer::instance().make_timer(std::forward<Args>(args)...);
+    return threadsafe_timer::instance().make_timer(std::forward<Args>(args)...);
 }
 
 void show_timer(int level = std::numeric_limits<int>::max()) {
-    return timer::instance().print(level);
+    return threadsafe_timer::instance().print(level);
 }
 
 }  // namespace ligero::vm

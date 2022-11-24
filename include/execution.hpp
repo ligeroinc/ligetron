@@ -275,20 +275,26 @@ public:
 
         /* Push arguments */
         /* -------------------------------------------------- */
-        std::vector<value_type> arguments;
-        for (size_t i = 0; i < n; i++) {
-            svalue_type sv = ctx_.stack_pop();
-            arguments.push_back(std::move(sv.template as<value_type>()));
-        }
-        std::reverse(arguments.begin(), arguments.end());
+        auto fp = std::make_unique<frame_type>();
+        fp->arity = m;
+        fp->module = ctx_.module();
+        ctx_.push_arguments(fp.get(), n);
+        // std::vector<value_type> arguments;
+        // for (size_t i = 0; i < n; i++) {
+        //     svalue_type sv = ctx_.stack_pop();
+        //     arguments.push_back(std::move(sv.template as<value_type>()));
+        // }
+        // std::reverse(arguments.begin(), arguments.end());
+        
 
         /* Invoke the function (native function) */
         /* -------------------------------------------------- */
         if (auto *pcode = std::get_if<function_instance::func_code>(&func.code)) {
-            auto fp = std::make_unique<frame_type>(m, std::move(arguments), ctx_.module());
+            // auto fp = std::make_unique<frame_type>(m, std::move(arguments), ctx_.module());
 
             for (const value_kind& type : pcode->locals) {
-                fp->locals.emplace_back(u32_type(0U));
+                // fp->locals.emplace_back(u32_type(0U));
+                ctx_.push_local(fp.get(), type);
             }
         
             ctx_.push_frame(std::move(fp));
@@ -345,24 +351,17 @@ public:
 
     result_t run(const op::local_get& var) override {
         index_t x = var.local;
-        auto local = ctx_.local_get(x);
-        ctx_.stack_push(std::move(local));
-        // if (std::holds_alternative<u32>(static_cast<typename decltype(local)::variant_type&>(local))) {
-        //     ctx_.template stack_push(std::get<u32>(local));
-        // }
-        // else {
-        //     ctx_.template stack_push(std::get<u64>(local));
-        // }
-
-        // std::cout << "local.get[" << x << "]" << std::endl;
-        // ctx_.show_stack();
+        // auto local = ctx_.local_get(x);
+        // ctx_.stack_push(std::move(local));
+        ctx_.stack_push(ctx_.current_frame()->locals[x]);
         return {};
     }
 
     result_t run(const op::local_set& var) override {
         index_t x = var.local;
-        auto top = ctx_.stack_pop().template as<typename Context::value_type>();
-        ctx_.local_set(x, std::move(top));
+        // auto top = ctx_.stack_pop().template as<typename Context::value_type>();
+        // ctx_.local_set(x, std::move(top));
+        ctx_.current_frame()->locals[x] = ctx_.stack_pop().template as<typename Context::value_type>();
 
         // std::cout << "local.set[" << x << "]" << std::endl;
         // ctx_.show_stack();
@@ -371,8 +370,9 @@ public:
 
     result_t run(const op::local_tee& var) override {
         index_t x = var.local;
-        auto& top = ctx_.stack_peek().template as<typename Context::value_type>();
-        ctx_.local_set(x, top);
+        // auto& top = ctx_.stack_peek().template as<typename Context::value_type>();
+        // ctx_.local_set(x, top);
+        ctx_.current_frame()->locals[x] = ctx_.stack_peek().template as<typename Context::value_type>();
         
         // std::cout << "local.tee[" << x << "]" << std::endl;
         // ctx_.show_stack();

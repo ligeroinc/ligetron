@@ -37,10 +37,9 @@ template <typename Decoder, typename Poly>
 bool validate_sum(Decoder& dec, Poly p) {
     using field = typename Poly::field_type;
     dec.decode(p);
-    field acc = 0;
+    field acc = 0UL;
     for (size_t i = 0; i < p.size(); i++) {
         acc += field{p[i]};
-        std::cout << acc.data() << std::endl;
     }
     return acc.data() == 0;
 }
@@ -50,13 +49,8 @@ constexpr uint64_t modulus = 1125625028935681ULL;
 constexpr size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
 
-using u32vec = fixed_vector<u32, l>;
-using s32vec = fixed_vector<s32, l>;
-using u64vec = fixed_vector<u64, l>;
-using s64vec = fixed_vector<s64, l>;
-using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
-using frame_type = frame<value_type>;
-using svalue_type = stack_value<value_type, label, frame_type>;
+using frame_type = zkp_frame<value_t, typename zkp::gc_row<poly_t>::reference>;
+using svalue_type = stack_value<value_t, label, frame_type>;
 
 std::string str_a, str_b;
 
@@ -95,41 +89,8 @@ void run_program(Module& m, Context& ctx, size_t func) {
     for (size_t i = 0; i < len2; i++) {
         mem[offset1 + i] = str_b[i];
     }
-    // if (fill) {
-    //     {
-
-    //         mem[offset] = 's';
-    //         mem[offset+1] = 'u';
-    //         mem[offset+2] = 'n';
-    //         mem[offset+3] = 'd';
-    //         mem[offset+4] = 'a';
-    //         mem[offset+5] = 'y';
-
-    //         mem[offset1] = 's';
-    //         mem[offset1+1] = 'a';
-    //         mem[offset1+2] = 't';
-    //         mem[offset1+3] = 'u';
-    //         mem[offset1+4] = 'r';
-    //         mem[offset1+5] = 'd';
-    //         mem[offset1+6] = 'a';
-    //         mem[offset1+7] = 'y';
-    //     }
-    // }
-
-    // auto *v = reinterpret_cast<u32*>(store.memorys[0].data.data());
-    // std::cout << "Mem: ";
-    // for (auto i = 0; i < 10; i++) {
-    //     std::cout << *(v + i) << " ";
-    // }
-    // std::cout << std::endl;
 
     invoke(module, exe, func, offset, offset1, len1, len2);
-
-    // std::cout << "Mem: ";
-    // for (auto i = 0; i < 10; i++) {
-    //     std::cout << *(v + i) << " ";
-    // }
-    // std::cout << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -169,7 +130,7 @@ int main(int argc, char *argv[]) {
     std::ifstream proof("proof.data", std::ios::in | std::ios::binary);
     boost::archive::binary_iarchive ia(proof);
     
-    unsigned int encoder_seed;
+    zkp::random_seeds encoder_seed;
     zkp::sha256::digest merkle_root;
     zkp::sha256::digest sample_seed;
     poly_t prover_code, prover_quad, statement;
@@ -192,7 +153,7 @@ int main(int argc, char *argv[]) {
 
     
 
-    zkp::reed_solomon64 encoder(modulus, l, d, n, encoder_seed);
+    zkp::reed_solomon64 encoder(modulus, l, d, n);
 
     constexpr size_t sample_size = 80;
     zkp::hash_random_engine<zkp::sha256> engine(sample_seed);
@@ -210,11 +171,11 @@ int main(int argc, char *argv[]) {
 
     auto load = [&ia] { poly_t p; ia >> p; return p; };
 
-    encoder.seed(encoder_seed);
-    zkp::nonbatch_verifier_context<value_t, svalue_t, poly_t, decltype(load)> vctx(encoder, merkle_root, sample_index, load);
+    zkp::nonbatch_verifier_context<value_t, svalue_type, poly_t, decltype(load)> vctx(encoder, encoder_seed, merkle_root, sample_index, load);
     auto verify_begin = std::chrono::high_resolution_clock::now();
     try {
         run_program(m, vctx, func);
+        vctx.assert_one(vctx.stack_pop_var());
         vctx.finalize();
     }
     catch (...) {
@@ -234,13 +195,19 @@ int main(int argc, char *argv[]) {
     show_hash(rhash);
     std::cout << "----------------------------------------" << std::endl;
 
-    auto result = vctx.stack_pop_var();
     // decltype(result) one{ 1U, vctx.encode_const(1U) };
     // auto verifier_linear = vctx.eval(result - one);
     auto verifier_linear = verifier_arg.linear();
+
+    bool code_result = true;
+    try {
+        encoder.partial_encode(prover_code);
+    }
+    catch(...) {
+        code_result = false;
+    }
     
     bool merkle_result = merkle_root == rhash;
-    bool code_result = true;
     bool quad_result = validate(encoder, prover_quad);
     bool linear_result = validate_sum(encoder, statement);
 

@@ -325,7 +325,7 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
         field_poly py(y.val_begin(), y.val_end());
         field_poly pz(z.val_begin(), z.val_end());
 
-        auto t = make_timer("stage1", __func__, "encode");
+        auto tt = make_timer("stage1", __func__, "encode");
         #pragma omp parallel sections num_threads(3)
         {
             #pragma omp section
@@ -341,7 +341,9 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
                 this->encoder_.encode_with(pz, this->qo_rand_);
             }
         }
-        t.stop();
+        tt.stop();
+
+        auto t = make_timer("stage1", __func__, "hash");
         builder_ << px << py << pz;
     }
 
@@ -394,9 +396,9 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
     //     }
     // }
 
-    void on_linear_full(row_type& row) override {
+    void on_linear_full(row_type& row) override {        
         field_poly p(row.val_begin(), row.val_end());
-        auto t = make_timer("stage2", __func__, "encode");
+        auto tt = make_timer("stage2", __func__, "encode");
         #pragma omp parallel sections
         {
             #pragma omp section
@@ -409,9 +411,21 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
 
             }
         }
-        t.stop();
-        arg_.update_code(p);
-        arg_.update_linear(p, row.random());
+        tt.stop();
+
+        auto t = make_timer("stage2", __func__, "LinearCheck");
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                arg_.update_code(p);
+            }
+            #pragma omp section
+            {
+                arg_.update_linear(p, row.random());
+            }
+        }
+
     }
 
     void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {
@@ -421,7 +435,7 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
         field_poly py(y.val_begin(), y.val_end());
         field_poly pz(z.val_begin(), z.val_end());
 
-        auto t = make_timer("stage2", __func__, "encode");
+        auto tt = make_timer("stage2", __func__, "encode");
         #pragma omp parallel sections
         {
             #pragma omp section
@@ -437,15 +451,30 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
             #pragma omp section
             { this->encoder_.encode_with(z.random(), this->random_qo_rand_); }
         }
-        t.stop();
-        
-        arg_.update_code(px);
-        arg_.update_linear(px, x.random());
-        arg_.update_code(py);
-        arg_.update_linear(py, y.random());
-        arg_.update_code(pz);
-        arg_.update_linear(pz, z.random());
-        arg_.update_quadratic(px, py, pz);
+        tt.stop();
+
+        auto t = make_timer("stage2", __func__, "QuadCheck");
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                arg_.update_code(px);
+                arg_.update_code(py);
+                arg_.update_code(pz);
+            }
+
+            #pragma omp section
+            {
+                arg_.update_linear(px, x.random());
+                arg_.update_linear(py, y.random());
+                arg_.update_linear(pz, z.random());
+            }
+
+            #pragma omp section
+            {
+                arg_.update_quadratic(px, py, pz);   
+            }
+        }
     }
 
     // void process_witness(const field_poly& p) override {
@@ -594,8 +623,18 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
             sprand[i] = rand[sample_index_[i]];
         }
 
-        arg_.update_code(saved_row);
-        arg_.update_linear(saved_row, sprand);
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            {
+                arg_.update_code(saved_row);
+            }
+
+            #pragma omp section
+            {
+                arg_.update_linear(saved_row, sprand);
+            }
+        }
     }
 
     void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {
@@ -605,40 +644,61 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
 
         builder_ << saved_x << saved_y << saved_z;
 
+        field_poly sprand_x(sample_index_.size());
+        field_poly sprand_y(sample_index_.size());
+        field_poly sprand_z(sample_index_.size());
+
+        #pragma omp parallel sections
         {
-            field_poly& rand = x.random();
-            this->encoder_.encode_with(rand, this->random_ql_rand_);
-            field_poly sprand(sample_index_.size());
-            for (size_t i = 0; i < sample_index_.size(); i++) {
-                sprand[i] = rand[sample_index_[i]];
+            #pragma omp section
+            {
+                field_poly& rand = x.random();
+                this->encoder_.encode_with(rand, this->random_ql_rand_);
+                for (size_t i = 0; i < sample_index_.size(); i++) {
+                    sprand_x[i] = rand[sample_index_[i]];
+                }
             }
-            arg_.update_code(saved_x);
-            arg_.update_linear(saved_x, sprand);
+
+            #pragma omp section
+            {
+                field_poly& rand = y.random();
+                this->encoder_.encode_with(rand, this->random_qr_rand_);
+                for (size_t i = 0; i < sample_index_.size(); i++) {
+                    sprand_y[i] = rand[sample_index_[i]];
+                }
+            }
+
+            #pragma omp section
+            {
+                field_poly& rand = z.random();
+                this->encoder_.encode_with(rand, this->random_qo_rand_);
+                for (size_t i = 0; i < sample_index_.size(); i++) {
+                    sprand_z[i] = rand[sample_index_[i]];
+                }
+            }
         }
 
+        #pragma omp parallel sections
         {
-            field_poly& rand = y.random();
-            this->encoder_.encode_with(rand, this->random_qr_rand_);
-            field_poly sprand(sample_index_.size());
-            for (size_t i = 0; i < sample_index_.size(); i++) {
-                sprand[i] = rand[sample_index_[i]];
+            #pragma omp section
+            {
+                arg_.update_code(saved_x);
+                arg_.update_code(saved_y);
+                arg_.update_code(saved_z);
             }
-            arg_.update_code(saved_y);
-            arg_.update_linear(saved_y, sprand);
-        }
 
-        {
-            field_poly& rand = z.random();
-            this->encoder_.encode_with(rand, this->random_qo_rand_);
-            field_poly sprand(sample_index_.size());
-            for (size_t i = 0; i < sample_index_.size(); i++) {
-                sprand[i] = rand[sample_index_[i]];
+            #pragma omp section
+            {
+                arg_.update_linear(saved_x, sprand_x);
+                arg_.update_linear(saved_y, sprand_y);
+                arg_.update_linear(saved_z, sprand_z);
             }
-            arg_.update_code(saved_z);
-            arg_.update_linear(saved_z, sprand);
-        }
 
-        arg_.update_quadratic(saved_x, saved_y, saved_z);
+            #pragma omp section
+            {
+                arg_.update_quadratic(saved_x, saved_y, saved_z);
+            }
+        }
     }
 
     auto&& builder() {

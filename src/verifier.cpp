@@ -45,7 +45,8 @@ bool validate_sum(Decoder& dec, Poly p) {
 }
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
-constexpr uint64_t modulus = 1125625028935681ULL;
+// constexpr uint64_t modulus = 1125625028935681ULL;
+constexpr uint64_t modulus = 8795824586753ULL;
 constexpr size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
 

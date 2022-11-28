@@ -47,7 +47,8 @@ bool validate_sum(Decoder& dec, Poly p) {
 }
 
 // constexpr uint64_t modulus = 4611686018326724609ULL;
-constexpr uint64_t modulus = 1125625028935681ULL;
+// constexpr uint64_t modulus = 1125625028935681ULL;
+constexpr uint64_t modulus = 8795824586753ULL;
 // constexpr uint64_t modulus = 37;
 constexpr size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
@@ -100,7 +101,6 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     //     std::cout << *(v + i) << " ";
     // }
     // std::cout << std::endl;
-    auto t = make_timer("stage1", "run", "invoke");
     invoke(module, exe, func, offset, offset1, len1, len2);
 
     // std::cout << "Mem: ";
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     //     }
     // }
 
-    std::cout << "Proving Edit Distance of " << l << " instances" << std::endl;
+    std::cout << "Proving " << file <<  " of " << l << " instances" << std::endl;
     // std::cout << "l: " << l << " d: " << d << " K: " << n << std::endl;
 
     std::random_device rd;

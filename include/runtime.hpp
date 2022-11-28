@@ -87,57 +87,6 @@ struct global_instance;
 struct data_instance;
 // struct export_instance;
 
-// Store
-/* ------------------------------------------------------------ */
-struct store_t {
-    store_t() = default;
-
-    template <typename T, typename... Args>
-    index_t emplace_back(Args&&... args) {
-        if constexpr (std::is_same_v<T, function_instance>) {
-            size_t index = functions.size();
-            functions.emplace_back(std::forward<Args>(args)...);
-            return index;
-        }
-        // else if constexpr (std::is_same_v<T, table_instance>) {
-        //     size_t index = tables.size();
-        //     tables.emplace_back(std::forward<Args>(args)...);
-        //     return index;
-        // }
-        else if constexpr (std::is_same_v<T, memory_instance>) {
-            size_t index = memorys.size();
-            memorys.emplace_back(std::forward<Args>(args)...);
-            return index;
-        }
-        else if constexpr (std::is_same_v<T, global_instance>) {
-            size_t index = globals.size();
-            globals.emplace_back(std::forward<Args>(args)...);
-            return index;
-        }
-        // else if constexpr (std::is_same_v<T, element_instance>) {
-        //     size_t index = elements.size();
-        //     elements.emplace_back(std::forward<Args>(args)...);
-        //     return index;
-        // }
-        else if constexpr (std::is_same_v<T, data_instance>) {
-            size_t index = datas.size();
-            datas.emplace_back(std::forward<Args>(args)...);
-            return index;
-        }
-        else {
-            // C++20 Compile-time magic
-            []<bool flag = false>{ static_assert(flag, "Unexpected instance type"); }();
-        }
-    }
-    
-    std::vector<function_instance> functions;
-    // std::vector<table_instance> tables;
-    std::vector<memory_instance> memorys;
-    std::vector<global_instance> globals;
-    // std::vector<element_instance> elements;
-    std::vector<data_instance> datas;
-};
-
 
 // Module Instance
 /* ------------------------------------------------------------ */
@@ -234,6 +183,57 @@ struct data_instance {
 //     name_t name;
 //     externval_t val;
 // };
+
+// Store
+/* ------------------------------------------------------------ */
+struct store_t {
+    store_t() = default;
+
+    template <typename T, typename... Args>
+    index_t emplace_back(Args&&... args) {
+        if constexpr (std::is_same_v<T, function_instance>) {
+            size_t index = functions.size();
+            functions.emplace_back(std::forward<Args>(args)...);
+            return index;
+        }
+        // else if constexpr (std::is_same_v<T, table_instance>) {
+        //     size_t index = tables.size();
+        //     tables.emplace_back(std::forward<Args>(args)...);
+        //     return index;
+        // }
+        else if constexpr (std::is_same_v<T, memory_instance>) {
+            size_t index = memorys.size();
+            memorys.emplace_back(std::forward<Args>(args)...);
+            return index;
+        }
+        else if constexpr (std::is_same_v<T, global_instance>) {
+            size_t index = globals.size();
+            globals.emplace_back(std::forward<Args>(args)...);
+            return index;
+        }
+        // else if constexpr (std::is_same_v<T, element_instance>) {
+        //     size_t index = elements.size();
+        //     elements.emplace_back(std::forward<Args>(args)...);
+        //     return index;
+        // }
+        else if constexpr (std::is_same_v<T, data_instance>) {
+            size_t index = datas.size();
+            datas.emplace_back(std::forward<Args>(args)...);
+            return index;
+        }
+        else {
+            // C++20 Compile-time magic
+            []<bool flag = false>{ static_assert(flag, "Unexpected instance type"); }();
+        }
+    }
+    
+    std::vector<function_instance> functions;
+    // std::vector<table_instance> tables;
+    std::vector<memory_instance> memorys;
+    std::vector<global_instance> globals;
+    // std::vector<element_instance> elements;
+    std::vector<data_instance> datas;
+};
 
 
 /* ------------------------------------------------------------ */

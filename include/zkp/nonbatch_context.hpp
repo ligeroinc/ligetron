@@ -317,6 +317,8 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
         auto t = make_timer("stage1", __func__, "encode");
         this->encoder_.encode_with(p, this->linear_rand_);
         t.stop();
+
+        auto th = make_timer("stage1", "hash");
         builder_ << p;
     }
 
@@ -343,7 +345,7 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
         }
         tt.stop();
 
-        auto t = make_timer("stage1", __func__, "hash");
+        auto t = make_timer("stage1", "hash");
         builder_ << px << py << pz;
     }
 

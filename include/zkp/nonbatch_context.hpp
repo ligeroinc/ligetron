@@ -616,15 +616,22 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
 
     void on_linear_full(row_type& row) override {
         field_poly saved_row = pop_sample();
-        builder_ << saved_row;
 
+        auto ht = make_timer(__func__, "hash");
+        builder_ << saved_row;
+        ht.stop();
+
+        auto et = make_timer(__func__, "encode");
         field_poly& rand = row.random();
         this->encoder_.encode_with(rand, this->random_linear_rand_);
+        et.stop();
+        
         field_poly sprand(sample_index_.size());
         for (size_t i = 0; i < sample_index_.size(); i++) {
             sprand[i] = rand[sample_index_[i]];
         }
 
+        auto ct = make_timer(__func__, "check");
         #pragma omp parallel sections
         {
             #pragma omp section
@@ -644,12 +651,15 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
         field_poly saved_y = pop_sample();
         field_poly saved_z = pop_sample();
 
+        auto ht = make_timer(__func__, "hash");
         builder_ << saved_x << saved_y << saved_z;
+        ht.stop();
 
         field_poly sprand_x(sample_index_.size());
         field_poly sprand_y(sample_index_.size());
         field_poly sprand_z(sample_index_.size());
 
+        auto et = make_timer(__func__, "encode");
         #pragma omp parallel sections
         {
             #pragma omp section
@@ -679,7 +689,9 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
                 }
             }
         }
+        et.stop();
 
+        auto ct = make_timer(__func__, "check");
         #pragma omp parallel sections
         {
             #pragma omp section

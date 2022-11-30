@@ -253,6 +253,13 @@ auto make_timer(Args... args) {
     return threadsafe_timer::instance().make_timer(std::forward<Args>(args)...);
 }
 
+// struct dummy_timer { void stop() { } };
+
+// template <typename... Args>
+// auto make_timer(Args&&... args) {
+//     return dummy_timer{};
+// }
+
 void show_timer(int level = std::numeric_limits<int>::max()) {
     return threadsafe_timer::instance().print(level);
 }

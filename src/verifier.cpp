@@ -47,7 +47,7 @@ bool validate_sum(Decoder& dec, Poly p) {
 // constexpr uint64_t modulus = 4611686018326724609ULL;
 // constexpr uint64_t modulus = 1125625028935681ULL;
 constexpr uint64_t modulus = 8795824586753ULL;
-constexpr size_t l = 1024, d = 2048, n = 4096;
+size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
 
 using frame_type = zkp_frame<value_t, typename zkp::gc_row<poly_t>::reference>;
@@ -100,8 +100,14 @@ int main(int argc, char *argv[]) {
     const char *file = argv[1];
     size_t func = 1;
 
-    str_a = argv[2];
-    str_b = argv[3];
+    l = std::stol(argv[2]);
+    d = std::max(std::bit_ceil(l), 256UL);
+    n = 2 * d;
+
+    DEBUG << "l: " << l << ", k: " << d << ", n: " << n;
+    
+    str_a = argv[3];
+    str_b = argv[4];
 
     // const char *file = argv[1];
     // size_t func = std::stoi(argv[2]);
@@ -156,7 +162,9 @@ int main(int argc, char *argv[]) {
 
     zkp::reed_solomon64 encoder(modulus, l, d, n);
 
-    constexpr size_t sample_size = 80;
+    constexpr size_t sample_size = 189;
+    DEBUG << "sample size: " << sample_size;
+    
     zkp::hash_random_engine<zkp::sha256> engine(sample_seed);
     std::vector<size_t> indexes(n), sample_index;
     std::iota(indexes.begin(), indexes.end(), 0);
@@ -175,6 +183,7 @@ int main(int argc, char *argv[]) {
     zkp::nonbatch_verifier_context<value_t, svalue_type, poly_t, decltype(load)> vctx(encoder, encoder_seed, merkle_root, sample_index, load);
     auto verify_begin = std::chrono::high_resolution_clock::now();
     try {
+        auto t = make_timer("Verifier");
         run_program(m, vctx, func);
         vctx.assert_one(vctx.stack_pop_var());
         vctx.finalize();
@@ -238,6 +247,6 @@ int main(int argc, char *argv[]) {
               << std::chrono::duration_cast<std::chrono::milliseconds>(verify_end - verify_begin).count()
               << "ms" << std::endl;
 
-    
+    show_timer();
     return 0;
 }

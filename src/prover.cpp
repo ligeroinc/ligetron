@@ -50,7 +50,7 @@ bool validate_sum(Decoder& dec, Poly p) {
 // constexpr uint64_t modulus = 1125625028935681ULL;
 constexpr uint64_t modulus = 8795824586753ULL;
 // constexpr uint64_t modulus = 37;
-constexpr size_t l = 1024, d = 2048, n = 4096;
+size_t l = 1024, d = 2048, n = 4096;
 using poly_t = zkp::primitive_poly<modulus>;
 
 // using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
@@ -135,8 +135,14 @@ int main(int argc, char *argv[]) {
     const char *file = argv[1];
     size_t func = 1;
 
-    str_a = argv[2];
-    str_b = argv[3];
+    l = std::stol(argv[2]);
+    d = std::max(std::bit_ceil(l), 256UL);
+    n = 2 * d;
+
+    DEBUG << "l: " << l << ", k: " << d << ", n: " << n;
+    
+    str_a = argv[3];
+    str_b = argv[4];
     // const char *file = argv[1];
     // size_t func = std::stoi(argv[2]);
     
@@ -233,7 +239,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Validation of quadratic constraints: " << validate(encoder, prover_arg.quadratic()) << std::endl
               << "----------------------------------------" << std::endl;
 
-    constexpr size_t sample_size = 80;
+    constexpr size_t sample_size = 189;
+    DEBUG << "sample size: " << sample_size;
+    
     auto stage2_seed = zkp::hash<zkp::sha256>(ctx2.get_argument());
     zkp::hash_random_engine<zkp::sha256> engine(stage2_seed);
     std::vector<size_t> indexes(n), sample_index;

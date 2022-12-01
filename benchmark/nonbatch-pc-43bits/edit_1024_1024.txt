@@ -1,0 +1,132 @@
+OMP threads: 
+
+input1: e3feeb41ee380312587c66733f08b8f93e11cf7cb76973d79cda33ac62f5d2418cc3bb8f177f5be0f238c0f0e7d86304dc539658ff6d7f4b2f489a2347cc37910a90eb937b377f4a576f4ec1f62f2ede8c745057b1f62c149134ad9ef205d8422d627183d989919900e619571fb9170fe6857160f3990163e159dc23a2b2f1c72c054eb0289050a197492017febffac016fd71c032eb0dd08e888a3b7515bcef6632b3622002c736fea16225d46b25296f9f9eda893b3b54845f10d8abaeb59d0659920677bb27c06334f530fdf6d33f92013cf57e707cd98d08449b8a4886c9d8779c813b628f864eddc19d2c6b6e4f83a44d8f2757f28acccc418c2a5fc51d136889a93159ccbc63dd5750232196662aac731d929ba7f92522c8fe15cdd4409ee9bcd69dbe21042007f6ae781e27e92fafd01cadcb208bac9c5351099554a62db773b9b48557d0d6cde7ee37315aff79af5d071853cf67d927adebfa8782570201b8340c8ecf4f514308a5f0a8369008ab7dc795073cb67d1759de6428d91638e3d2c633798407bc0317ee7326eacad9a6280920f6f53a2901d5b0056f1b5bc4fb3bfb2b69be265f78ede796d99b5c3d65b5c26010a3a5e92ff99c680c8ba0d5464080e96d34f7a51db43e89737bcf362c5ee4e8d8c6c4d9783d04e32a9c42bfc0915b3d098015ca3f1081c5de82df60697785a8255747ab247ff3566b567a
+input2: aeba8a74cafd2aa54879a8f08a41dd1886ef501db86f40be0689b3a6a7495c50e6ed873433e36afae61d1070c064fb51c4c8aca17e5635e68e8aeb7fd73261b4a8d31c1f09132f6a639cfb360c8e3f9142bcb49f52f65bd62138787e8779e4d7281480bcc6f83d8131855119dc88c4f9bcb70ab60d10182770f77fb4f2ab160d2c88d895d393cc6cef19d7e6dc2cf91377425c3aa84d84036c0a60e2e83194ad4627b883add7fa071b791a443016e7a05a49dede22b0dbc3ff27f12dc21f9c093b2caf4c9416a6899ec61d9f52db65965d9f8dfe112bf64b073d68cd813495ce53342c0f4fd2466f13e0afd9f15b45d77f6a3c29d484a03ccde8b846c4acdbb642c0b07218667dbcae82ddfaa6b979170ea17d459b94d8fc3c60698bf62fbda2855a5ee8f487092c01dbe627f6c6e4980113005f6647a4baede2f17183cbbc1006b746841a5d1ae92cbffd7b1a46b99955b662609b5e2f5646ba66f610a2c776084f6e64e564537aee44fecf840cf8c8d77c75d7e16474ae00f15a9d8dd666face00e9abe654fe3f1da2c060ea99235346dd73f533f4a897c9c3784520f04c15eeacf070b6940b50736e44a7bd9161c9fe817aac84dcac09944bc49d0a0482e04c153a625532ef2abb893f16a7cdeca374cc9d2f91182201e6e717ecf0a9022b7133496385d00a3ec1a73e7255e9339ff7a0774d1f72545ca8a1a020f3484b07
+[2022-11-30 21:33:02.542041] [0x00007f90c102ec00] [debug]   l: 65347, k: 65536, n: 131072
+Proving ../wasm//edit.wasm of 65347 instances
+Start Stage 1
+Result: stack: Frame Frame (0: u32) 
+
+Root of Merkle Tree: adc9a535fef42fcca39e7c64c9db37e5582ef93b40f317492f94fa37ffc559
+----------------------------------------
+Start Stage 2
+Result: stack: Frame Frame (0: u32) 
+
+Num quadratic constraints: 4651
+Validation of linear constraints:    false
+Validation of quadratic constraints: true
+----------------------------------------
+[2022-11-30 21:37:52.702437] [0x00007f90c102ec00] [debug]   sample size: 189
+Start Stage 3
+Result: stack: Frame Frame (0: u32) 
+
+Saved rows: 17675
+----------------------------------------
+
+Done!
+
+
+
+| | | Push button below to download the proof
+V V V
+
+========== Timing Info ==========
+stage1: [32m128069ms[0m
+    stage1.on_quadratic_full: [32m5561ms[0m
+        stage1.on_quadratic_full.encode: [32m5561ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m4651[0m)
+    stage1.hash: [32m14430ms[0m    (min: [32m0[0m, max: [32m33[0m, count: [32m8373[0m)
+    stage1.on_linear_full: [32m3527ms[0m
+        stage1.on_linear_full.encode: [32m3527ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m3722[0m)
+    stage1.run: [32m104550ms[0m    (min: [32m104550[0m, max: [32m104550[0m, count: [32m1[0m)
+stage2: [32m206558ms[0m
+    stage2.on_quadratic_full: [32m14523ms[0m
+        stage2.on_quadratic_full.encode: [32m6593ms[0m    (min: [32m1[0m, max: [32m5[0m, count: [32m4651[0m)
+        stage2.on_quadratic_full.QuadCheck: [32m7929ms[0m    (min: [32m1[0m, max: [32m2[0m, count: [32m4651[0m)
+    stage2.on_linear_full: [32m6822ms[0m
+        stage2.on_linear_full.encode: [32m4637ms[0m    (min: [32m0[0m, max: [32m4[0m, count: [32m3722[0m)
+        stage2.on_linear_full.LinearCheck: [32m2185ms[0m    (min: [32m0[0m, max: [32m5[0m, count: [32m3722[0m)
+    stage2.run: [32m185213ms[0m    (min: [32m185213[0m, max: [32m185213[0m, count: [32m1[0m)
+stage3: [32m88712ms[0m
+    stage3.on_quadratic_full: [32m4184ms[0m
+        stage3.on_quadratic_full.encode: [32m4184ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m4651[0m)
+    stage3.on_linear_full: [32m3343ms[0m
+        stage3.on_linear_full.encode: [32m3343ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m3722[0m)
+    stage3.run: [32m81185ms[0m    (min: [32m81185[0m, max: [32m81185[0m, count: [32m1[0m)
+	Command being timed: "./prover ../wasm//edit.wasm 65347 e3feeb41ee380312587c66733f08b8f93e11cf7cb76973d79cda33ac62f5d2418cc3bb8f177f5be0f238c0f0e7d86304dc539658ff6d7f4b2f489a2347cc37910a90eb937b377f4a576f4ec1f62f2ede8c745057b1f62c149134ad9ef205d8422d627183d989919900e619571fb9170fe6857160f3990163e159dc23a2b2f1c72c054eb0289050a197492017febffac016fd71c032eb0dd08e888a3b7515bcef6632b3622002c736fea16225d46b25296f9f9eda893b3b54845f10d8abaeb59d0659920677bb27c06334f530fdf6d33f92013cf57e707cd98d08449b8a4886c9d8779c813b628f864eddc19d2c6b6e4f83a44d8f2757f28acccc418c2a5fc51d136889a93159ccbc63dd5750232196662aac731d929ba7f92522c8fe15cdd4409ee9bcd69dbe21042007f6ae781e27e92fafd01cadcb208bac9c5351099554a62db773b9b48557d0d6cde7ee37315aff79af5d071853cf67d927adebfa8782570201b8340c8ecf4f514308a5f0a8369008ab7dc795073cb67d1759de6428d91638e3d2c633798407bc0317ee7326eacad9a6280920f6f53a2901d5b0056f1b5bc4fb3bfb2b69be265f78ede796d99b5c3d65b5c26010a3a5e92ff99c680c8ba0d5464080e96d34f7a51db43e89737bcf362c5ee4e8d8c6c4d9783d04e32a9c42bfc0915b3d098015ca3f1081c5de82df60697785a8255747ab247ff3566b567a aeba8a74cafd2aa54879a8f08a41dd1886ef501db86f40be0689b3a6a7495c50e6ed873433e36afae61d1070c064fb51c4c8aca17e5635e68e8aeb7fd73261b4a8d31c1f09132f6a639cfb360c8e3f9142bcb49f52f65bd62138787e8779e4d7281480bcc6f83d8131855119dc88c4f9bcb70ab60d10182770f77fb4f2ab160d2c88d895d393cc6cef19d7e6dc2cf91377425c3aa84d84036c0a60e2e83194ad4627b883add7fa071b791a443016e7a05a49dede22b0dbc3ff27f12dc21f9c093b2caf4c9416a6899ec61d9f52db65965d9f8dfe112bf64b073d68cd813495ce53342c0f4fd2466f13e0afd9f15b45d77f6a3c29d484a03ccde8b846c4acdbb642c0b07218667dbcae82ddfaa6b979170ea17d459b94d8fc3c60698bf62fbda2855a5ee8f487092c01dbe627f6c6e4980113005f6647a4baede2f17183cbbc1006b746841a5d1ae92cbffd7b1a46b99955b662609b5e2f5646ba66f610a2c776084f6e64e564537aee44fecf840cf8c8d77c75d7e16474ae00f15a9d8dd666face00e9abe654fe3f1da2c060ea99235346dd73f533f4a897c9c3784520f04c15eeacf070b6940b50736e44a7bd9161c9fe817aac84dcac09944bc49d0a0482e04c153a625532ef2abb893f16a7cdeca374cc9d2f91182201e6e717ecf0a9022b7133496385d00a3ec1a73e7255e9339ff7a0774d1f72545ca8a1a020f3484b07"
+	User time (seconds): 1242.13
+	System time (seconds): 6.12
+	Percent of CPU this job got: 335%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:11.51
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 253596
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 5
+	Minor (reclaiming a frame) page faults: 1568521
+	Voluntary context switches: 121318
+	Involuntary context switches: 11468
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 57816
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+                                                            
+============================================================
+                                                            
+[2022-11-30 21:39:14.056021] [0x00007fae15f3fc00] [debug]   l: 65347, k: 65536, n: 131072
+read file ../wasm//edit.wasm with size 944
+[2022-11-30 21:39:14.114927] [0x00007fae15f3fc00] [debug]   sample size: 189
+Result: stack: Frame Frame (0: u32) 
+
+----------------------------------------
+Prover Merkle Tree root:   adc9a535fef42fcca39e7c64c9db37e5582ef93b40f317492f94fa37ffc559
+verifier Merkle Tree root: adc9a535fef42fcca39e7c64c9db37e5582ef93b40f317492f94fa37ffc559
+----------------------------------------
+Check is valid code:          true
+Check is valid quadratic:     true
+Check statement equal to 1:   false
+Check Merkle Tree root:       true
+Check code equality:          true
+Check quadratic equality:     true
+----------------------------------------
+Final Verify result:          false
+Verify time: 166937ms
+
+========== Timing Info ==========
+on_quadratic_full: [32m6157ms[0m
+    on_quadratic_full.hash: [32m251ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m4651[0m)
+    on_quadratic_full.encode: [32m5857ms[0m    (min: [32m0[0m, max: [32m2[0m, count: [32m4651[0m)
+    on_quadratic_full.check: [32m48ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m4651[0m)
+on_linear_full: [32m3658ms[0m
+    on_linear_full.hash: [32m158ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m3722[0m)
+    on_linear_full.encode: [32m3470ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m3722[0m)
+    on_linear_full.check: [32m29ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m3722[0m)
+Verifier: [32m166937ms[0m    (min: [32m166937[0m, max: [32m166937[0m, count: [32m1[0m)
+	Command being timed: "./verifier ../wasm//edit.wasm 65347 e3feeb41ee380312587c66733f08b8f93e11cf7cb76973d79cda33ac62f5d2418cc3bb8f177f5be0f238c0f0e7d86304dc539658ff6d7f4b2f489a2347cc37910a90eb937b377f4a576f4ec1f62f2ede8c745057b1f62c149134ad9ef205d8422d627183d989919900e619571fb9170fe6857160f3990163e159dc23a2b2f1c72c054eb0289050a197492017febffac016fd71c032eb0dd08e888a3b7515bcef6632b3622002c736fea16225d46b25296f9f9eda893b3b54845f10d8abaeb59d0659920677bb27c06334f530fdf6d33f92013cf57e707cd98d08449b8a4886c9d8779c813b628f864eddc19d2c6b6e4f83a44d8f2757f28acccc418c2a5fc51d136889a93159ccbc63dd5750232196662aac731d929ba7f92522c8fe15cdd4409ee9bcd69dbe21042007f6ae781e27e92fafd01cadcb208bac9c5351099554a62db773b9b48557d0d6cde7ee37315aff79af5d071853cf67d927adebfa8782570201b8340c8ecf4f514308a5f0a8369008ab7dc795073cb67d1759de6428d91638e3d2c633798407bc0317ee7326eacad9a6280920f6f53a2901d5b0056f1b5bc4fb3bfb2b69be265f78ede796d99b5c3d65b5c26010a3a5e92ff99c680c8ba0d5464080e96d34f7a51db43e89737bcf362c5ee4e8d8c6c4d9783d04e32a9c42bfc0915b3d098015ca3f1081c5de82df60697785a8255747ab247ff3566b567a aeba8a74cafd2aa54879a8f08a41dd1886ef501db86f40be0689b3a6a7495c50e6ed873433e36afae61d1070c064fb51c4c8aca17e5635e68e8aeb7fd73261b4a8d31c1f09132f6a639cfb360c8e3f9142bcb49f52f65bd62138787e8779e4d7281480bcc6f83d8131855119dc88c4f9bcb70ab60d10182770f77fb4f2ab160d2c88d895d393cc6cef19d7e6dc2cf91377425c3aa84d84036c0a60e2e83194ad4627b883add7fa071b791a443016e7a05a49dede22b0dbc3ff27f12dc21f9c093b2caf4c9416a6899ec61d9f52db65965d9f8dfe112bf64b073d68cd813495ce53342c0f4fd2466f13e0afd9f15b45d77f6a3c29d484a03ccde8b846c4acdbb642c0b07218667dbcae82ddfaa6b979170ea17d459b94d8fc3c60698bf62fbda2855a5ee8f487092c01dbe627f6c6e4980113005f6647a4baede2f17183cbbc1006b746841a5d1ae92cbffd7b1a46b99955b662609b5e2f5646ba66f610a2c776084f6e64e564537aee44fecf840cf8c8d77c75d7e16474ae00f15a9d8dd666face00e9abe654fe3f1da2c060ea99235346dd73f533f4a897c9c3784520f04c15eeacf070b6940b50736e44a7bd9161c9fe817aac84dcac09944bc49d0a0482e04c153a625532ef2abb893f16a7cdeca374cc9d2f91182201e6e717ecf0a9022b7133496385d00a3ec1a73e7255e9339ff7a0774d1f72545ca8a1a020f3484b07"
+	User time (seconds): 520.90
+	System time (seconds): 0.54
+	Percent of CPU this job got: 312%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:47.07
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 96720
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 26202
+	Voluntary context switches: 55015
+	Involuntary context switches: 996
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 16
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

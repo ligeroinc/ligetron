@@ -1,0 +1,132 @@
+OMP threads: 4
+
+input1: 4ee589042fae6d58668ef595c79eb26efd3250050faa1b6b36e00034ff0663c4abc5567bfa83871dd03ab9016a6564fad348d310b62b1a18ea83b74df719f49985a10c8b31da9dda05233ec8c0a53454f54769edcc36cfaa79b72227857ad05df6eab27f88935de813ad78004544f160f9cfecc28aa8a7017aeab6910e71a805
+input2: 229550bf8b2b55e562a64aab55d9452e12158011d5a5e3fb5182ab3a1b7ce526a5ca887dfafd5344fe8f3b074a4e1ffc459531109beda17e09ea8fcac1ad373059f12c5ea4b21b3ff2a4b423d953a7b227746a2416693580ea1be2fad52819905f657c9f222706a20d0d3e9b58592a4b91ed06eb18db37e722d46c7a1d2e6cb6109db7ed5a99460a012c5aed55ab11e0e9e3f2f1c7f0dcd902678190f9aef121d127b6355f75bbd607554158da2c0e7587d615e24259661de29c5ebfa1261562657e734b29e5fea6306b7d05d4894129fd0a545d5829566edadfe6dc36d0c7615b44215465f83be03ec3fc6cbfd91cec9bc2d8c694341c4f221481da24adfb0f
+[2022-11-30 20:18:40.619646] [0x00007fcec547dc00] [debug]   l: 16195, k: 16384, n: 32768
+Proving ../wasm//edit.wasm of 16195 instances
+Start Stage 1
+Result: stack: Frame Frame (0: u32) 
+
+Root of Merkle Tree: 82ed15bd8c5787684eefc9674f4a875e1936b4a19d1eb718b463e619c61dfc4
+----------------------------------------
+Start Stage 2
+Result: stack: Frame Frame (0: u32) 
+
+Num quadratic constraints: 2351
+Validation of linear constraints:    false
+Validation of quadratic constraints: true
+----------------------------------------
+[2022-11-30 20:19:11.199229] [0x00007fcec547dc00] [debug]   sample size: 189
+Start Stage 3
+Result: stack: Frame Frame (0: u32) 
+
+Saved rows: 8939
+----------------------------------------
+
+Done!
+
+
+
+| | | Push button below to download the proof
+V V V
+
+========== Timing Info ==========
+stage1: [32m12611ms[0m
+    stage1.on_quadratic_full: [32m571ms[0m
+        stage1.on_quadratic_full.encode: [32m571ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m2351[0m)
+    stage1.hash: [32m1344ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m4237[0m)
+    stage1.on_linear_full: [32m401ms[0m
+        stage1.on_linear_full.encode: [32m401ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m1886[0m)
+    stage1.run: [32m10294ms[0m    (min: [32m10294[0m, max: [32m10294[0m, count: [32m1[0m)
+stage2: [32m22047ms[0m
+    stage2.on_quadratic_full: [32m1242ms[0m
+        stage2.on_quadratic_full.encode: [32m770ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m2351[0m)
+        stage2.on_quadratic_full.QuadCheck: [32m472ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m2351[0m)
+    stage2.on_linear_full: [32m618ms[0m
+        stage2.on_linear_full.encode: [32m462ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m1886[0m)
+        stage2.on_linear_full.LinearCheck: [32m155ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m1886[0m)
+    stage2.run: [32m20186ms[0m    (min: [32m20186[0m, max: [32m20186[0m, count: [32m1[0m)
+stage3: [32m9490ms[0m
+    stage3.on_quadratic_full: [32m542ms[0m
+        stage3.on_quadratic_full.encode: [32m542ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m2351[0m)
+    stage3.on_linear_full: [32m369ms[0m
+        stage3.on_linear_full.encode: [32m369ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m1886[0m)
+    stage3.run: [32m8577ms[0m    (min: [32m8577[0m, max: [32m8577[0m, count: [32m1[0m)
+	Command being timed: "./prover ../wasm//edit.wasm 16195 4ee589042fae6d58668ef595c79eb26efd3250050faa1b6b36e00034ff0663c4abc5567bfa83871dd03ab9016a6564fad348d310b62b1a18ea83b74df719f49985a10c8b31da9dda05233ec8c0a53454f54769edcc36cfaa79b72227857ad05df6eab27f88935de813ad78004544f160f9cfecc28aa8a7017aeab6910e71a805 229550bf8b2b55e562a64aab55d9452e12158011d5a5e3fb5182ab3a1b7ce526a5ca887dfafd5344fe8f3b074a4e1ffc459531109beda17e09ea8fcac1ad373059f12c5ea4b21b3ff2a4b423d953a7b227746a2416693580ea1be2fad52819905f657c9f222706a20d0d3e9b58592a4b91ed06eb18db37e722d46c7a1d2e6cb6109db7ed5a99460a012c5aed55ab11e0e9e3f2f1c7f0dcd902678190f9aef121d127b6355f75bbd607554158da2c0e7587d615e24259661de29c5ebfa1261562657e734b29e5fea6306b7d05d4894129fd0a545d5829566edadfe6dc36d0c7615b44215465f83be03ec3fc6cbfd91cec9bc2d8c694341c4f221481da24adfb0f"
+	User time (seconds): 133.14
+	System time (seconds): 0.39
+	Percent of CPU this job got: 340%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:39.20
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 67864
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 1
+	Minor (reclaiming a frame) page faults: 170022
+	Voluntary context switches: 6805
+	Involuntary context switches: 280
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 27968
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+                                                            
+============================================================
+                                                            
+[2022-11-30 20:19:19.827406] [0x00007fe69fdbdc00] [debug]   l: 16195, k: 16384, n: 32768
+read file ../wasm//edit.wasm with size 944
+[2022-11-30 20:19:19.841997] [0x00007fe69fdbdc00] [debug]   sample size: 189
+Result: stack: Frame Frame (0: u32) 
+
+----------------------------------------
+Prover Merkle Tree root:   82ed15bd8c5787684eefc9674f4a875e1936b4a19d1eb718b463e619c61dfc4
+verifier Merkle Tree root: 82ed15bd8c5787684eefc9674f4a875e1936b4a19d1eb718b463e619c61dfc4
+----------------------------------------
+Check is valid code:          true
+Check is valid quadratic:     true
+Check statement equal to 1:   false
+Check Merkle Tree root:       true
+Check code equality:          true
+Check quadratic equality:     true
+----------------------------------------
+Final Verify result:          false
+Verify time: 18055ms
+
+========== Timing Info ==========
+on_quadratic_full: [32m515ms[0m
+    on_quadratic_full.hash: [32m44ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m2351[0m)
+    on_quadratic_full.encode: [32m461ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m2351[0m)
+    on_quadratic_full.check: [32m9ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m2351[0m)
+on_linear_full: [32m396ms[0m
+    on_linear_full.hash: [32m22ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m1886[0m)
+    on_linear_full.encode: [32m369ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m1886[0m)
+    on_linear_full.check: [32m4ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m1886[0m)
+Verifier: [32m18055ms[0m    (min: [32m18055[0m, max: [32m18055[0m, count: [32m1[0m)
+	Command being timed: "./verifier ../wasm//edit.wasm 16195 4ee589042fae6d58668ef595c79eb26efd3250050faa1b6b36e00034ff0663c4abc5567bfa83871dd03ab9016a6564fad348d310b62b1a18ea83b74df719f49985a10c8b31da9dda05233ec8c0a53454f54769edcc36cfaa79b72227857ad05df6eab27f88935de813ad78004544f160f9cfecc28aa8a7017aeab6910e71a805 229550bf8b2b55e562a64aab55d9452e12158011d5a5e3fb5182ab3a1b7ce526a5ca887dfafd5344fe8f3b074a4e1ffc459531109beda17e09ea8fcac1ad373059f12c5ea4b21b3ff2a4b423d953a7b227746a2416693580ea1be2fad52819905f657c9f222706a20d0d3e9b58592a4b91ed06eb18db37e722d46c7a1d2e6cb6109db7ed5a99460a012c5aed55ab11e0e9e3f2f1c7f0dcd902678190f9aef121d127b6355f75bbd607554158da2c0e7587d615e24259661de29c5ebfa1261562657e734b29e5fea6306b7d05d4894129fd0a545d5829566edadfe6dc36d0c7615b44215465f83be03ec3fc6cbfd91cec9bc2d8c694341c4f221481da24adfb0f"
+	User time (seconds): 60.64
+	System time (seconds): 0.07
+	Percent of CPU this job got: 335%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:18.09
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 32252
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 7065
+	Voluntary context switches: 6376
+	Involuntary context switches: 97
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

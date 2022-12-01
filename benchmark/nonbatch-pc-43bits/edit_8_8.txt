@@ -1,0 +1,132 @@
+OMP threads: 4
+
+input1: 3e56d4fb
+input2: 967e635a
+[2022-11-30 20:17:42.020236] [0x00007ffaddfc4c00] [debug]   l: 333, k: 512, n: 1024
+Proving ../wasm//edit.wasm of 333 instances
+Start Stage 1
+Result: stack: Frame Frame (0: u32) 
+
+Root of Merkle Tree: ff34e5e56bcb63d9d4282cd97b4a0535d60e33779d1fb35c568bee25f8371c
+----------------------------------------
+Start Stage 2
+Result: stack: Frame Frame (0: u32) 
+
+Num quadratic constraints: 67
+Validation of linear constraints:    false
+Validation of quadratic constraints: true
+----------------------------------------
+[2022-11-30 20:17:42.047455] [0x00007ffaddfc4c00] [debug]   sample size: 189
+Start Stage 3
+Result: stack: Frame Frame (0: u32) 
+
+Saved rows: 265
+----------------------------------------
+
+Done!
+
+
+
+| | | Push button below to download the proof
+V V V
+
+========== Timing Info ==========
+stage1: [32m12ms[0m
+    stage1.on_quadratic_full: [32m0ms[0m
+        stage1.on_quadratic_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m67[0m)
+    stage1.hash: [32m2ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m131[0m)
+    stage1.on_linear_full: [32m0ms[0m
+        stage1.on_linear_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m64[0m)
+    stage1.run: [32m8ms[0m    (min: [32m8[0m, max: [32m8[0m, count: [32m1[0m)
+stage2: [32m16ms[0m
+    stage2.on_quadratic_full: [32m1ms[0m
+        stage2.on_quadratic_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m67[0m)
+        stage2.on_quadratic_full.QuadCheck: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m67[0m)
+    stage2.on_linear_full: [32m0ms[0m
+        stage2.on_linear_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m64[0m)
+        stage2.on_linear_full.LinearCheck: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m64[0m)
+    stage2.run: [32m14ms[0m    (min: [32m14[0m, max: [32m14[0m, count: [32m1[0m)
+stage3: [32m7ms[0m
+    stage3.on_quadratic_full: [32m0ms[0m
+        stage3.on_quadratic_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m67[0m)
+    stage3.on_linear_full: [32m0ms[0m
+        stage3.on_linear_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m64[0m)
+    stage3.run: [32m6ms[0m    (min: [32m6[0m, max: [32m6[0m, count: [32m1[0m)
+	Command being timed: "./prover ../wasm//edit.wasm 333 3e56d4fb 967e635a"
+	User time (seconds): 0.11
+	System time (seconds): 0.00
+	Percent of CPU this job got: 343%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.03
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 12364
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 948
+	Voluntary context switches: 40
+	Involuntary context switches: 0
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 864
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+                                                            
+============================================================
+                                                            
+[2022-11-30 20:17:42.059322] [0x00007efeae25dc00] [debug]   l: 333, k: 512, n: 1024
+read file ../wasm//edit.wasm with size 944
+[2022-11-30 20:17:42.060279] [0x00007efeae25dc00] [debug]   sample size: 189
+Result: stack: Frame Frame (0: u32) 
+
+----------------------------------------
+Prover Merkle Tree root:   ff34e5e56bcb63d9d4282cd97b4a0535d60e33779d1fb35c568bee25f8371c
+verifier Merkle Tree root: ff34e5e56bcb63d9d4282cd97b4a0535d60e33779d1fb35c568bee25f8371c
+----------------------------------------
+Check is valid code:          true
+Check is valid quadratic:     true
+Check statement equal to 1:   false
+Check Merkle Tree root:       true
+Check code equality:          true
+Check quadratic equality:     true
+----------------------------------------
+Final Verify result:          false
+Verify time: 14ms
+
+========== Timing Info ==========
+on_quadratic_full: [32m1ms[0m
+    on_quadratic_full.hash: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m67[0m)
+    on_quadratic_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m67[0m)
+    on_quadratic_full.check: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m67[0m)
+on_linear_full: [32m0ms[0m
+    on_linear_full.hash: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m64[0m)
+    on_linear_full.encode: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m64[0m)
+    on_linear_full.check: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m64[0m)
+Verifier: [32m14ms[0m    (min: [32m14[0m, max: [32m14[0m, count: [32m1[0m)
+	Command being timed: "./verifier ../wasm//edit.wasm 333 3e56d4fb 967e635a"
+	User time (seconds): 0.06
+	System time (seconds): 0.00
+	Percent of CPU this job got: 342%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.01
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 11164
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 692
+	Voluntary context switches: 5
+	Involuntary context switches: 0
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,132 @@
+OMP threads: 
+
+input1: e2278153931f5ff1db19575f2deb1e44eaa1275ed2dda137ad06c4a75eb1f5cd7c929cf6b88e54449e6d85ceceec96c3ff4f97d10c010b1d16f0278317ef3fc0d4cc70cfdbf8137cb4c06e31894559db77728deb1ab0ff63cbfb62f703329bbcb82aff535c7a3a9e3ade0b591a91c34f837f02703134694d8fac2e2b4edf5509032295b7a5b8db142e6665888ceb24f32529a38f37cae6fc6179ddb74591ff7acc69a5de90bf45a69aa8bf5af5f8f9eb17bd78e327d05e993a4ea8702d29b0ca3efd7f7f2600fef8bac069d5dfeed0ed644824fe28d397252a7703cd9e08542f1c5cfd961f4091c655182cddeae710f6f974fa55b0f27f1e664d7411e36482fcba5e37146e8886dfd48c8f3b4f6f79a31a4307efb21e01adfd99d5920ca576fc7d720cb8c5c1d95da2978ec4443445e9e7dbbf32b1316ea2896f50045fc1d07afb55fc9c6f9b7b0edb418af3a5dfe43b45e9c55c2d1d56e950a5af68b42ff38b539714359c67f3b4a74c912b5aa9011712f5dcddb35908469c6801abfa424faf8d67437dd8ed4c3090f59a0d7f2086fa60046d9ea700912e1c2e09eb219c27b3c37674d36d9c54beee4913e6bb9aa2810d72b94d12dabe40163a2c229065ef6cd3e806391eb1f36204f28c7aa501e78b03cebf447ba9fc8f9b93e41b582f33ea84e3fb63fe69610e9a3dacad29453cad1eef7a40a26b16ad6f9c98f58f8ee324
+input2: 345edaf6cca1bd6f910837258cb115e444202c64b286da101e325169d3a2c9d2c68f9572ce16f8f3001d8e03cd1557e25c6690b28f781fc444939c1c64bdc9b70402ade27d673879589ccd0d1fdd3cad469ae922bb4ae8f5e1e84a15a44f5e316398ab0eff4bebb99dcb9b1badbcf830e04e0d51874cda2ef933c747c597e4bc339c9ba01da5fd51201d7d4edb60974cbf9566e9610d543f5e0a42c4bc36930317ec143f95643aeef6332034ab0695d9f4241415d00e688fcf818e2d035ccca5211067fe1d7827cec952df8d4813a30b5269f8357056f9745c0706aca2f4344a735a9b5e9b9d19568c24cea9ca586be9782158a5580d2ef45e7510e967b01712b888be9759af8565b7c6826cceec39aa0d3a7330d0f47f2767c4bb4318b33cf0639fcf37685977d8fd765183542efabad6dea1fc75b1527ead28af27d9e7bf2fe3b3d956a2a5462ef239bb02d5cac375ea876e163ecb91cfbd4057ef4d5bec1b586bb78fbe12e31478f24ffcfd998c707092ea0da6e3dff90b6b8cd6e858fcdc9162d02c281a5b4f5ddfbdad5778f299a8da6358627eec25463f52306e75d99342f850521584120dba4c5f9f2231e1afd07b701756f2e3185f519494229009bf82288dec5aac0dcfb50dfb89de6c5ba1e2a55a8bf9f90a34bb5f69920434fe6ef5b3dcf4f3d0a25b59cfce3a22835ca6168e83a456ee6808e266e2159b38e75ff351f417e7076171edd154c3609a586cbb43fa5f5cb7eabf97d897cc918b3cc0e5c5dc74d88e1fb800ed742aedf5f85414f29f766961d209aebf591d06f1acaefef0c845dd9c06b2be7509cded8b5853d3c849faa02a2093f408a60d1cc908943bda9b0d98d5bfdc3ee99d2ed9c3e99a527ab810d946682d85e448a53b174ebe1ca909790481c0aac5561034d8f8d595ad431bd920a921d8ac167cb5a667ed515527cd01059f8d778594997f00718089ca3222f6375f61aec2a04898eeda948ddc37fd8c9b1e78581eacbe4863d29b8a7b75dfb7f8fe67b79fdd547e8934d3519f1c7e25a7b9be1b053d77735ad8377c6d90303c37e8d38ae216551acbe733ea275c1480f769bb3d5b13c20e34933d7d9c3fc197bde0cbfc409a041dbb09b0cf505a27e536bd7acc9c98f79fde35b92958d0ca8235faa85bbdeac4e26acbab8b8942b44ecd75695c1476165b0e162932528b5a4768518d1ec298ebda5caf914c1265f9cb8750a913aae18644661721b22130b02cc5d73c2c41b95eb1bea8894bd8fd0af42d5a6361f648942af68d5d7cb90b937d068eebb20f70045c07210183e394a144e4723c474ee04de50a5442c8cd5d7b0fb273997e55cb95e33eb7fb0a39ef996b9a9581b3bbeff54d267b8d5c20a8447ddb8e50bf19743f7da00e54cfa93bc191e6a5c537e86b27558cb0afdfa4bc14b4579b6dc7edd65ca3c56c31e7
+[2022-11-30 21:42:01.137404] [0x00007f3c6e0fdc00] [debug]   l: 65347, k: 65536, n: 131072
+Proving ../wasm//edit.wasm of 65347 instances
+Start Stage 1
+Result: stack: Frame Frame (0: u32) 
+
+Root of Merkle Tree: ad724567965b6dd4ae14c2d9e7d7c0eed64c5e456bfcd934fa74158b344070c9
+----------------------------------------
+Start Stage 2
+Result: stack: Frame Frame (0: u32) 
+
+Num quadratic constraints: 9298
+Validation of linear constraints:    false
+Validation of quadratic constraints: true
+----------------------------------------
+[2022-11-30 21:51:52.265229] [0x00007f3c6e0fdc00] [debug]   sample size: 189
+Start Stage 3
+Result: stack: Frame Frame (0: u32) 
+
+Saved rows: 35336
+----------------------------------------
+
+Done!
+
+
+
+| | | Push button below to download the proof
+V V V
+
+========== Timing Info ==========
+stage1: [32m255876ms[0m
+    stage1.on_quadratic_full: [32m11110ms[0m
+        stage1.on_quadratic_full.encode: [32m11110ms[0m    (min: [32m0[0m, max: [32m2[0m, count: [32m9298[0m)
+    stage1.hash: [32m27314ms[0m    (min: [32m0[0m, max: [32m8[0m, count: [32m16740[0m)
+    stage1.on_linear_full: [32m7077ms[0m
+        stage1.on_linear_full.encode: [32m7077ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m7442[0m)
+    stage1.run: [32m210373ms[0m    (min: [32m210373[0m, max: [32m210373[0m, count: [32m1[0m)
+stage2: [32m422194ms[0m
+    stage2.on_quadratic_full: [32m28590ms[0m
+        stage2.on_quadratic_full.encode: [32m13082ms[0m    (min: [32m1[0m, max: [32m5[0m, count: [32m9298[0m)
+        stage2.on_quadratic_full.QuadCheck: [32m15507ms[0m    (min: [32m1[0m, max: [32m2[0m, count: [32m9298[0m)
+    stage2.on_linear_full: [32m13240ms[0m
+        stage2.on_linear_full.encode: [32m8963ms[0m    (min: [32m0[0m, max: [32m2[0m, count: [32m7442[0m)
+        stage2.on_linear_full.LinearCheck: [32m4277ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m7442[0m)
+    stage2.run: [32m380364ms[0m    (min: [32m380364[0m, max: [32m380364[0m, count: [32m1[0m)
+stage3: [32m180129ms[0m
+    stage3.on_quadratic_full: [32m8582ms[0m
+        stage3.on_quadratic_full.encode: [32m8582ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m9298[0m)
+    stage3.on_linear_full: [32m6692ms[0m
+        stage3.on_linear_full.encode: [32m6692ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m7442[0m)
+    stage3.run: [32m164854ms[0m    (min: [32m164854[0m, max: [32m164854[0m, count: [32m1[0m)
+	Command being timed: "./prover ../wasm//edit.wasm 65347 e2278153931f5ff1db19575f2deb1e44eaa1275ed2dda137ad06c4a75eb1f5cd7c929cf6b88e54449e6d85ceceec96c3ff4f97d10c010b1d16f0278317ef3fc0d4cc70cfdbf8137cb4c06e31894559db77728deb1ab0ff63cbfb62f703329bbcb82aff535c7a3a9e3ade0b591a91c34f837f02703134694d8fac2e2b4edf5509032295b7a5b8db142e6665888ceb24f32529a38f37cae6fc6179ddb74591ff7acc69a5de90bf45a69aa8bf5af5f8f9eb17bd78e327d05e993a4ea8702d29b0ca3efd7f7f2600fef8bac069d5dfeed0ed644824fe28d397252a7703cd9e08542f1c5cfd961f4091c655182cddeae710f6f974fa55b0f27f1e664d7411e36482fcba5e37146e8886dfd48c8f3b4f6f79a31a4307efb21e01adfd99d5920ca576fc7d720cb8c5c1d95da2978ec4443445e9e7dbbf32b1316ea2896f50045fc1d07afb55fc9c6f9b7b0edb418af3a5dfe43b45e9c55c2d1d56e950a5af68b42ff38b539714359c67f3b4a74c912b5aa9011712f5dcddb35908469c6801abfa424faf8d67437dd8ed4c3090f59a0d7f2086fa60046d9ea700912e1c2e09eb219c27b3c37674d36d9c54beee4913e6bb9aa2810d72b94d12dabe40163a2c229065ef6cd3e806391eb1f36204f28c7aa501e78b03cebf447ba9fc8f9b93e41b582f33ea84e3fb63fe69610e9a3dacad29453cad1eef7a40a26b16ad6f9c98f58f8ee324 345edaf6cca1bd6f910837258cb115e444202c64b286da101e325169d3a2c9d2c68f9572ce16f8f3001d8e03cd1557e25c6690b28f781fc444939c1c64bdc9b70402ade27d673879589ccd0d1fdd3cad469ae922bb4ae8f5e1e84a15a44f5e316398ab0eff4bebb99dcb9b1badbcf830e04e0d51874cda2ef933c747c597e4bc339c9ba01da5fd51201d7d4edb60974cbf9566e9610d543f5e0a42c4bc36930317ec143f95643aeef6332034ab0695d9f4241415d00e688fcf818e2d035ccca5211067fe1d7827cec952df8d4813a30b5269f8357056f9745c0706aca2f4344a735a9b5e9b9d19568c24cea9ca586be9782158a5580d2ef45e7510e967b01712b888be9759af8565b7c6826cceec39aa0d3a7330d0f47f2767c4bb4318b33cf0639fcf37685977d8fd765183542efabad6dea1fc75b1527ead28af27d9e7bf2fe3b3d956a2a5462ef239bb02d5cac375ea876e163ecb91cfbd4057ef4d5bec1b586bb78fbe12e31478f24ffcfd998c707092ea0da6e3dff90b6b8cd6e858fcdc9162d02c281a5b4f5ddfbdad5778f299a8da6358627eec25463f52306e75d99342f850521584120dba4c5f9f2231e1afd07b701756f2e3185f519494229009bf82288dec5aac0dcfb50dfb89de6c5ba1e2a55a8bf9f90a34bb5f69920434fe6ef5b3dcf4f3d0a25b59cfce3a22835ca6168e83a456ee6808e266e2159b38e75ff351f417e7076171edd154c3609a586cbb43fa5f5cb7eabf97d897cc918b3cc0e5c5dc74d88e1fb800ed742aedf5f85414f29f766961d209aebf591d06f1acaefef0c845dd9c06b2be7509cded8b5853d3c849faa02a2093f408a60d1cc908943bda9b0d98d5bfdc3ee99d2ed9c3e99a527ab810d946682d85e448a53b174ebe1ca909790481c0aac5561034d8f8d595ad431bd920a921d8ac167cb5a667ed515527cd01059f8d778594997f00718089ca3222f6375f61aec2a04898eeda948ddc37fd8c9b1e78581eacbe4863d29b8a7b75dfb7f8fe67b79fdd547e8934d3519f1c7e25a7b9be1b053d77735ad8377c6d90303c37e8d38ae216551acbe733ea275c1480f769bb3d5b13c20e34933d7d9c3fc197bde0cbfc409a041dbb09b0cf505a27e536bd7acc9c98f79fde35b92958d0ca8235faa85bbdeac4e26acbab8b8942b44ecd75695c1476165b0e162932528b5a4768518d1ec298ebda5caf914c1265f9cb8750a913aae18644661721b22130b02cc5d73c2c41b95eb1bea8894bd8fd0af42d5a6361f648942af68d5d7cb90b937d068eebb20f70045c07210183e394a144e4723c474ee04de50a5442c8cd5d7b0fb273997e55cb95e33eb7fb0a39ef996b9a9581b3bbeff54d267b8d5c20a8447ddb8e50bf19743f7da00e54cfa93bc191e6a5c537e86b27558cb0afdfa4bc14b4579b6dc7edd65ca3c56c31e7"
+	User time (seconds): 2482.63
+	System time (seconds): 11.77
+	Percent of CPU this job got: 329%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 12:36.15
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 259144
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 6
+	Minor (reclaiming a frame) page faults: 2572485
+	Voluntary context switches: 242582
+	Involuntary context switches: 20237
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 110320
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+                                                            
+============================================================
+                                                            
+[2022-11-30 21:54:37.290671] [0x00007f277eb4dc00] [debug]   l: 65347, k: 65536, n: 131072
+read file ../wasm//edit.wasm with size 944
+[2022-11-30 21:54:37.349783] [0x00007f277eb4dc00] [debug]   sample size: 189
+Result: stack: Frame Frame (0: u32) 
+
+----------------------------------------
+Prover Merkle Tree root:   ad724567965b6dd4ae14c2d9e7d7c0eed64c5e456bfcd934fa74158b344070c9
+verifier Merkle Tree root: ad724567965b6dd4ae14c2d9e7d7c0eed64c5e456bfcd934fa74158b344070c9
+----------------------------------------
+Check is valid code:          true
+Check is valid quadratic:     true
+Check statement equal to 1:   false
+Check Merkle Tree root:       true
+Check code equality:          true
+Check quadratic equality:     true
+----------------------------------------
+Final Verify result:          false
+Verify time: 338685ms
+
+========== Timing Info ==========
+on_quadratic_full: [32m12463ms[0m
+    on_quadratic_full.hash: [32m522ms[0m    (min: [32m0[0m, max: [32m4[0m, count: [32m9298[0m)
+    on_quadratic_full.encode: [32m11834ms[0m    (min: [32m0[0m, max: [32m2[0m, count: [32m9298[0m)
+    on_quadratic_full.check: [32m106ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m9298[0m)
+on_linear_full: [32m7412ms[0m
+    on_linear_full.hash: [32m331ms[0m    (min: [32m0[0m, max: [32m3[0m, count: [32m7442[0m)
+    on_linear_full.encode: [32m7020ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m7442[0m)
+    on_linear_full.check: [32m61ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m7442[0m)
+Verifier: [32m338685ms[0m    (min: [32m338685[0m, max: [32m338685[0m, count: [32m1[0m)
+	Command being timed: "./verifier ../wasm//edit.wasm 65347 e2278153931f5ff1db19575f2deb1e44eaa1275ed2dda137ad06c4a75eb1f5cd7c929cf6b88e54449e6d85ceceec96c3ff4f97d10c010b1d16f0278317ef3fc0d4cc70cfdbf8137cb4c06e31894559db77728deb1ab0ff63cbfb62f703329bbcb82aff535c7a3a9e3ade0b591a91c34f837f02703134694d8fac2e2b4edf5509032295b7a5b8db142e6665888ceb24f32529a38f37cae6fc6179ddb74591ff7acc69a5de90bf45a69aa8bf5af5f8f9eb17bd78e327d05e993a4ea8702d29b0ca3efd7f7f2600fef8bac069d5dfeed0ed644824fe28d397252a7703cd9e08542f1c5cfd961f4091c655182cddeae710f6f974fa55b0f27f1e664d7411e36482fcba5e37146e8886dfd48c8f3b4f6f79a31a4307efb21e01adfd99d5920ca576fc7d720cb8c5c1d95da2978ec4443445e9e7dbbf32b1316ea2896f50045fc1d07afb55fc9c6f9b7b0edb418af3a5dfe43b45e9c55c2d1d56e950a5af68b42ff38b539714359c67f3b4a74c912b5aa9011712f5dcddb35908469c6801abfa424faf8d67437dd8ed4c3090f59a0d7f2086fa60046d9ea700912e1c2e09eb219c27b3c37674d36d9c54beee4913e6bb9aa2810d72b94d12dabe40163a2c229065ef6cd3e806391eb1f36204f28c7aa501e78b03cebf447ba9fc8f9b93e41b582f33ea84e3fb63fe69610e9a3dacad29453cad1eef7a40a26b16ad6f9c98f58f8ee324 345edaf6cca1bd6f910837258cb115e444202c64b286da101e325169d3a2c9d2c68f9572ce16f8f3001d8e03cd1557e25c6690b28f781fc444939c1c64bdc9b70402ade27d673879589ccd0d1fdd3cad469ae922bb4ae8f5e1e84a15a44f5e316398ab0eff4bebb99dcb9b1badbcf830e04e0d51874cda2ef933c747c597e4bc339c9ba01da5fd51201d7d4edb60974cbf9566e9610d543f5e0a42c4bc36930317ec143f95643aeef6332034ab0695d9f4241415d00e688fcf818e2d035ccca5211067fe1d7827cec952df8d4813a30b5269f8357056f9745c0706aca2f4344a735a9b5e9b9d19568c24cea9ca586be9782158a5580d2ef45e7510e967b01712b888be9759af8565b7c6826cceec39aa0d3a7330d0f47f2767c4bb4318b33cf0639fcf37685977d8fd765183542efabad6dea1fc75b1527ead28af27d9e7bf2fe3b3d956a2a5462ef239bb02d5cac375ea876e163ecb91cfbd4057ef4d5bec1b586bb78fbe12e31478f24ffcfd998c707092ea0da6e3dff90b6b8cd6e858fcdc9162d02c281a5b4f5ddfbdad5778f299a8da6358627eec25463f52306e75d99342f850521584120dba4c5f9f2231e1afd07b701756f2e3185f519494229009bf82288dec5aac0dcfb50dfb89de6c5ba1e2a55a8bf9f90a34bb5f69920434fe6ef5b3dcf4f3d0a25b59cfce3a22835ca6168e83a456ee6808e266e2159b38e75ff351f417e7076171edd154c3609a586cbb43fa5f5cb7eabf97d897cc918b3cc0e5c5dc74d88e1fb800ed742aedf5f85414f29f766961d209aebf591d06f1acaefef0c845dd9c06b2be7509cded8b5853d3c849faa02a2093f408a60d1cc908943bda9b0d98d5bfdc3ee99d2ed9c3e99a527ab810d946682d85e448a53b174ebe1ca909790481c0aac5561034d8f8d595ad431bd920a921d8ac167cb5a667ed515527cd01059f8d778594997f00718089ca3222f6375f61aec2a04898eeda948ddc37fd8c9b1e78581eacbe4863d29b8a7b75dfb7f8fe67b79fdd547e8934d3519f1c7e25a7b9be1b053d77735ad8377c6d90303c37e8d38ae216551acbe733ea275c1480f769bb3d5b13c20e34933d7d9c3fc197bde0cbfc409a041dbb09b0cf505a27e536bd7acc9c98f79fde35b92958d0ca8235faa85bbdeac4e26acbab8b8942b44ecd75695c1476165b0e162932528b5a4768518d1ec298ebda5caf914c1265f9cb8750a913aae18644661721b22130b02cc5d73c2c41b95eb1bea8894bd8fd0af42d5a6361f648942af68d5d7cb90b937d068eebb20f70045c07210183e394a144e4723c474ee04de50a5442c8cd5d7b0fb273997e55cb95e33eb7fb0a39ef996b9a9581b3bbeff54d267b8d5c20a8447ddb8e50bf19743f7da00e54cfa93bc191e6a5c537e86b27558cb0afdfa4bc14b4579b6dc7edd65ca3c56c31e7"
+	User time (seconds): 1048.38
+	System time (seconds): 0.92
+	Percent of CPU this job got: 309%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 5:38.82
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 98428
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 26434
+	Voluntary context switches: 110453
+	Involuntary context switches: 2164
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

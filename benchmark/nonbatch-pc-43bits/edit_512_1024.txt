@@ -1,0 +1,132 @@
+OMP threads: 
+
+input1: 631a10757a0b2b7cdfb67acc32e07e266ec3bfeca9d4c6253dc74c38f7892823f912eabbd4ebb09db3fee7c05d4ff2f6b7c6e5fb6a09c2fd80cd46a4af55dde48e8b554c4901d604de12d9d3c0a31db9f2ac11d5cd1fb122ca9ae14ec299afe3ea70ee7e32fd40c10ac4d1655752d7c608fd5fff5b681e795ae6d6d7f31919d96b0b79f038d409e1448236faf6ce218995f539a73edbcd905b938a8b7c44b5801dfac2b7375680a49b58653e6ea0d23e462e6737e06563e581fa81d7b733df7a160f2a803ae5bdf3fa40eba7715926bd0c9a556277508e759cc34367e813f967ff3555812a8dc4e242becd37dbccb5c3eed9376a0be4308c64b5e8474b6e1cee
+input2: 0ccdb5b405af0f1c7ed2cb070e4659ac62916b9eb67ae92335ba809f3f4082e8fd7e6684a78c5e7ca02d89d67eca7fbb3481b8ee0dddae74f3e8b2c59ef6967bedad4e818833654c979181dd0a1974822c6a989f180e05a88205d0ff4fd53b175a4e07553b6f9d3263f2d0914b4f5bbb9470899e4445128ae838756c403d152bf1788ba4b481036c0bc9fe2eccbea78e9ea10aa579620ea2bdb62386fb413d6a24afc8e5639b7e1a80141d70de56cadbbdccb4845af54264dc19d8867a4b289878f1c280c3884913428ce414dd9017df0d5304081fb606d62d91fcff2eb6a574ac8a5e87c7309aff4bc3876200e0fcbfe35ee599c0ab8ad4cdb008514ef70eba9ce072415c331f67ccbc484483f1aa1dca47f95a0c9bf72ae2d5d0af140bd1abc202f55093899c3085c51b413e6bf8db9e9dcf204589836be25136048d26b0625201cf66d7d30613c60f2fb890ecce902d534cd8eb6710fdf133b41bfcd07766c681969122a7daa153ef5399082d0286eab5b5236527fbbcbd58e80ef9fc1bbcf38a784243b602886fa8ca79f8c41df42ae5d175c926f92e2cb095a25443e80ffddef9e1476683398faa944fd8e99acfcf716792fcd42f2f974297b451a90228664e1ee643c05b9e0d971e05e8f7eb20a98a770add16ed85e8c6405fadac3dc0b213f281ff1634362282cd203c2289108f4e824b733f414bb96e5752a91acb07
+[2022-11-30 21:28:05.531751] [0x00007f654a5cbc00] [debug]   l: 32579, k: 32768, n: 65536
+Proving ../wasm//edit.wasm of 32579 instances
+Start Stage 1
+Result: stack: Frame Frame (0: u32) 
+
+Root of Merkle Tree: c77975552189d6a198eb7e08a8bf49cecdadf2fa681fb1c5eba4281c621dc9
+----------------------------------------
+Start Stage 2
+Result: stack: Frame Frame (0: u32) 
+
+Num quadratic constraints: 4666
+Validation of linear constraints:    false
+Validation of quadratic constraints: true
+----------------------------------------
+[2022-11-30 21:30:43.380938] [0x00007f654a5cbc00] [debug]   sample size: 189
+Start Stage 3
+Result: stack: Frame Frame (0: u32) 
+
+Saved rows: 17736
+----------------------------------------
+
+Done!
+
+
+
+| | | Push button below to download the proof
+V V V
+
+========== Timing Info ==========
+stage1: [32m66533ms[0m
+    stage1.on_quadratic_full: [32m2515ms[0m
+        stage1.on_quadratic_full.encode: [32m2515ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m4666[0m)
+    stage1.hash: [32m6631ms[0m    (min: [32m0[0m, max: [32m5[0m, count: [32m8404[0m)
+    stage1.on_linear_full: [32m1817ms[0m
+        stage1.on_linear_full.encode: [32m1817ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m3738[0m)
+    stage1.run: [32m55567ms[0m    (min: [32m55567[0m, max: [32m55567[0m, count: [32m1[0m)
+stage2: [32m112231ms[0m
+    stage2.on_quadratic_full: [32m6748ms[0m
+        stage2.on_quadratic_full.encode: [32m3271ms[0m    (min: [32m0[0m, max: [32m4[0m, count: [32m4666[0m)
+        stage2.on_quadratic_full.QuadCheck: [32m3476ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m4666[0m)
+    stage2.on_linear_full: [32m3406ms[0m
+        stage2.on_linear_full.encode: [32m2436ms[0m    (min: [32m0[0m, max: [32m5[0m, count: [32m3738[0m)
+        stage2.on_linear_full.LinearCheck: [32m969ms[0m    (min: [32m0[0m, max: [32m2[0m, count: [32m3738[0m)
+    stage2.run: [32m102076ms[0m    (min: [32m102076[0m, max: [32m102076[0m, count: [32m1[0m)
+stage3: [32m45461ms[0m
+    stage3.on_quadratic_full: [32m2266ms[0m
+        stage3.on_quadratic_full.encode: [32m2266ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m4666[0m)
+    stage3.on_linear_full: [32m1689ms[0m
+        stage3.on_linear_full.encode: [32m1689ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m3738[0m)
+    stage3.run: [32m41505ms[0m    (min: [32m41505[0m, max: [32m41505[0m, count: [32m1[0m)
+	Command being timed: "./prover ../wasm//edit.wasm 32579 631a10757a0b2b7cdfb67acc32e07e266ec3bfeca9d4c6253dc74c38f7892823f912eabbd4ebb09db3fee7c05d4ff2f6b7c6e5fb6a09c2fd80cd46a4af55dde48e8b554c4901d604de12d9d3c0a31db9f2ac11d5cd1fb122ca9ae14ec299afe3ea70ee7e32fd40c10ac4d1655752d7c608fd5fff5b681e795ae6d6d7f31919d96b0b79f038d409e1448236faf6ce218995f539a73edbcd905b938a8b7c44b5801dfac2b7375680a49b58653e6ea0d23e462e6737e06563e581fa81d7b733df7a160f2a803ae5bdf3fa40eba7715926bd0c9a556277508e759cc34367e813f967ff3555812a8dc4e242becd37dbccb5c3eed9376a0be4308c64b5e8474b6e1cee 0ccdb5b405af0f1c7ed2cb070e4659ac62916b9eb67ae92335ba809f3f4082e8fd7e6684a78c5e7ca02d89d67eca7fbb3481b8ee0dddae74f3e8b2c59ef6967bedad4e818833654c979181dd0a1974822c6a989f180e05a88205d0ff4fd53b175a4e07553b6f9d3263f2d0914b4f5bbb9470899e4445128ae838756c403d152bf1788ba4b481036c0bc9fe2eccbea78e9ea10aa579620ea2bdb62386fb413d6a24afc8e5639b7e1a80141d70de56cadbbdccb4845af54264dc19d8867a4b289878f1c280c3884913428ce414dd9017df0d5304081fb606d62d91fcff2eb6a574ac8a5e87c7309aff4bc3876200e0fcbfe35ee599c0ab8ad4cdb008514ef70eba9ce072415c331f67ccbc484483f1aa1dca47f95a0c9bf72ae2d5d0af140bd1abc202f55093899c3085c51b413e6bf8db9e9dcf204589836be25136048d26b0625201cf66d7d30613c60f2fb890ecce902d534cd8eb6710fdf133b41bfcd07766c681969122a7daa153ef5399082d0286eab5b5236527fbbcbd58e80ef9fc1bbcf38a784243b602886fa8ca79f8c41df42ae5d175c926f92e2cb095a25443e80ffddef9e1476683398faa944fd8e99acfcf716792fcd42f2f974297b451a90228664e1ee643c05b9e0d971e05e8f7eb20a98a770add16ed85e8c6405fadac3dc0b213f281ff1634362282cd203c2289108f4e824b733f414bb96e5752a91acb07"
+	User time (seconds): 889.64
+	System time (seconds): 4.22
+	Percent of CPU this job got: 448%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 3:19.46
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 134536
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 52
+	Minor (reclaiming a frame) page faults: 579570
+	Voluntary context switches: 98613
+	Involuntary context switches: 7576
+	Swaps: 0
+	File system inputs: 7144
+	File system outputs: 55408
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+                                                            
+============================================================
+                                                            
+[2022-11-30 21:31:24.980988] [0x00007f9e30fcac00] [debug]   l: 32579, k: 32768, n: 65536
+read file ../wasm//edit.wasm with size 944
+[2022-11-30 21:31:25.015022] [0x00007f9e30fcac00] [debug]   sample size: 189
+Result: stack: Frame Frame (0: u32) 
+
+----------------------------------------
+Prover Merkle Tree root:   c77975552189d6a198eb7e08a8bf49cecdadf2fa681fb1c5eba4281c621dc9
+verifier Merkle Tree root: c77975552189d6a198eb7e08a8bf49cecdadf2fa681fb1c5eba4281c621dc9
+----------------------------------------
+Check is valid code:          true
+Check is valid quadratic:     true
+Check statement equal to 1:   false
+Check Merkle Tree root:       true
+Check code equality:          true
+Check quadratic equality:     true
+----------------------------------------
+Final Verify result:          false
+Verify time: 97475ms
+
+========== Timing Info ==========
+on_quadratic_full: [32m7255ms[0m
+    on_quadratic_full.hash: [32m2948ms[0m    (min: [32m0[0m, max: [32m33[0m, count: [32m4666[0m)
+    on_quadratic_full.encode: [32m3488ms[0m    (min: [32m0[0m, max: [32m14[0m, count: [32m4666[0m)
+    on_quadratic_full.check: [32m818ms[0m    (min: [32m0[0m, max: [32m14[0m, count: [32m4666[0m)
+on_linear_full: [32m3244ms[0m
+    on_linear_full.hash: [32m708ms[0m    (min: [32m0[0m, max: [32m9[0m, count: [32m3738[0m)
+    on_linear_full.encode: [32m1828ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m3738[0m)
+    on_linear_full.check: [32m707ms[0m    (min: [32m0[0m, max: [32m14[0m, count: [32m3738[0m)
+Verifier: [32m97475ms[0m    (min: [32m97475[0m, max: [32m97475[0m, count: [32m1[0m)
+	Command being timed: "./verifier ../wasm//edit.wasm 32579 631a10757a0b2b7cdfb67acc32e07e266ec3bfeca9d4c6253dc74c38f7892823f912eabbd4ebb09db3fee7c05d4ff2f6b7c6e5fb6a09c2fd80cd46a4af55dde48e8b554c4901d604de12d9d3c0a31db9f2ac11d5cd1fb122ca9ae14ec299afe3ea70ee7e32fd40c10ac4d1655752d7c608fd5fff5b681e795ae6d6d7f31919d96b0b79f038d409e1448236faf6ce218995f539a73edbcd905b938a8b7c44b5801dfac2b7375680a49b58653e6ea0d23e462e6737e06563e581fa81d7b733df7a160f2a803ae5bdf3fa40eba7715926bd0c9a556277508e759cc34367e813f967ff3555812a8dc4e242becd37dbccb5c3eed9376a0be4308c64b5e8474b6e1cee 0ccdb5b405af0f1c7ed2cb070e4659ac62916b9eb67ae92335ba809f3f4082e8fd7e6684a78c5e7ca02d89d67eca7fbb3481b8ee0dddae74f3e8b2c59ef6967bedad4e818833654c979181dd0a1974822c6a989f180e05a88205d0ff4fd53b175a4e07553b6f9d3263f2d0914b4f5bbb9470899e4445128ae838756c403d152bf1788ba4b481036c0bc9fe2eccbea78e9ea10aa579620ea2bdb62386fb413d6a24afc8e5639b7e1a80141d70de56cadbbdccb4845af54264dc19d8867a4b289878f1c280c3884913428ce414dd9017df0d5304081fb606d62d91fcff2eb6a574ac8a5e87c7309aff4bc3876200e0fcbfe35ee599c0ab8ad4cdb008514ef70eba9ce072415c331f67ccbc484483f1aa1dca47f95a0c9bf72ae2d5d0af140bd1abc202f55093899c3085c51b413e6bf8db9e9dcf204589836be25136048d26b0625201cf66d7d30613c60f2fb890ecce902d534cd8eb6710fdf133b41bfcd07766c681969122a7daa153ef5399082d0286eab5b5236527fbbcbd58e80ef9fc1bbcf38a784243b602886fa8ca79f8c41df42ae5d175c926f92e2cb095a25443e80ffddef9e1476683398faa944fd8e99acfcf716792fcd42f2f974297b451a90228664e1ee643c05b9e0d971e05e8f7eb20a98a770add16ed85e8c6405fadac3dc0b213f281ff1634362282cd203c2289108f4e824b733f414bb96e5752a91acb07"
+	User time (seconds): 437.24
+	System time (seconds): 0.64
+	Percent of CPU this job got: 448%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:37.56
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 54256
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 22
+	Minor (reclaiming a frame) page faults: 13568
+	Voluntary context switches: 51608
+	Involuntary context switches: 18559
+	Swaps: 0
+	File system inputs: 3704
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

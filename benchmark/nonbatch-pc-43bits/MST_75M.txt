@@ -1,0 +1,132 @@
+OMP threads: 4
+
+input1: 030049581019056732035074004059049273016050255020062579044073205021047504053041754046019944042002506064021842068008189072068958018036808073008303053053648010074567066048529020046788037009990023073363017013892006005152076055188037049436060054921060064028027050748036022794017059043079002428003020681047058159031055134019012215047024629049004285029063335057020238051069289007068292035023144029070682060021569066072261042040117023041081069070425036047677074050626044057614048045358072026100026006994036072578009066290007010051040031593057067312046014355072010412039010969029034355041060433027048338006010284056017606020009237005019217038065783073058873037049483047078757034071729060019618078025388034033157001053358030059417079049363062074173007031462042030292031017115001077574051027951031061537060014030018045081076076002071059796044018580018061970022012379017045536064016483007079857064059911047030236
+input2: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+[2022-12-01 02:29:50.394693] [0x00007f6d16885c00] [debug]   l: 32579, k: 32768, n: 65536
+Proving ../wasm//MST.wasm of 32579 instances
+Start Stage 1
+Result: stack: Frame (1: u32) 
+
+Root of Merkle Tree: ef6b3021ae6cfdacaecade17ee15a51361cccd26b69916f4649cf7a29449293
+----------------------------------------
+Start Stage 2
+Result: stack: Frame (1: u32) 
+
+Num quadratic constraints: 235
+Validation of linear constraints:    true
+Validation of quadratic constraints: true
+----------------------------------------
+[2022-12-01 02:29:56.279250] [0x00007f6d16885c00] [debug]   sample size: 189
+Start Stage 3
+Result: stack: Frame (1: u32) 
+
+Saved rows: 878
+----------------------------------------
+
+Done!
+
+
+
+| | | Push button below to download the proof
+V V V
+
+========== Timing Info ==========
+stage1: [32m2410ms[0m
+    stage1.on_linear_full: [32m56ms[0m
+        stage1.on_linear_full.encode: [32m56ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m173[0m)
+    stage1.hash: [32m272ms[0m    (min: [32m0[0m, max: [32m1[0m, count: [32m408[0m)
+    stage1.on_quadratic_full: [32m96ms[0m
+        stage1.on_quadratic_full.encode: [32m96ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m235[0m)
+    stage1.run: [32m1984ms[0m    (min: [32m1984[0m, max: [32m1984[0m, count: [32m1[0m)
+stage2: [32m4035ms[0m
+    stage2.on_linear_full: [32m94ms[0m
+        stage2.on_linear_full.encode: [32m64ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m173[0m)
+        stage2.on_linear_full.LinearCheck: [32m29ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m173[0m)
+    stage2.on_quadratic_full: [32m234ms[0m
+        stage2.on_quadratic_full.encode: [32m132ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m235[0m)
+        stage2.on_quadratic_full.QuadCheck: [32m102ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m235[0m)
+    stage2.run: [32m3706ms[0m    (min: [32m3706[0m, max: [32m3706[0m, count: [32m1[0m)
+stage3: [32m1812ms[0m
+    stage3.on_linear_full: [32m55ms[0m
+        stage3.on_linear_full.encode: [32m55ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m173[0m)
+    stage3.on_quadratic_full: [32m96ms[0m
+        stage3.on_quadratic_full.encode: [32m96ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m235[0m)
+    stage3.run: [32m1660ms[0m    (min: [32m1660[0m, max: [32m1660[0m, count: [32m1[0m)
+	Command being timed: "./prover ../wasm//MST.wasm 32579 030049581019056732035074004059049273016050255020062579044073205021047504053041754046019944042002506064021842068008189072068958018036808073008303053053648010074567066048529020046788037009990023073363017013892006005152076055188037049436060054921060064028027050748036022794017059043079002428003020681047058159031055134019012215047024629049004285029063335057020238051069289007068292035023144029070682060021569066072261042040117023041081069070425036047677074050626044057614048045358072026100026006994036072578009066290007010051040031593057067312046014355072010412039010969029034355041060433027048338006010284056017606020009237005019217038065783073058873037049483047078757034071729060019618078025388034033157001053358030059417079049363062074173007031462042030292031017115001077574051027951031061537060014030018045081076076002071059796044018580018061970022012379017045536064016483007079857064059911047030236 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	User time (seconds): 20.01
+	System time (seconds): 0.14
+	Percent of CPU this job got: 264%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.61
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 121864
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 66158
+	Voluntary context switches: 2048
+	Involuntary context switches: 40
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 5304
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+                                                            
+============================================================
+                                                            
+[2022-12-01 02:29:58.013085] [0x00007f3060c71c00] [debug]   l: 32579, k: 32768, n: 65536
+read file ../wasm//MST.wasm with size 1287
+[2022-12-01 02:29:58.042227] [0x00007f3060c71c00] [debug]   sample size: 189
+Result: stack: Frame (1: u32) 
+
+----------------------------------------
+Prover Merkle Tree root:   ef6b3021ae6cfdacaecade17ee15a51361cccd26b69916f4649cf7a29449293
+verifier Merkle Tree root: ef6b3021ae6cfdacaecade17ee15a51361cccd26b69916f4649cf7a29449293
+----------------------------------------
+Check is valid code:          true
+Check is valid quadratic:     true
+Check statement equal to 1:   true
+Check Merkle Tree root:       true
+Check code equality:          true
+Check quadratic equality:     true
+----------------------------------------
+Final Verify result:          true
+Verify time: 3505ms
+
+========== Timing Info ==========
+on_linear_full: [32m64ms[0m
+    on_linear_full.hash: [32m3ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m173[0m)
+    on_linear_full.encode: [32m60ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m173[0m)
+    on_linear_full.check: [32m0ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m173[0m)
+on_quadratic_full: [32m90ms[0m
+    on_quadratic_full.hash: [32m5ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m235[0m)
+    on_quadratic_full.encode: [32m83ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m235[0m)
+    on_quadratic_full.check: [32m1ms[0m    (min: [32m0[0m, max: [32m0[0m, count: [32m235[0m)
+Verifier: [32m3505ms[0m    (min: [32m3505[0m, max: [32m3505[0m, count: [32m1[0m)
+	Command being timed: "./verifier ../wasm//MST.wasm 32579 030049581019056732035074004059049273016050255020062579044073205021047504053041754046019944042002506064021842068008189072068958018036808073008303053053648010074567066048529020046788037009990023073363017013892006005152076055188037049436060054921060064028027050748036022794017059043079002428003020681047058159031055134019012215047024629049004285029063335057020238051069289007068292035023144029070682060021569066072261042040117023041081069070425036047677074050626044057614048045358072026100026006994036072578009066290007010051040031593057067312046014355072010412039010969029034355041060433027048338006010284056017606020009237005019217038065783073058873037049483047078757034071729060019618078025388034033157001053358030059417079049363062074173007031462042030292031017115001077574051027951031061537060014030018045081076076002071059796044018580018061970022012379017045536064016483007079857064059911047030236 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	User time (seconds): 8.54
+	System time (seconds): 0.02
+	Percent of CPU this job got: 239%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:03.57
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 52600
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 13395
+	Voluntary context switches: 949
+	Involuntary context switches: 9
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

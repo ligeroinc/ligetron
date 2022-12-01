@@ -142,7 +142,7 @@ struct function_instance {
 // Memory Instance
 /* ------------------------------------------------------------ */
 struct memory_instance {
-    constexpr static size_t page_size = 65536;  /* 64KB */
+    constexpr static size_t page_size = 16777216;  /* 16MB */
     memory_instance(memory_kind k, size_t mem_size) : kind(k), data(mem_size, 0) { }
     
     memory_kind kind;
@@ -393,7 +393,7 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
             if (auto *p = dynamic_cast<wabt::GlobalImport*>(imp)) {
 
                 // TODO: fix hard-coding
-                constexpr u32 stack_pointer = 16384 - 1;
+                constexpr u32 stack_pointer = 8388608 - 1;  // 8MB
                 if (p->module_name == "env" && p->field_name == "__stack_pointer") {
                     auto& g = p->global;
                     auto expr = std::make_unique<wabt::ConstExpr>(wabt::Const::I32(stack_pointer));

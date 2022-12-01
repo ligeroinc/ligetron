@@ -39,7 +39,7 @@ template <typename Decoder, typename Poly>
 bool validate_sum(Decoder& dec, Poly p) {
     using field = typename Poly::field_type;
     dec.decode(p);
-    field acc = 0UL;
+    field acc = static_cast<typename field::value_type>(0);
     for (size_t i = 0; i < p.size(); i++) {
         acc += field{p[i]};
     }
@@ -81,7 +81,7 @@ void run_program(Module& m, Context& ctx, size_t func, bool fill = true) {
     //     std::vector<u8> data(arg);
     //     ctx.set_args(data);
     // }
-    constexpr size_t offset = 16384;
+    constexpr size_t offset = 8388608;
     size_t len1 = str_a.size(), len2 = str_b.size();
     size_t offset1 = offset + len1;
 
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     d = std::max(std::bit_ceil(l), 256UL);
     n = 2 * d;
 
-    DEBUG << "l: " << l << ", k: " << d << ", n: " << n;
+    std::cout << "l: " << l << ", k: " << d << ", n: " << n << std::endl;
     
     str_a = argv[3];
     str_b = argv[4];
@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
               << "----------------------------------------" << std::endl;
 
     constexpr size_t sample_size = 189;
-    DEBUG << "sample size: " << sample_size;
+    std::cout << "sample size: " << sample_size << std::endl;
     
     auto stage2_seed = zkp::hash<zkp::sha256>(ctx2.get_argument());
     zkp::hash_random_engine<zkp::sha256> engine(stage2_seed);

@@ -307,6 +307,7 @@ struct gc_row {
 template <typename Poly, typename RandomDist>
 struct gc_managed_region {
     using field_type = typename Poly::field_type;
+    using value_type = typename Poly::value_type;
     using signed_value_type = typename Poly::signed_value_type;
     
     using row_type = gc_row<Poly>;
@@ -548,8 +549,8 @@ struct gc_managed_region {
             field_type r(rr.rand(), no_reduce_coeffs);
 
             // Use -2^31 to compensate the difference
-            rl.rand() = l + left * field_type(-(1L << i));
-            rr.rand() = r + right * field_type(-(1L << i));
+            rl.rand() = l + left * field_type(-(static_cast<signed_value_type>(1) << i));
+            rr.rand() = r + right * field_type(-(static_cast<signed_value_type>(1) << i));
         }
         
         return ro;
@@ -569,8 +570,8 @@ struct gc_managed_region {
             field_type l(rl.rand(), no_reduce_coeffs);
             field_type r(rr.rand(), no_reduce_coeffs);
 
-            rl.rand() = l + left * field_type(1UL << i);
-            rr.rand() = r + right * field_type(1UL << i);
+            rl.rand() = l + left * field_type(static_cast<value_type>(1) << i);
+            rr.rand() = r + right * field_type(static_cast<value_type>(1) << i);
         }
         
         return ro;

@@ -1,0 +1,89 @@
+OMP threads: 4
+
+input1: f26f9abacbd37f
+input2: f26f9abacbd37f
+Proving Edit Distance of 65347 instances
+Start Stage 1
+Prover Stage1 time: 149410ms (NTT: 53861ms)
+Root of Merkle Tree: 238dc15de623481d4c7097e9de97d7b2ee544de994fadfae9629cbc237a8b553
+----------------------------------------
+Start Stage 2
+Stage2 time: 117902ms (NTT: 50078ms)
+Validation of linear constraints:    true
+Validation of quadratic constraints: true
+----------------------------------------
+Start Stage 3
+Stage3 time: 58248ms (NTT: 43254ms)
+Saved rows: 79577
+----------------------------------------
+Quadratic constraints: 75715
+
+Done!
+
+Total prover time: 3.3e+02s
+
+| | | Push button below to download the proof
+V V V
+	Command being timed: "./prover f26f9abacbd37f f26f9abacbd37f"
+	User time (seconds): 1302.24
+	System time (seconds): 0.32
+	Percent of CPU this job got: 399%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 5:25.94
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 227684
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 68236
+	Voluntary context switches: 54
+	Involuntary context switches: 1471
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 106984
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+                                                            
+============================================================
+                                                            
+read file edit.wasm with size 944
+----------------------------------------
+Prover Merkle Tree root:   238dc15de623481d4c7097e9de97d7b2ee544de994fadfae9629cbc237a8b553
+verifier Merkle Tree root: 238dc15de623481d4c7097e9de97d7b2ee544de994fadfae9629cbc237a8b553
+----------------------------------------
+Check is valid code:          true
+Check is valid quadratic:     true
+Check statement equal to 1:   true
+Check Merkle Tree root:       true
+Check code equality:          true
+Check quadratic equality:     true
+----------------------------------------
+Final Verify result:          true
+Verify time: 12264ms
+	Command being timed: "./verifier f26f9abacbd37f f26f9abacbd37f"
+	User time (seconds): 49.07
+	System time (seconds): 0.05
+	Percent of CPU this job got: 398%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:12.34
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 61500
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 21317
+	Voluntary context switches: 4
+	Involuntary context switches: 63
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

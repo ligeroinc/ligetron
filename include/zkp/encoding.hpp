@@ -46,11 +46,11 @@ struct reed_solomon64 {
         poly.pad_random(d_, rand);
         // t1.stop();
         // auto t2 = make_timer(__func__, "inverse");
-        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
+        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
         // t2.stop();
         poly.pad(n_);
         // auto t4 = make_timer(__func__, "forward");
-        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
+        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
         // t4.stop();
         return poly;
     }
@@ -58,9 +58,9 @@ struct reed_solomon64 {
     template <typename Poly>
     Poly& encode_const(Poly& poly) {
         poly.pad(d_);
-        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
+        ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
         poly.pad(n_);
-        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
+        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
         return poly;
     }
 
@@ -83,19 +83,19 @@ struct reed_solomon64 {
         assert(d_ * 2 == n_);
         assert(poly.size() == n_);
         
-        ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
+        ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
         hexl::EltwiseSubMod(poly.data().data(),
                             poly.data().data(),
                             poly.data().data() + d_,
                             d_,
                             Poly::modulus);
-        ntt_message_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
+        ntt_message_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
         poly.data().erase(poly.begin() + l_, poly.end());
     }
 
     template <typename Poly>
     void partial_decode(Poly& poly) {
-        ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 4);
+        ntt_codeword_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
         hexl::EltwiseSubMod(poly.data().data(),
                             poly.data().data(),
                             poly.data().data() + d_,
@@ -107,7 +107,7 @@ struct reed_solomon64 {
     template <typename Poly>
     void partial_encode(Poly& poly) {
         poly.pad(n_);
-        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 4, 1);
+        ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
     }
 
     uint64_t modulus() const { return modulus_; }

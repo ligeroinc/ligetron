@@ -62,31 +62,43 @@ struct gc_row {
         
         gc_row *ptr;
         size_t offset;
+        int count = 0;
     };
 
     struct reference : ref_expr_base {
         reference() : loc_(nullptr) { }
-        reference(std::shared_ptr<location> loc) : loc_(std::move(loc)) { }
+        // reference(std::shared_ptr<location> loc) : loc_(std::move(loc)) { }
+        reference(location *ptr) : loc_(ptr) {
+            if (loc_) {
+                loc_->count++;
+            }
+        }
+
+        reference(const reference& ref) : loc_(ref.loc_) {
+            if (loc_) {
+                loc_->count++;
+            }
+        }
         
-        // reference() : loc_(nullptr) { }
-        // reference(location *loc) : loc_(loc) { }
+        reference& operator=(const reference& ref) {
+            if (loc_) {
+                loc_->count--;
+            }
+            loc_ = ref.loc_;
+            if (loc_) {
+                loc_->count++;
+            }
+            return *this;
+        }
 
-        // ~reference() { loc_->count--; }
-
-        // reference(const reference& ref) : loc_(ref.loc_) { loc_->count++; }
-        // reference& operator=(const reference& ref) {
-        //     if (loc_) {
-        //         loc_->count--;
-        //     }
-        //     ref.loc_++;
-        //     loc_ = ref.loc_;
-        //     return *this;
-        // }
-
-        // reference(reference&&) = default;
-        // reference& operator=(reference&&) = default;
+        ~reference() {
+            if (loc_) {
+                loc_->count--;
+            }
+        }
 
         s32 val() const {
+            assert(loc_);
             assert(loc_->ptr != nullptr);
             return loc_->ptr->val_[loc_->offset];
         }
@@ -94,7 +106,7 @@ struct gc_row {
         value_type& rand() { return loc_->ptr->random_[loc_->offset]; }
         const value_type& rand() const { return loc_->ptr->random_[loc_->offset]; }
 
-        location loc() const { return *loc_; }
+        location* loc() { return loc_; }
 
         template <typename... Args>
         auto eval(Args&&...) { return *this; }
@@ -104,7 +116,7 @@ struct gc_row {
         // }
         
     protected:
-        std::shared_ptr<location> loc_;
+        location* loc_;
         // location *loc_;
     };
 
@@ -180,7 +192,7 @@ struct gc_row {
         val_[idx] = val;
 
         // auto t = make_timer("shared_ptr");
-        return reference{ count_[idx] };
+        return reference{ count_[idx].get() };
         
         // auto ptr = std::make_shared<value_type*>(&random_[idx]);
         // *ptr = &random_[idx];
@@ -199,8 +211,8 @@ struct gc_row {
     }
 
     template <typename RandomDist>
-    std::optional<std::unique_ptr<gc_row>>
-    mark_and_sweep(std::unique_ptr<gc_row>& next_gen, RandomDist& dist) {
+    // std::optional<std::unique_ptr<gc_row>>
+    bool mark_and_sweep(gc_row* next_gen, RandomDist& dist, gc_row* extra = nullptr) {
         assert(packing_size_ == next_gen->packing_size_);
 
         // auto t = make_timer("GC", "MarkSweep");
@@ -208,33 +220,50 @@ struct gc_row {
         // std::cout << "gc triggered" << std::endl;
 
         size_t copy_count = 0;
-        std::optional<std::unique_ptr<gc_row>> extra_row = std::nullopt;
+        // std::optional<std::unique_ptr<gc_row>> extra_row = std::nullopt;
+        bool recursive_gc = false;
         for (size_t i = 0; i < count_.size(); i++) {
             // Still referenced by other variable
-            if (!count_[i].unique()) {
+            if (count_[i]->count > 0) {
                 copy_count++;
 
                 auto ref = next_gen->try_push_back(val_[i]);
 
                 // Next gen is also full - avoid recursion by creating a fresh row
                 if (!ref) {
-                    auto fresh = std::make_unique<gc_row>(packing_size_);
-                    auto exr = next_gen->mark_and_sweep(fresh, dist);
-                    
-                    assert(!exr); // TODO: handle grow case
-                    
-                    std::swap(next_gen, fresh);
-                    // next_gen->update_this();
-                    
-                    extra_row.emplace(std::move(fresh));
+                    recursive_gc = true;
+                    // throw std::runtime_error("GC failed: next gen is also full");
 
-                    // Try push again
-                    ref = next_gen->try_push_back(val_[i]);
+                    if (extra) {
+                        assert(extra->size() == 0);
+                        next_gen->mark_and_sweep(extra, dist);
+
+                        // IMPORTANT: pointer swap only happens in this scope,
+                        //            outside scope unique_ptr remains unchanged.
+                        std::swap(next_gen, extra);
+                        
+                        ref = next_gen->try_push_back(val_[i]);
+                    }
+                    else {
+                        throw std::runtime_error("Recursive GC without extra row failed");
+                    }
+                    // auto fresh = std::make_unique<gc_row>(packing_size_);
+                    // auto exr = next_gen->mark_and_sweep(fresh, dist);
+                    
+                    // assert(!exr); // TODO: handle grow case
+                    
+                    // std::swap(next_gen, fresh);
+                    // // next_gen->update_this();
+                    
+                    // extra_row.emplace(std::move(fresh));
+
+                    // // Try push again
+                    // ref = next_gen->try_push_back(val_[i]);
                 }
 
                 // At this point `ref` is guaranteed good
                 assert(ref);
-                location loc = ref->loc();
+                location* loc = ref->loc();
                 
                 // const size_t idx = next_gen.curr_++;
                 // next_gen.val_[idx] = val_[i];
@@ -262,19 +291,18 @@ struct gc_row {
                 // std::cout << "this " << this << ", ptr " << count_[i]->ptr;
                 // std::cout << " next " << next_gen.count_[idx]->ptr;
                 
-                next_gen->count_[loc.offset] = count_[i];
-                *next_gen->count_[loc.offset] = loc;
+                // next_gen->count_[loc.offset] = count_[i];
+                // *next_gen->count_[loc.offset] = loc;
+                auto& curr_ptr = count_[i];
+                auto& next_ptr = next_gen->count_[loc->offset];
                 
-                // location loc = *next_gen.count_[idx];
-                // next_gen.count_[idx] = count_[i];  // keep the reference counting
-                // *next_gen.count_[idx] = loc;       // update with new location
-
-                // std::cout << " copied " << count_[i]->ptr << " " << count_[i]->offset << std::endl;
+                std::swap(curr_ptr->ptr, next_ptr->ptr);
+                std::swap(curr_ptr->offset, next_ptr->offset);
+                std::swap(curr_ptr, next_ptr);
             }
         }
-
-        // std::cout << "Copied " << copy_count << " elements to next generation" << std::endl;
-        return extra_row;
+        
+        return recursive_gc;
     }
 
     void reset() {
@@ -285,12 +313,16 @@ struct gc_row {
             // count_[i]->ptr = this;
             // count_[i]->offset = i;
             // count_[i]->count = 1;
-            if (!count_[i].unique()) {
-                count_[i] = std::make_shared<location>(this, i);
+            if (count_[i]->count > 0) {
+                // count_[i] = std::make_shared<location>(this, i);
+                throw std::runtime_error("GC: reset a position being ref counted");
             }
             else {
+                // count_[i]->ptr = this;
+                // count_[i]->offset = i;
                 count_[i]->ptr = this;
-                count_[i]->offset = i;
+                count_[i]->offset= i;
+                count_[i]->count = 0;
             }
         }
     }
@@ -300,7 +332,7 @@ struct gc_row {
     size_t packing_size_;
     std::vector<s32> val_;
     Poly random_;
-    std::vector<std::shared_ptr<location>> count_;
+    std::vector<std::unique_ptr<location>> count_;
 };
 
 
@@ -390,9 +422,8 @@ struct gc_managed_region {
     // }
 
     void replace_linear(row_ptr& row) {
-        row->mark_and_sweep(next_linear_, dist_);
+        row->mark_and_sweep(next_linear_.get(), dist_);
         std::swap(row, next_linear_);
-        // row->update_this();
         on_linear_(*next_linear_);
         next_linear_->reset();
     }
@@ -400,13 +431,27 @@ struct gc_managed_region {
     void replace_quadratic(row_ptr& x, row_ptr& y, row_ptr& z) {
         // Instead of copying to a new generation, copying to linear row
         row_ptr& curr_linear = linear_.back();
-        auto rx = x->mark_and_sweep(curr_linear, dist_);
-        auto ry = y->mark_and_sweep(curr_linear, dist_);
-        auto rz = z->mark_and_sweep(curr_linear, dist_);
 
-        if (rx) { on_linear_(**rx); }
-        if (ry) { on_linear_(**ry); }
-        if (rz) { on_linear_(**rz); }
+        auto rx = x->mark_and_sweep(curr_linear.get(), dist_, next_linear_.get());
+        if (rx) {
+            std::swap(curr_linear, next_linear_);
+            on_linear_(*next_linear_);
+            next_linear_->reset();
+        }
+
+        auto ry = y->mark_and_sweep(curr_linear.get(), dist_, next_linear_.get());
+        if (ry) {
+            std::swap(curr_linear, next_linear_);
+            on_linear_(*next_linear_);
+            next_linear_->reset();
+        }
+
+        auto rz = z->mark_and_sweep(curr_linear.get(), dist_, next_linear_.get());
+        if (rz) {
+            std::swap(curr_linear, next_linear_);
+            on_linear_(*next_linear_);
+            next_linear_->reset();
+        }
 
         // auto t3 = make_timer("Region", __func__, "make");
         // auto next_x = std::make_unique<row_type>(packing_size_);

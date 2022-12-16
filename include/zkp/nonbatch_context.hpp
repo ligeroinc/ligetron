@@ -50,9 +50,10 @@ struct hash_random_dist {
     hash_random_dist(T modulus, const typename Engine::seed_type& seed)
         : engine_(seed), dist_(T{0}, modulus - T{1}) { }
 
-    auto operator()() {
+    T operator()() {
         // auto t = make_timer("Random", "HashDistribution");
         return dist_(engine_);
+        // return 0ULL;
     }
 
     Engine engine_;
@@ -312,7 +313,6 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
     // }
 
     void on_linear_full(row_type& row) override {
-        // auto t = make_timer("Context", __func__);
         field_poly p(row.val_begin(), row.val_end());
         auto t = make_timer("stage1", __func__, "encode");
         this->encoder_.encode_with(p, this->linear_rand_);
@@ -427,7 +427,6 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
                 arg_.update_linear(p, row.random());
             }
         }
-
     }
 
     void on_quadratic_full(row_type& x, row_type& y, row_type& z) override {

@@ -23,7 +23,7 @@ endif()
 #-sMODULARIZE=1 -sEXPORT_NAME=createModule
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  add_compile_options(-std=c++20 -Og -g -pg)
+  add_compile_options(-std=c++20 -O0 -g -pg)
   add_compile_options(-fsanitize=address)
   add_link_options(-fsanitize=address)
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "Web")

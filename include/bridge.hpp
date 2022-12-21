@@ -76,6 +76,7 @@ instr_ptr translate_unaryexpr(const wabt::UnaryExpr& expr) {
 instr_ptr translate_binaryexpr(const wabt::BinaryExpr& expr) {
     const wabt::Opcode::Enum op = expr.opcode;
     switch(op) {
+        /** 32bits **/
     case wabt::Opcode::I32Add:
         return make_instr<op::inn_add>(int_kind::i32);
     case wabt::Opcode::I32Sub:
@@ -106,8 +107,37 @@ instr_ptr translate_binaryexpr(const wabt::BinaryExpr& expr) {
         return make_instr<op::inn_rotl>(int_kind::i32);
     case wabt::Opcode::I32Rotr:
         return make_instr<op::inn_rotr>(int_kind::i32);
-
-        // TODO: add i64
+        /** 64 bits **/
+    case wabt::Opcode::I64Add:
+        return make_instr<op::inn_add>(int_kind::i64);
+    case wabt::Opcode::I64Sub:
+        return make_instr<op::inn_sub>(int_kind::i64);
+    case wabt::Opcode::I64Mul:
+        return make_instr<op::inn_mul>(int_kind::i64);
+    case wabt::Opcode::I64DivS:
+        return make_instr<op::inn_div_sx>(int_kind::i64, sign_kind::sign);
+    case wabt::Opcode::I64DivU:
+        return make_instr<op::inn_div_sx>(int_kind::i64, sign_kind::unsign);
+    case wabt::Opcode::I64RemS:
+        return make_instr<op::inn_rem_sx>(int_kind::i64, sign_kind::sign);
+    case wabt::Opcode::I64RemU:
+        return make_instr<op::inn_rem_sx>(int_kind::i64, sign_kind::unsign);
+    case wabt::Opcode::I64And:
+        return make_instr<op::inn_and>(int_kind::i64);
+    case wabt::Opcode::I64Or:
+        return make_instr<op::inn_or>(int_kind::i64);
+    case wabt::Opcode::I64Xor:
+        return make_instr<op::inn_xor>(int_kind::i64);
+    case wabt::Opcode::I64Shl:
+        return make_instr<op::inn_shl>(int_kind::i64);
+    case wabt::Opcode::I64ShrS:
+        return make_instr<op::inn_shr_sx>(int_kind::i64, sign_kind::sign);
+    case wabt::Opcode::I64ShrU:
+        return make_instr<op::inn_shr_sx>(int_kind::i64, sign_kind::unsign);
+    case wabt::Opcode::I64Rotl:
+        return make_instr<op::inn_rotl>(int_kind::i64);
+    case wabt::Opcode::I64Rotr:
+        return make_instr<op::inn_rotr>(int_kind::i64);
 
     default:
         undefined(expr);
@@ -129,6 +159,7 @@ instr_ptr translate_ternaryexpr(const wabt::TernaryExpr& expr) {
 instr_ptr translate_compareexpr(const wabt::CompareExpr& expr) {
     const wabt::Opcode::Enum op = expr.opcode;
     switch(op) {
+        /** 32 bits **/
     case wabt::Opcode::I32Eq:
         return make_instr<op::inn_eq>(int_kind::i32);
     case wabt::Opcode::I32Ne:
@@ -149,6 +180,27 @@ instr_ptr translate_compareexpr(const wabt::CompareExpr& expr) {
         return make_instr<op::inn_ge_sx>(int_kind::i32, sign_kind::sign);
     case wabt::Opcode::I32GeU:
         return make_instr<op::inn_ge_sx>(int_kind::i32, sign_kind::unsign);
+        /** 64 bits **/
+    case wabt::Opcode::I64Eq:
+        return make_instr<op::inn_eq>(int_kind::i64);
+    case wabt::Opcode::I64Ne:
+        return make_instr<op::inn_ne>(int_kind::i64);
+    case wabt::Opcode::I64LtS:
+        return make_instr<op::inn_lt_sx>(int_kind::i64, sign_kind::sign);
+    case wabt::Opcode::I64LtU:
+        return make_instr<op::inn_lt_sx>(int_kind::i64, sign_kind::unsign);
+    case wabt::Opcode::I64GtS:
+        return make_instr<op::inn_gt_sx>(int_kind::i64, sign_kind::sign);
+    case wabt::Opcode::I64GtU:
+        return make_instr<op::inn_gt_sx>(int_kind::i64, sign_kind::unsign);
+    case wabt::Opcode::I64LeS:
+        return make_instr<op::inn_le_sx>(int_kind::i64, sign_kind::sign);
+    case wabt::Opcode::I64LeU:
+        return make_instr<op::inn_le_sx>(int_kind::i64, sign_kind::unsign);
+    case wabt::Opcode::I64GeS:
+        return make_instr<op::inn_ge_sx>(int_kind::i64, sign_kind::sign);
+    case wabt::Opcode::I64GeU:
+        return make_instr<op::inn_ge_sx>(int_kind::i64, sign_kind::unsign);
     default:
         undefined(expr);
     }
@@ -191,9 +243,25 @@ instr_ptr translate_scope(const In& expr) {
     return make_instr<Out>(std::move(block));
 }
 
+instr_ptr translate_if(const wabt::IfExpr& expr) {
+    op::if_then_else branch;
+    branch.label = expr.true_.label;
+    if (expr.true_.decl.has_func_type) {
+        branch.type = expr.true_.decl.type_var.index();
+    }
+    for (const auto& ins : expr.true_.exprs) {
+        branch.then_body.push_back(translate(ins));
+    }
+    for (const auto& ins : expr.false_) {
+        branch.else_body.push_back(translate(ins));
+    }
+    return make_instr<op::if_then_else>(std::move(branch));
+}
+
 instr_ptr translate_load(const wabt::LoadExpr& expr) {
     wabt::Opcode::Enum op = expr.opcode;
     switch (op) {
+        /** 32 bits **/
     case wabt::Opcode::I32Load:
         return make_instr<op::inn_load>(int_kind::i32, expr.align, expr.offset);
     case wabt::Opcode::I32Load8S:
@@ -204,6 +272,21 @@ instr_ptr translate_load(const wabt::LoadExpr& expr) {
         return make_instr<op::inn_load16_sx>(int_kind::i32, sign_kind::sign, expr.align, expr.offset);
     case wabt::Opcode::I32Load16U:
         return make_instr<op::inn_load16_sx>(int_kind::i32, sign_kind::unsign, expr.align, expr.offset);
+        /** 64 bits **/
+    case wabt::Opcode::I64Load:
+        return make_instr<op::inn_load>(int_kind::i64, expr.align, expr.offset);
+    case wabt::Opcode::I64Load8S:
+        return make_instr<op::inn_load8_sx>(int_kind::i64, sign_kind::sign, expr.align, expr.offset);
+    case wabt::Opcode::I64Load8U:
+        return make_instr<op::inn_load8_sx>(int_kind::i64, sign_kind::unsign, expr.align, expr.offset);
+    case wabt::Opcode::I64Load16S:
+        return make_instr<op::inn_load16_sx>(int_kind::i64, sign_kind::sign, expr.align, expr.offset);
+    case wabt::Opcode::I64Load16U:
+        return make_instr<op::inn_load16_sx>(int_kind::i64, sign_kind::unsign, expr.align, expr.offset);
+    case wabt::Opcode::I64Load32S:
+        return make_instr<op::i64_load32_sx>(sign_kind::sign, expr.align, expr.offset);
+    case wabt::Opcode::I64Load32U:
+        return make_instr<op::i64_load32_sx>(sign_kind::unsign, expr.align, expr.offset);
     default:
         undefined(expr);
     }
@@ -213,12 +296,22 @@ instr_ptr translate_load(const wabt::LoadExpr& expr) {
 instr_ptr translate_store(const wabt::StoreExpr& expr) {
     wabt::Opcode::Enum op = expr.opcode;
     switch(op) {
+        /** 32 bits **/
     case wabt::Opcode::I32Store:
         return make_instr<op::inn_store>(int_kind::i32, expr.align, expr.offset);
     case wabt::Opcode::I32Store8:
         return make_instr<op::inn_store8>(int_kind::i32, expr.align, expr.offset);
     case wabt::Opcode::I32Store16:
         return make_instr<op::inn_store16>(int_kind::i32, expr.align, expr.offset);
+        /** 64 bits **/
+    case wabt::Opcode::I64Store:
+        return make_instr<op::inn_store>(int_kind::i64, expr.align, expr.offset);
+    case wabt::Opcode::I64Store8:
+        return make_instr<op::inn_store8>(int_kind::i64, expr.align, expr.offset);
+    case wabt::Opcode::I64Store16:
+        return make_instr<op::inn_store16>(int_kind::i64, expr.align, expr.offset);        
+    case wabt::Opcode::I64Store32:
+        return make_instr<op::i64_store32>(expr.align, expr.offset);
     default:
         undefined(expr);
     }
@@ -226,6 +319,14 @@ instr_ptr translate_store(const wabt::StoreExpr& expr) {
 }
 
 instr_ptr translate(const wabt::Expr& expr) {
+    if (auto *p = dynamic_cast<const wabt::NopExpr*>(&expr)) {
+        return make_instr<op::nop>();
+    }
+
+    if (auto *p = dynamic_cast<const wabt::UnreachableExpr*>(&expr)) {
+        return make_instr<op::unreachable>();
+    }
+    
     if (auto *p = dynamic_cast<const wabt::ConstExpr*>(&expr)) {
         return translate_constexpr(*p);
     }
@@ -316,6 +417,10 @@ instr_ptr translate(const wabt::Expr& expr) {
 
     if (auto *p = dynamic_cast<const wabt::LoopExpr*>(&expr)) {
         return translate_scope<wabt::LoopExpr, op::loop>(*p);
+    }
+
+    if (auto *p = dynamic_cast<const wabt::IfExpr*>(&expr)) {
+        return translate_if(*p);
     }
 
     if (auto *p = dynamic_cast<const wabt::BrExpr*>(&expr)) {

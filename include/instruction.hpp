@@ -479,10 +479,13 @@ struct memory_copy : virtual instr, enable_memory<memory_copy> {
     std::string name() const override { return "memory_copy"; }
 };
 struct memory_init : virtual instr, enable_memory<memory_init> {
+    memory_init(index_t i) : data_index(i) { }
+    
     std::string name() const override { return "memory_init"; }
     index_t data_index;
 };
 struct data_drop : virtual instr, enable_memory<data_drop> {
+    data_drop(index_t i) : data_index(i) { }
     std::string name() const override { return "data_drop"; }
     index_t data_index;
 };
@@ -542,9 +545,10 @@ struct loop : virtual instr, enable_control<loop> {
 struct if_then_else : virtual instr, enable_control<if_then_else> {
     if_then_else() = default;
     std::string name() const override { return "if_then_else"; }
-    index_t type;
+    name_t label;
+    std::optional<index_t> type;
     instr_vec then_body;
-    std::optional<instr_vec> else_body;
+    instr_vec else_body;
 };
 
 struct br : virtual instr, enable_control<br> {

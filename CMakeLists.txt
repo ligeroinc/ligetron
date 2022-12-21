@@ -72,5 +72,5 @@ add_executable(prover src/prover.cpp)
 add_executable(verifier src/verifier.cpp)
 link_binaries(prover verifier)
 
-# add_executable(eval src/eval.cpp)
-# link_binaries(eval)
+add_executable(eval src/eval.cpp)
+link_binaries(eval)

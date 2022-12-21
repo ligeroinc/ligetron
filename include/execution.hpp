@@ -153,8 +153,34 @@ public:
         return {};
     }
 
-    result_t run(const op::if_then_else&) override {
-        throw wasm_trap("Impossible instruction if_then_else");
+    result_t run(const op::if_then_else& branch) override {
+        u32 m = 0, n = 0;
+        if (branch.type) {
+            const auto& type = ctx_.module()->types[*branch.type];
+            m = type.params.size();
+            n = type.params.size();
+        }
+
+        u32 c = ctx_.stack_pop().template as<u32_type>();
+        ctx_.block_entry(m, n);
+
+        auto& ins_vec = c ? branch.then_body : branch.else_body;
+        
+        for (const instr_ptr& instr : ins_vec) {
+            auto ret = instr->run(*this);
+
+            if (int *p = std::get_if<int>(&ret)) {
+                assert (*p >= 0);
+                if (*p == 0) {
+                    return {};
+                }
+                else {
+                    return *p - 1;
+                }
+            }
+        }
+
+        ctx_.drop_n_below(1, n);
         return {};
     }
 
@@ -706,12 +732,31 @@ public:
     }
 
     result_t run(const op::memory_init& ins) override {
-        undefined(ins);
+        frame_pointer f = ctx_.current_frame();
+        address_t ma = f->module->memaddrs[0];
+        auto& mem = ctx_.store()->memorys[ma];
+
+        address_t da = f->module->dataaddrs[ins.data_index];
+        auto& data = ctx_.store()->datas[da];
+
+        u32 n = ctx_.stack_pop().template as<u32>();
+        u32 s = ctx_.stack_pop().template as<u32>();
+        u32 d = ctx_.stack_pop().template as<u32>();
+
+        if (s + n > data.data.size() or d + n > mem.data.size()) {
+            throw wasm_trap("memory_init: Invalid address");
+        }
+
+        std::copy(data.data.begin() + s, data.data.begin() + s + n, mem.data.begin() + d);
+        
         return {};
     }
 
     result_t run(const op::data_drop& ins) override {
-        undefined(ins);
+        frame_pointer f = ctx_.current_frame();
+        address_t da = f->module->dataaddrs[ins.data_index];
+        auto& data = ctx_.store()->datas[da];
+        data.data.clear();
         return {};
     }
 
@@ -722,24 +767,31 @@ public:
         const auto& mem = ctx_.store()->memorys[a];
         
         u32_type i = ctx_.stack_pop().template as<u32_type>();
-        u32_type ea = i + u32_type(offset);
+        u32_type ea = i + To{ offset };
 
         // u32 n = (ins.type == int_kind::i32) ? 4 : 8;
         u32 n = sizeof(Load);
+        if (ea + n > mem.data.size()) {
+            // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+            throw wasm_trap("Invalid memory address");
+        }
 
-        prelude::transform(ea, [&](const auto& v) {
-            if (v + n > mem.data.size()) {
-                // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
-                throw wasm_trap("Invalid memory address");
-            }
+        To c = *reinterpret_cast<const Load*>(mem.data.data() + ea);
+        ctx_.stack_push(c);
+        
+        // prelude::transform(ea, [&](const auto& v) {
+        //     if (v + n > mem.data.size()) {
+        //         // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+        //         throw wasm_trap("Invalid memory address");
+        //     }
 
-            To c = *reinterpret_cast<const Load*>(mem.data.data() + v);
-            // std::cout << "memory.load mem[" << ea << "]=" << c;
-            // ctx_.template stack_push(c);
-            return c;
-        });
+        //     To c = *reinterpret_cast<const Load*>(mem.data.data() + v);
+        //     // std::cout << "memory.load mem[" << ea << "]=" << c;
+        //     // ctx_.template stack_push(c);
+        //     return c;
+        // });
 
-        ctx_.stack_push(ea);
+        // ctx_.stack_push(ea);
     }
 
     result_t run(const op::inn_load& ins) override {
@@ -749,12 +801,6 @@ public:
         else {
             do_load<u64, u64>(ins.offset);
         }
-        // auto *v = reinterpret_cast<const u32*>(mem.data.data());
-        // std::cout << " Mem: ";
-        // for (auto i = 0; i < 16; i++) {
-        //     std::cout << *(v + i) << " ";
-        // }
-        // std::cout << std::endl;
         return {};
     }
 
@@ -808,80 +854,59 @@ public:
         return {};
     }
 
-    result_t run(const op::inn_store& ins) override {
+    template <typename T, typename Dest>
+    result_t do_store(u32 offset) {
         frame_pointer f = ctx_.current_frame();
         address_t a = f->module->memaddrs[0];
         memory_instance& mem = ctx_.store()->memorys[a];
         
-        u32_type c = ctx_.stack_pop().template as<u32_type>();
-        u32_type i = ctx_.stack_pop().template as<u32_type>();
-        u32_type ea = i + u32_type(ins.offset);
+        Dest c = static_cast<Dest>(ctx_.stack_pop().template as<T>());
+        u32 i = ctx_.stack_pop().template as<u32>();
+        u32 ea = i + offset;
 
-        u32 n = (ins.type == int_kind::i32) ? 4 : 8;
-        u32_type upper = ea + u32_type(n);
+        // u32 n = (ins.type == int_kind::i32) ? 4 : 8;
+        u32 n = sizeof(Dest);
+        u32 upper = ea + n;
 
-        if constexpr (std::is_same_v<u32, u32_type>) {
-            if (upper > mem.data.size()) {
-                // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
-                throw wasm_trap("Invalid memory address");
-            }
-        }
-        else {
-            for (const auto& x : upper) {
-                if (x > mem.data.size()) {
-                    // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
-                    throw wasm_trap("Invalid memory address");
-                }
-            }
+        if (upper > mem.data.size()) {
+            // std::cout << ea << " " << ea + n << " " << mem.data.size() << std::endl;
+            throw wasm_trap("Invalid memory address");
         }
 
-        if (ins.type == int_kind::i32) {
-            if constexpr (std::is_same_v<u32, u32_type>) {
-                const u8 *ptr = reinterpret_cast<const u8*>(&c);
-                std::copy(ptr, ptr + n, mem.data.data() + ea);
-            }
-            else {
-                for (size_t j = 0 ; j < u32_type::size; j++) {
-                    const u8 *ptr = reinterpret_cast<const u8*>(&c[j]);
-                    std::copy(ptr, ptr + n, mem.data.data() + ea[j]);
-                }
-            }
-            // prelude::for_each(c, [&](const auto& x) {
-            //     const u8 *ptr = reinterpret_cast<const u8*>(&x);
-            //     std::copy(ptr, ptr + n, mem.data.data() + ea);
-            // });
-            // std::cout << "i32.store mem[" << ea << "]=" << c << std::endl;;
-        }
-        else {
-            undefined();
-            // u64_type& c = static_cast<u64_type&>(sc);
-            // prelude::for_each(c, [&](const auto& x) {
-            //     const u8 *ptr = reinterpret_cast<const u8*>(&x);
-            //     std::copy(ptr, ptr + n, mem.data.data() + ea);
-            // });
-        }
-        // auto *v = reinterpret_cast<u32*>(mem.data.data());
-        // std::cout << " Mem: ";
-        // for (auto i = 0; i < 16; i++) {
-        //     std::cout << *(v + i) << " ";
-        // }
-        // std::cout << std::endl;
+        const u8 *ptr = reinterpret_cast<const u8*>(&c);
+        std::copy(ptr, ptr + n, mem.data.data() + ea);
         return {};
+    }
+
+    result_t run(const op::inn_store& ins) override {
+        if (ins.type == int_kind::i32) {
+            return do_store<u32, u32>(ins.offset);
+        }
+        else {
+            return do_store<u64, u64>(ins.offset);
+        }
     }
 
     result_t run(const op::inn_store8& ins) override {
-        undefined();
-        return {};
+        if (ins.type == int_kind::i32) {
+            return do_store<u32, u8>(ins.offset);
+        }
+        else {
+            return do_store<u64, u8>(ins.offset);
+        }
     }
 
     result_t run(const op::inn_store16& ins) override {
-        undefined();
-        return {};
+        if (ins.type == int_kind::i32) {
+            return do_store<u32, u16>(ins.offset);
+        }
+        else {
+            return do_store<u64, u16>(ins.offset);
+        }
     }
 
     result_t run(const op::i64_store32& ins) override {
-        undefined();
-        return {};
+        return do_store<u64, u32>(ins.offset);
     }
 };
 

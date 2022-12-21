@@ -62,7 +62,16 @@ struct context_base {
     }
 
     virtual void push_local(frame_pointer fp, value_kind k) {
-        fp->locals.emplace_back(u32_type{0U});
+        switch (k) {
+        case value_kind::i32:
+            fp->locals.emplace_back(u32_type{0U});
+            break;
+        case value_kind::i64:
+            fp->locals.emplace_back(u64_type{0U});
+            break;
+        default:
+            undefined();
+        }
     }
 
     // virtual value_type local_get(index_t i) const {

@@ -142,7 +142,7 @@ struct function_instance {
 // Memory Instance
 /* ------------------------------------------------------------ */
 struct memory_instance {
-    constexpr static size_t page_size = 16777216;  /* 16MB */
+    constexpr static size_t page_size = 65536;  /* 64KB */
     memory_instance(memory_kind k, size_t mem_size) : kind(k), data(mem_size, 0) { }
     
     memory_kind kind;
@@ -292,8 +292,10 @@ index_t allocate_memory(store_t& store, const wabt::Memory& memory) {
     if (memory.page_limits.has_max)
         limit.max.emplace(memory.page_limits.max);
 
+    size_t memory_size = std::max(limit.min, 256UL) + 128; // 16MB heap + 8MB stack
+    
     return store.emplace_back<memory_instance>(memory_kind{ limit },
-                                               memory_instance::page_size * (limit.min > 0 ? limit.min : 1));
+                                               memory_instance::page_size * memory_size);
 }
 
 // index_t allocate_global(store_t& store, const wabt::Global& g) {
@@ -391,10 +393,11 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
 
         for (auto& imp : module.imports) {
             if (auto *p = dynamic_cast<wabt::GlobalImport*>(imp)) {
-
                 // TODO: fix hard-coding
-                constexpr u32 stack_pointer = 8388608 - 1;  // 8MB
                 if (p->module_name == "env" && p->field_name == "__stack_pointer") {
+                    u32 stack_pointer = store.memorys[0].data.size() - 1;
+                    std::cout << "stack pointer: " << stack_pointer << std::endl;
+                    
                     auto& g = p->global;
                     auto expr = std::make_unique<wabt::ConstExpr>(wabt::Const::I32(stack_pointer));
                     if (g.init_expr.empty()) {
@@ -433,7 +436,21 @@ module_instance instantiate(store_t& store, const wabt::Module& module, Executor
             minst.globaladdrs.push_back(gi);
            
         }
-        
+    }
+
+    /* Instantiate Datas */
+    {
+        for (address_t addr : minst.dataaddrs) {
+            data_instance& dinst = store.datas[addr];
+            u32 n = dinst.data.size();
+            for (auto& expr : dinst.offset_expr) {
+                expr->run(exe);
+            }
+            exe.context().stack_push(typename Executor::value_type{ 0U });
+            exe.context().stack_push(n);
+            exe.run(op::memory_init{ static_cast<u32>(addr) });
+            exe.run(op::data_drop{ static_cast<u32>(addr) });
+        }
     }
 
     return minst;

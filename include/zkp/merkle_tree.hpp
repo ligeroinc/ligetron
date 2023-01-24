@@ -44,7 +44,7 @@ struct merkle_tree {
         builder& operator<<(const T& val) {
             assert(val.size() == hashers_.size());
             
-            #pragma omp parallel for schedule(static, 128)
+            #pragma omp parallel for schedule(dynamic, 128)
             for (size_t i = 0; i < hashers_.size(); i++) {
                 hashers_[i] << val[i];
             }

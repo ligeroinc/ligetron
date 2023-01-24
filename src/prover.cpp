@@ -46,12 +46,8 @@ bool validate_sum(Decoder& dec, Poly p) {
     return acc.data() == 0;
 }
 
-// constexpr uint64_t modulus = 4611686018326724609ULL;
-// constexpr uint64_t modulus = 1125625028935681ULL;
-constexpr uint64_t modulus = 8795824586753ULL;
-// constexpr uint64_t modulus = 37;
 size_t l = 1024, d = 2048, n = 4096;
-using poly_t = zkp::primitive_poly<modulus>;
+using poly_t = zkp::primitive_poly<params::modulus>;
 
 // using value_type = numeric_value<u32vec, s32vec, u64vec, s64vec>;
 using frame_type = zkp_frame<value_t, typename zkp::gc_row<poly_t>::reference>;
@@ -169,7 +165,7 @@ int main(int argc, char *argv[]) {
 
     std::random_device rd;
     zkp::random_seeds encoder_seed { rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
-    zkp::reed_solomon64 encoder(modulus, l, d, n);
+    zkp::reed_solomon64 encoder(params::modulus, l, d, n);
 
     
     // Stage 1
@@ -227,16 +223,23 @@ int main(int argc, char *argv[]) {
     // decltype(stage2_result) one{ 1U, ctx2.encode_const(1U) };
     // auto statement = ctx2.eval(stage2_result - one);
 
-    const auto& prover_arg = ctx2.get_argument();
+    auto& prover_arg = ctx2.get_argument();
 
-    auto linear_poly = prover_arg.linear();
+    std::vector<poly_t> linear_polys = prover_arg.linear();
+    std::vector<poly_t> quad_polys = prover_arg.quadratic();
     
     std::cout << std::boolalpha;
     std::cout << "Num quadratic constraints: " << ctx2.constraints_count() << std::endl;
-    std::cout << "Validation of linear constraints:    " << validate_sum(encoder, prover_arg.linear())
-              << std::endl;
-    
-    std::cout << "Validation of quadratic constraints: " << validate(encoder, prover_arg.quadratic()) << std::endl
+    std::cout << "Validation of linear constraints:    ";
+    for (size_t i = 0; i < params::num_linear_test; i++) {
+        std::cout << validate_sum(encoder, linear_polys[i]) << " ";
+    }
+    std::cout << std::endl;
+    std::cout << "Validation of quadratic constraints: ";
+    for (size_t i = 0; i < params::num_quadratic_test; i++) {
+        std::cout << validate(encoder, quad_polys[i]) << " ";
+    }
+    std::cout << std::endl
               << "----------------------------------------" << std::endl;
 
     constexpr size_t sample_size = 189;
@@ -267,12 +270,31 @@ int main(int argc, char *argv[]) {
     std::ofstream proof("proof.data", std::ios::out | std::ios::binary | std::ios::trunc);
     boost::archive::binary_oarchive oa(proof);
 
-    poly_t code = prover_arg.code();
-    encoder.partial_decode(code);
+    auto& codes = prover_arg.code();
+    for (auto& code : codes)
+        encoder.partial_decode(code);
+
+    {
+        std::vector<poly_t> linear_polys = prover_arg.linear();
+        std::vector<poly_t> quad_polys = prover_arg.quadratic();
+        std::cout << "Validation of linear constraints:    ";
+        for (size_t i = 0; i < params::num_linear_test; i++) {
+            std::cout << validate_sum(encoder, linear_polys[i]) << " ";
+        }
+        std::cout << std::endl;
+        std::cout << "Validation of quadratic constraints: ";
+        for (size_t i = 0; i < params::num_quadratic_test; i++) {
+            std::cout << validate(encoder, quad_polys[i]) << " ";
+        }
+        std::cout << std::endl
+                  << "----------------------------------------" << std::endl;
+    }
+
+    
     oa << encoder_seed
        << stage1_root
        << stage2_seed
-       << code
+       << codes
        << prover_arg.quadratic()
        << prover_arg.linear()
        << decommit;

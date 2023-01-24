@@ -44,11 +44,9 @@ bool validate_sum(Decoder& dec, Poly p) {
     return acc.data() == 0;
 }
 
-// constexpr uint64_t modulus = 4611686018326724609ULL;
-// constexpr uint64_t modulus = 1125625028935681ULL;
-constexpr uint64_t modulus = 8795824586753ULL;
+
 size_t l = 1024, d = 2048, n = 4096;
-using poly_t = zkp::primitive_poly<modulus>;
+using poly_t = zkp::primitive_poly<params::modulus>;
 
 using frame_type = zkp_frame<value_t, typename zkp::gc_row<poly_t>::reference>;
 using svalue_type = stack_value<value_t, label, frame_type>;
@@ -140,7 +138,7 @@ int main(int argc, char *argv[]) {
     zkp::random_seeds encoder_seed;
     zkp::sha256::digest merkle_root;
     zkp::sha256::digest sample_seed;
-    poly_t prover_code, prover_quad, statement;
+    std::vector<poly_t> prover_codes, prover_quads, statements;
     zkp::merkle_tree<zkp::sha256>::decommitment decommit;
     // std::vector<poly_t> samples;
 
@@ -148,9 +146,9 @@ int main(int argc, char *argv[]) {
         ia >> encoder_seed;
         ia >> merkle_root;
         ia >> sample_seed;
-        ia >> prover_code;
-        ia >> prover_quad;
-        ia >> statement;
+        ia >> prover_codes;
+        ia >> prover_quads;
+        ia >> statements;
         ia >> decommit;
         // ia >> samples;
     }
@@ -160,7 +158,7 @@ int main(int argc, char *argv[]) {
 
     
 
-    zkp::reed_solomon64 encoder(modulus, l, d, n);
+    zkp::reed_solomon64 encoder(params::modulus, l, d, n);
 
     constexpr size_t sample_size = 189;
     std::cout << "sample size: " << sample_size << std::endl;
@@ -195,7 +193,7 @@ int main(int argc, char *argv[]) {
     
     auto verify_end = std::chrono::high_resolution_clock::now();
 
-    const auto& verifier_arg = vctx.get_argument();
+    auto& verifier_arg = vctx.get_argument();
     auto rhash = zkp::merkle_tree<zkp::sha256>::recommit(vctx.builder(), decommit);
 
     std::cout << "----------------------------------------" << std::endl;
@@ -207,30 +205,58 @@ int main(int argc, char *argv[]) {
 
     // decltype(result) one{ 1U, vctx.encode_const(1U) };
     // auto verifier_linear = vctx.eval(result - one);
-    auto verifier_linear = verifier_arg.linear();
+    auto& verifier_codes = verifier_arg.code();
+    auto& verifier_linears = verifier_arg.linear();
+    auto& verifier_quads = verifier_arg.quadratic();
 
     bool code_result = true;
     try {
-        encoder.partial_encode(prover_code);
+        for (size_t i = 0; i < params::num_code_test; i++) {
+            encoder.partial_encode(prover_codes[i]);
+        }
     }
     catch(...) {
         code_result = false;
     }
     
     bool merkle_result = merkle_root == rhash;
-    bool quad_result = validate(encoder, prover_quad);
-    bool linear_result = validate_sum(encoder, statement);
+    bool quad_result = true;
+    bool linear_result = true;
+
+    for (size_t i = 0; i < params::num_linear_test; i++) {
+        bool result = validate_sum(encoder, statements[i]);
+        linear_result = linear_result && result;
+    }
+
+    for (size_t i = 0; i < params::num_quadratic_test; i++) {
+        bool result = validate(encoder, prover_quads[i]);
+        quad_result = quad_result && result;
+    }
 
     std::cout << std::boolalpha;
     std::cout << "Check is valid code:          " << code_result << std::endl
               << "Check is valid quadratic:     " << quad_result << std::endl
               << "Check statement equal to 1:   " << linear_result << std::endl;
-    
-    for (size_t i = 0; i < sample_size; i++) {
-        code_result = code_result && (prover_code[sample_index[i]] == verifier_arg.code()[i]);
-        linear_result = linear_result && (statement[sample_index[i]] == verifier_linear[i]);
-            // (prover_arg.linear()[sample_index[i]] == verifier_arg.linear()[i]) &&
-        quad_result = quad_result && (prover_quad[sample_index[i]] == verifier_arg.quadratic()[i]);
+
+    for (size_t j = 0; j < params::num_code_test; j++) {
+        for (size_t i = 0; i < sample_size; i++) {
+            code_result = code_result &&
+                (prover_codes[j][sample_index[i]] == verifier_codes[j][i]);
+        }
+    }
+
+    for (size_t j = 0; j < params::num_linear_test; j++) {
+        for (size_t i = 0; i < sample_size; i++) {
+            linear_result = linear_result &&
+                (statements[j][sample_index[i]] == verifier_linears[j][i]);
+        }
+    }
+
+    for (size_t j = 0; j < params::num_quadratic_test; j++) {
+        for (size_t i = 0; i < sample_size; i++) {
+            quad_result = quad_result &&
+                (prover_quads[j][sample_index[i]] == verifier_quads[j][i]);
+        }
     }
 
     bool verify_result = code_result && quad_result && linear_result && merkle_result;

@@ -40,12 +40,13 @@ struct reed_solomon64 {
     // }
 
     template <typename Poly, typename RandGen>
-    Poly& encode_with(Poly& poly, RandGen& rand) {
-        // auto t1 = make_timer(__func__, "pad1");
+    void encode_prepare(Poly& poly, RandGen& rand) {
         poly.pad(l_);
         poly.pad_random(d_, rand);
-        // t1.stop();
-        // auto t2 = make_timer(__func__, "inverse");
+    }
+
+    template <typename Poly>
+    Poly& encode_ntt(Poly& poly) {
         ntt_message_.ComputeInverse(poly.data().data(), poly.data().data(), 1, 1);
         // t2.stop();
         poly.pad(n_);
@@ -53,6 +54,12 @@ struct reed_solomon64 {
         ntt_codeword_.ComputeForward(poly.data().data(), poly.data().data(), 1, 1);
         // t4.stop();
         return poly;
+    }
+
+    template <typename Poly, typename RandGen>
+    Poly& encode_with(Poly& poly, RandGen& rand) {
+        encode_prepare(poly, rand);
+        return encode_ntt(poly);
     }
 
     template <typename Poly>

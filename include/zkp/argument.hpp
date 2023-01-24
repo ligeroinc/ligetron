@@ -1,5 +1,6 @@
 #pragma once
 
+#include <params.hpp>
 #include <zkp/poly_field.hpp>
 // #include <relation.hpp>
 #include <boost/random/mersenne_twister.hpp>
@@ -70,18 +71,25 @@ struct nonbatch_argument {
 
     nonbatch_argument(Encoder& encoder, size_t size, const typename RandomDist::seed_type& seed)
         : encoder_(encoder),
-          code_(size), linear_(size), quad_(size),
+          codes_(params::num_code_test, poly_type(size)),
+          linears_(params::num_linear_test, poly_type(size)),
+          quads_(params::num_quadratic_test, poly_type(size)),
           dc_(poly_type::modulus, seed),
           dl_(poly_type::modulus, seed),
           dq_(poly_type::modulus, seed)
         { }
 
     bool operator==(const nonbatch_argument& other) const {
-        return code_ == other.code_ && linear_ == other.linear_ && quad_ == other.quad_;
+        return codes_ == other.codes_
+            && linears_ == other.linears_
+            && quads_ == other.quads_;
     }
-    
-    nonbatch_argument& update_code(const poly_type& x) {
-        code_.fma_mod(x, dc_());
+
+    value_type randgen_code() { return dc_(); }
+    value_type randgen_quad() { return dq_(); }
+        
+    nonbatch_argument& update_code(size_t idx, const poly_type& x, value_type rand) {
+        codes_[idx].fma_mod(x, rand);
         return *this;
     }
 
@@ -92,9 +100,9 @@ struct nonbatch_argument {
     //     return *this;
     // }
 
-    nonbatch_argument& update_linear(const poly_type& p, const poly_type& rand) {
+    nonbatch_argument& update_linear(size_t idx, const poly_type& p, const poly_type& rand) {
         poly_type tmp = p * rand;
-        linear_ += tmp;
+        linears_[idx] += tmp;
 
         // std::cout << "linear: ";
         // for (const auto& v : linear_) {
@@ -121,9 +129,9 @@ struct nonbatch_argument {
     //     return *this;
     // }
 
-    nonbatch_argument& update_quadratic(const poly_type& x, const poly_type& y, const poly_type& z) {
+    nonbatch_argument& update_quadratic(size_t idx, const poly_type& x, const poly_type& y, const poly_type& z, value_type rand) {
         poly_type p = x * y - z;
-        quad_.fma_mod(p, dq_());
+        quads_[idx].fma_mod(p, rand);
         return *this;
     }
 
@@ -151,18 +159,18 @@ struct nonbatch_argument {
 
     template <typename Archive>
     void serialize(Archive& ar, unsigned int version) {
-        ar & code_;
-        ar & linear_;
-        ar & quad_;
+        ar & codes_;
+        ar & linears_;
+        ar & quads_;
     }
 
-    const poly_type& code() const { return code_; }
-    const poly_type& linear() const { return linear_; }
-    const poly_type& quadratic() const { return quad_; }
+    auto& code() { return codes_; }
+    auto& linear() { return linears_; }
+    auto& quadratic() { return quads_; }
 
 protected:
     Encoder& encoder_;
-    poly_type code_, linear_, quad_;
+    std::vector<poly_type> codes_, linears_, quads_;
     RandomDist dc_, dl_, dq_;
 };
 

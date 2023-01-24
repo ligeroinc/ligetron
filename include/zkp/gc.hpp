@@ -4,6 +4,7 @@
 #include <vector>
 #include <optional>
 
+#include <params.hpp>
 #include <base.hpp>
 #include <util/timer.hpp>
 
@@ -103,8 +104,8 @@ struct gc_row {
             return loc_->ptr->val_[loc_->offset];
         }
 
-        value_type& rand() { return loc_->ptr->random_[loc_->offset]; }
-        const value_type& rand() const { return loc_->ptr->random_[loc_->offset]; }
+        value_type& rand(size_t idx) { return loc_->ptr->randoms_[idx][loc_->offset]; }
+        const value_type& rand(size_t idx) const { return loc_->ptr->randoms_[loc_->offset]; }
 
         location* loc() { return loc_; }
 
@@ -136,7 +137,7 @@ struct gc_row {
     gc_row() = default;
     gc_row(size_t packing_size)
         : packing_size_(packing_size),
-          val_(packing_size), random_(packing_size)
+          val_(packing_size), randoms_(params::num_linear_test, Poly(packing_size))
         {
             for (size_t i = 0; i < packing_size; i++) {
                 count_.emplace_back(std::make_unique<location>(this, i));
@@ -172,18 +173,18 @@ struct gc_row {
 
     auto& val() { return val_; }
     const auto& val() const { return val_; }
-    auto& random() { return random_; }
-    const auto& random() const { return random_; }
+    auto& randoms() { return randoms_; }
+    const auto& randoms() const { return randoms_; }
 
     auto val_begin() { return val_.begin(); }
     auto val_begin() const { return val_.begin(); }
     auto val_end() { return val_.end(); }
     auto val_end() const { return val_.end(); }
     
-    auto rand_begin() { return random_.begin(); }
-    auto rand_begin() const { return random_.begin(); }
-    auto rand_end() { return random_.end(); }
-    auto rand_end() const { return random_.end(); }
+    // auto rand_begin() { return random_.begin(); }
+    // auto rand_begin() const { return random_.begin(); }
+    // auto rand_end() { return random_.end(); }
+    // auto rand_end() const { return random_.end(); }
 
     reference push_back(s32 val) {
         assert(curr_ < packing_size_);
@@ -270,21 +271,23 @@ struct gc_row {
 
                 // Generating Equality constraint
                 if constexpr (RandomDist::enabled) {
-                    field_type r = dist();
+                    for (size_t ri = 0; ri < params::num_linear_test; ri++) {
+                        field_type r = dist();
 
-                    // ptr still point to old generation's randomness
-                    // auto ptr = std::move(count_[i]);
+                        // ptr still point to old generation's randomness
+                        // auto ptr = std::move(count_[i]);
                 
-                    // Adjust randomness for old generation
-                    field_type rd = field_type{random_[i]} - r;
-                    random_[i] = rd.data();
+                        // Adjust randomness for old generation
+                        field_type rd = field_type{randoms_[ri][i]} - r;
+                        randoms_[ri][i] = rd.data();
 
-                    // ptr now points to new generation's randomness
-                    // *ptr = &next_gen.random_[idx];
+                        // ptr now points to new generation's randomness
+                        // *ptr = &next_gen.random_[idx];
 
-                    // Adjust randomness for new generation too
-                    field_type refd = field_type{ref->rand()} + r;
-                    ref->rand() += refd.data();
+                        // Adjust randomness for new generation too
+                        field_type refd = field_type{ref->rand(ri)} + r;
+                        ref->rand(ri) += refd.data();
+                    }
                 }
                 // next_gen.random_[idx] += r;
 
@@ -308,7 +311,9 @@ struct gc_row {
     void reset() {
         curr_ = 0;
         std::fill(val_.begin(), val_.end(), 0);
-        std::fill(random_.begin(), random_.end(), 0);
+        for (auto& random : randoms_) {
+            std::fill(random.begin(), random.end(), 0);
+        }
         for (size_t i = 0; i < packing_size_; i++) {
             // count_[i]->ptr = this;
             // count_[i]->offset = i;
@@ -327,11 +332,11 @@ struct gc_row {
         }
     }
     
-// protected:
+protected:
     size_t curr_ = 0;
     size_t packing_size_;
     std::vector<s32> val_;
-    Poly random_;
+    std::vector<Poly> randoms_;
     std::vector<std::unique_ptr<location>> count_;
 };
 
@@ -373,26 +378,30 @@ struct gc_managed_region {
     void build_linear(ref_type& z, ref_type& x, ref_type& y) {
         // auto t = make_timer(__func__);
         if constexpr (RandomDist::enabled) {
-            // auto t1 = make_timer(__func__, "active");
-            auto r = static_cast<signed_value_type>(dist_());
-            field_type pz = static_cast<signed_value_type>(z.rand()) - r;
-            field_type px = static_cast<signed_value_type>(x.rand()) + r;
-            field_type py = static_cast<signed_value_type>(y.rand()) + r;
-            z.rand() = pz.data();
-            x.rand() = px.data();
-            y.rand() = py.data();
+            auto t1 = make_timer("Random", __func__);
+            for (size_t ri = 0; ri < params::num_linear_test; ri++) {
+                auto r = static_cast<signed_value_type>(dist_());
+                field_type pz = static_cast<signed_value_type>(z.rand(ri)) - r;
+                field_type px = static_cast<signed_value_type>(x.rand(ri)) + r;
+                field_type py = static_cast<signed_value_type>(y.rand(ri)) + r;
+                z.rand(ri) = pz.data();
+                x.rand(ri) = px.data();
+                y.rand(ri) = py.data();
+            }
         }
     }
 
     void build_equal(ref_type& z, ref_type& x) {
         // auto t = make_timer(__func__);
         if constexpr (RandomDist::enabled) {
-            // auto t1 = make_timer(__func__, "active");
-            auto r = static_cast<signed_value_type>(dist_());
-            field_type pz = static_cast<signed_value_type>(z.rand()) - r;
-            field_type px = static_cast<signed_value_type>(x.rand()) + r;
-            z.rand() = pz.data();
-            x.rand() = px.data();
+            auto t1 = make_timer("Random", __func__);
+            for (size_t ri = 0; ri < params::num_linear_test; ri++) {
+                auto r = static_cast<signed_value_type>(dist_());
+                field_type pz = static_cast<signed_value_type>(z.rand(ri)) - r;
+                field_type px = static_cast<signed_value_type>(x.rand(ri)) + r;
+                z.rand(ri) = pz.data();
+                x.rand(ri) = px.data();
+            }
         }
     }
 
@@ -549,8 +558,9 @@ struct gc_managed_region {
         return refl;
     }
 
-    std::pair<field_type, field_type> adjust_random(ref_type& ref) {
-        field_type rf(ref.rand(), no_reduce_coeffs);
+    std::pair<field_type, field_type> adjust_random(ref_type& ref, size_t idx) {
+        // auto t = make_timer("Random", __func__);
+        field_type rf(ref.rand(idx), no_reduce_coeffs);
         field_type rl(dist_(), no_reduce_coeffs);
         field_type rr(dist_(), no_reduce_coeffs);
         // ref.rand() = rf - rl - rr;
@@ -558,7 +568,7 @@ struct gc_managed_region {
         // DEBUG << "Val: " << ref.val();
         // DEBUG << "Before Random: " << rf.data();
         // DEBUG << "R: " << tmp;
-        ref.rand() = rf - rl - rr;
+        ref.rand(idx) = rf - rl - rr;
             // - rl * field_type(ref.val(), no_reduce_coeffs)
             // - rr * field_type(ref.val(), no_reduce_coeffs);
         return std::make_pair(rl, rr);
@@ -581,7 +591,7 @@ struct gc_managed_region {
     //     return ro;
     // }
 
-    ref_type index_sign(const ref_type& x, u32 i, const std::pair<field_type, field_type>& randomness) {
+    ref_type index_sign(const ref_type& x, u32 i, const std::vector<std::pair<field_type, field_type>>& randomness) {
         auto xv = x.val();
         u32 bit = (xv >> i) & u32{1};
         auto rl = push_back_quad(quad_l_, bit);
@@ -589,19 +599,24 @@ struct gc_managed_region {
         auto ro = push_back_quad(quad_o_, bit);
 
         if constexpr(RandomDist::enabled) {
-            const auto& [left, right] = randomness;
-            field_type l(rl.rand(), no_reduce_coeffs);
-            field_type r(rr.rand(), no_reduce_coeffs);
+            assert(randomness.size() == params::num_linear_test);
 
-            // Use -2^31 to compensate the difference
-            rl.rand() = l + left * field_type(-(static_cast<signed_value_type>(1) << i));
-            rr.rand() = r + right * field_type(-(static_cast<signed_value_type>(1) << i));
+            const field_type shift = -(static_cast<signed_value_type>(1) << i);
+            for (size_t ri = 0; ri < randomness.size(); ri++) {
+                const auto& [left, right] = randomness[ri];
+                field_type l(rl.rand(ri), no_reduce_coeffs);
+                field_type r(rr.rand(ri), no_reduce_coeffs);
+
+                // Use -2^31 to compensate the difference
+                rl.rand(ri) = l + left * shift;
+                rr.rand(ri) = r + right * shift;
+            }
         }
         
         return ro;
     }
 
-    ref_type index(const ref_type& x, u32 i, const std::pair<field_type, field_type>& randomness) {
+    ref_type index(const ref_type& x, u32 i, const std::vector<std::pair<field_type, field_type>>& randomness) {
         // std::cout << "index " << x.loc_->ptr << " " << x.loc_->offset << std::endl;
         // std::cout << "linear " << linear_.back().count_[x.loc_->offset]->ptr << std::endl;
         auto xv = x.val();
@@ -611,12 +626,18 @@ struct gc_managed_region {
         auto ro = push_back_quad(quad_o_, bit);
 
         if constexpr(RandomDist::enabled) {
-            const auto& [left, right] = randomness;
-            field_type l(rl.rand(), no_reduce_coeffs);
-            field_type r(rr.rand(), no_reduce_coeffs);
+            // auto t = make_timer("Random", __func__);
+            assert(randomness.size() == params::num_linear_test);
 
-            rl.rand() = l + left * field_type(static_cast<value_type>(1) << i);
-            rr.rand() = r + right * field_type(static_cast<value_type>(1) << i);
+            const field_type shift = static_cast<value_type>(1) << i;
+            for (size_t ri = 0; ri < params::num_linear_test; ri++) {
+                const auto& [left, right] = randomness[ri];
+                field_type l(rl.rand(ri), no_reduce_coeffs);
+                field_type r(rr.rand(ri), no_reduce_coeffs);
+
+                rl.rand(ri) = l + left * shift;
+                rr.rand(ri) = r + right * shift;
+            }
         }
         
         return ro;

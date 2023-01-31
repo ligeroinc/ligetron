@@ -1,10 +1,59 @@
 #pragma once
 
-#include <array>
+#include <cstdint>
+#include <vector>
+#include <algorithm>
 
 #include <zkp/hash.hpp>
 
+#include <openssl/evp.h>
+#include <openssl/aes.h>
+
 namespace ligero::vm::zkp {
+
+template <typename T, size_t buffer_size = 16 * 1024>
+struct aes256ctr_engine {
+    using result_type = T;
+    
+    constexpr static size_t key_size = 32;
+    constexpr static size_t block_size = AES_BLOCK_SIZE;
+
+    constexpr static size_t num_elements = buffer_size / sizeof(T);
+
+    constexpr static result_type min() { return std::numeric_limits<result_type>::min(); }
+    constexpr static result_type max() { return std::numeric_limits<result_type>::max(); }
+
+    struct deleter { void operator()(EVP_CIPHER_CTX *ctx) { EVP_CIPHER_CTX_free(ctx); } };
+    
+    aes256ctr_engine(unsigned char (&key)[key_size], unsigned char (&iv)[block_size])
+        : ctx_(EVP_CIPHER_CTX_new())
+    {
+        int success = EVP_EncryptInit(ctx_.get(), EVP_aes_256_ctr(), key, iv);
+        if (!success) {
+            throw std::runtime_error("Cannot initialize AES context");
+        }
+        fill_buf();
+    }
+
+    void fill_buf() {
+        int size = 0;
+        unsigned char *ptr = reinterpret_cast<unsigned char*>(buffer_);
+        EVP_EncryptUpdate(ctx_.get(), ptr, &size, data_, buffer_size);
+    }
+
+    result_type operator()() {
+        if (pos_ >= num_elements) {
+            fill_buf();
+            pos_ = 0;
+        }
+        return buffer_[pos_++];
+    }
+
+    alignas(block_size) unsigned char buffer_[buffer_size];
+    alignas(block_size) const unsigned char data_[buffer_size] = { 0 };
+    std::unique_ptr<EVP_CIPHER_CTX, deleter> ctx_;
+    size_t pos_ = 0;
+};
 
 template <IsHashScheme Hasher>
 struct hash_random_engine {

@@ -20,9 +20,9 @@
 using namespace wabt;
 using namespace ligero::vm;
 
-void show_hash(const typename zkp::sha256::digest& d) {
+void show_hash(const typename params::hasher::digest& d) {
     std::cout << std::hex;
-    for (size_t i = 0; i < zkp::sha256::digest_size; i++)
+    for (size_t i = 0; i < params::hasher::digest_size; i++)
         std::cout << (int)d.data[i];
     std::cout << std::endl << std::dec;
 }
@@ -136,10 +136,10 @@ int main(int argc, char *argv[]) {
     boost::archive::binary_iarchive ia(proof);
     
     zkp::random_seeds encoder_seed;
-    zkp::sha256::digest merkle_root;
-    zkp::sha256::digest sample_seed;
+    params::hasher::digest merkle_root;
+    params::hasher::digest sample_seed;
     std::vector<poly_t> prover_codes, prover_quads, statements;
-    zkp::merkle_tree<zkp::sha256>::decommitment decommit;
+    zkp::merkle_tree<params::hasher>::decommitment decommit;
     // std::vector<poly_t> samples;
 
     try {
@@ -156,14 +156,12 @@ int main(int argc, char *argv[]) {
         std::cout << "Proof rejected due to serialization failed" << std::endl;
     }
 
-    
-
     zkp::reed_solomon64 encoder(params::modulus, l, d, n);
 
     constexpr size_t sample_size = 189;
     std::cout << "sample size: " << sample_size << std::endl;
     
-    zkp::hash_random_engine<zkp::sha256> engine(sample_seed);
+    zkp::hash_random_engine<params::hasher> engine(sample_seed);
     std::vector<size_t> indexes(n), sample_index;
     std::iota(indexes.begin(), indexes.end(), 0);
     std::sample(indexes.cbegin(), indexes.cend(),
@@ -176,9 +174,23 @@ int main(int argc, char *argv[]) {
     // }
     // std::cout << std::endl;
 
+    unsigned char seed[params::hasher::digest_size];
+    unsigned char iv[16] = { 0 };
+    unsigned char ivc[16] = { 1 };
+    unsigned char ivl[16] = { 2 };
+    unsigned char ivq[16] = { 3 };
+
+    std::copy(merkle_root.begin(), merkle_root.end(), seed);
+
     auto load = [&ia] { poly_t p; ia >> p; return p; };
 
-    zkp::nonbatch_verifier_context<value_t, svalue_type, poly_t, decltype(load)> vctx(encoder, encoder_seed, merkle_root, sample_index, load);
+    zkp::nonbatch_verifier_context<value_t, svalue_type, poly_t, decltype(load), params::hasher, zkp::aes256ctr<>>
+        vctx(encoder, encoder_seed,
+             zkp::aes256ctr<>{params::modulus, seed, iv},
+             zkp::aes256ctr<>{params::modulus, seed, ivc},
+             zkp::aes256ctr<>{params::modulus, seed, ivl},
+             zkp::aes256ctr<>{params::modulus, seed, ivq},
+             sample_index, load);
     auto verify_begin = std::chrono::high_resolution_clock::now();
     try {
         auto t = make_timer("Verifier");
@@ -194,7 +206,7 @@ int main(int argc, char *argv[]) {
     auto verify_end = std::chrono::high_resolution_clock::now();
 
     auto& verifier_arg = vctx.get_argument();
-    auto rhash = zkp::merkle_tree<zkp::sha256>::recommit(vctx.builder(), decommit);
+    auto rhash = zkp::merkle_tree<params::hasher>::recommit(vctx.builder(), decommit);
 
     std::cout << "----------------------------------------" << std::endl;
     std::cout << "Prover Merkle Tree root:   ";

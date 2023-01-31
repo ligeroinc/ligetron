@@ -64,19 +64,17 @@ protected:
 
 
 template <typename Encoder, typename Row, typename RandomDist>
-requires requires { typename RandomDist::seed_type; }
 struct nonbatch_argument {
     using poly_type = typename Row::poly_type;
     using value_type = typename Row::value_type;
 
-    nonbatch_argument(Encoder& encoder, size_t size, const typename RandomDist::seed_type& seed)
+    nonbatch_argument(Encoder& encoder, size_t size,
+                      RandomDist&& dc, RandomDist&& dl, RandomDist&& dq)
         : encoder_(encoder),
           codes_(params::num_code_test, poly_type(size)),
           linears_(params::num_linear_test, poly_type(size)),
           quads_(params::num_quadratic_test, poly_type(size)),
-          dc_(poly_type::modulus, seed),
-          dl_(poly_type::modulus, seed),
-          dq_(poly_type::modulus, seed)
+          dc_(std::move(dc)), dl_(std::move(dl)), dq_(std::move(dq))
         { }
 
     bool operator==(const nonbatch_argument& other) const {

@@ -378,7 +378,7 @@ struct gc_managed_region {
     void build_linear(ref_type& z, ref_type& x, ref_type& y) {
         // auto t = make_timer(__func__);
         if constexpr (RandomDist::enabled) {
-            auto t1 = make_timer("Random", __func__);
+            // auto t1 = make_timer("Random", __func__);
             for (size_t ri = 0; ri < params::num_linear_test; ri++) {
                 auto r = static_cast<signed_value_type>(dist_());
                 field_type pz = static_cast<signed_value_type>(z.rand(ri)) - r;
@@ -394,7 +394,7 @@ struct gc_managed_region {
     void build_equal(ref_type& z, ref_type& x) {
         // auto t = make_timer(__func__);
         if constexpr (RandomDist::enabled) {
-            auto t1 = make_timer("Random", __func__);
+            // auto t1 = make_timer("Random", __func__);
             for (size_t ri = 0; ri < params::num_linear_test; ri++) {
                 auto r = static_cast<signed_value_type>(dist_());
                 field_type pz = static_cast<signed_value_type>(z.rand(ri)) - r;

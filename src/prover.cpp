@@ -22,9 +22,9 @@ using namespace wabt;
 using namespace ligero;
 using namespace ligero::vm;
 
-void show_hash(const typename zkp::sha256::digest& d) {
+void show_hash(const typename params::hasher::digest& d) {
     std::cout << std::hex;
-    for (size_t i = 0; i < zkp::sha256::digest_size; i++)
+    for (size_t i = 0; i < params::hasher::digest_size; i++)
         std::cout << (int)d.data[i];
     std::cout << std::endl << std::dec;
 }
@@ -173,8 +173,8 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Start Stage 1" << std::endl;
 
-    // zkp::stage1_prover_context<value_type, svalue_type, poly_t, zkp::sha256> ctx(encoder);    
-    zkp::nonbatch_stage1_context<value_t, svalue_type, poly_t, zkp::sha256> ctx(encoder, encoder_seed);
+    // zkp::stage1_prover_context<value_type, svalue_type, poly_t, params::hasher> ctx(encoder);    
+    zkp::nonbatch_stage1_context<value_t, svalue_type, poly_t, params::hasher> ctx(encoder, encoder_seed);
     {
         auto t = make_timer("stage1", "run");
         run_program(m, ctx, func);
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
     //           << std::endl;
     // encoder.timer_ = 0;
 
-    zkp::merkle_tree<zkp::sha256> tree = ctx.builder();
+    zkp::merkle_tree<params::hasher> tree = ctx.builder();
     auto stage1_root = tree.root();
     // auto hash = ctx.root_hash();
     // std::cout << "----------------------------------------" << std::endl << std::endl;
@@ -203,8 +203,21 @@ int main(int argc, char *argv[]) {
     // Stage 2
     // -------------------------------------------------------------------------------- //
     std::cout << "Start Stage 2" << std::endl;
+
+    unsigned char seed[params::hasher::digest_size];
+    unsigned char iv[16] = { 0 };
+    unsigned char ivc[16] = { 1 };
+    unsigned char ivl[16] = { 2 };
+    unsigned char ivq[16] = { 3 };
+
+    std::copy(stage1_root.begin(), stage1_root.end(), seed);
     
-    zkp::nonbatch_stage2_context<value_t, svalue_type, poly_t> ctx2(encoder, encoder_seed, stage1_root);
+    zkp::nonbatch_stage2_context<value_t, svalue_type, poly_t, zkp::aes256ctr<>>
+        ctx2(encoder, encoder_seed,
+             zkp::aes256ctr<>{params::modulus, seed, iv},
+             zkp::aes256ctr<>{params::modulus, seed, ivc},
+             zkp::aes256ctr<>{params::modulus, seed, ivl},
+             zkp::aes256ctr<>{params::modulus, seed, ivq});
     {
         auto t = make_timer("stage2", "run");
         run_program(m, ctx2, func);
@@ -245,8 +258,8 @@ int main(int argc, char *argv[]) {
     constexpr size_t sample_size = 189;
     std::cout << "sample size: " << sample_size << std::endl;
     
-    auto stage2_seed = zkp::hash<zkp::sha256>(ctx2.get_argument());
-    zkp::hash_random_engine<zkp::sha256> engine(stage2_seed);
+    auto stage2_seed = zkp::hash<params::hasher>(ctx2.get_argument());
+    zkp::hash_random_engine<params::hasher> engine(stage2_seed);
     std::vector<size_t> indexes(n), sample_index;
     std::iota(indexes.begin(), indexes.end(), 0);
     std::sample(indexes.cbegin(), indexes.cend(),

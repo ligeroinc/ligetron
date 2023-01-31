@@ -26,7 +26,7 @@ namespace ligero::vm::zkp {
 //     std::cout << std::endl;
 // }
 
-struct null_dist {
+struct zero_dist {
     static constexpr bool enabled = false;
     
     auto operator()() const noexcept { return 0; }
@@ -58,6 +58,23 @@ struct hash_random_dist {
 
     Engine engine_;
     random::uniform_int_distribution<T> dist_;
+};
+
+template <typename T = uint64_t>
+struct aes256ctr {
+    static constexpr bool enabled = true;
+    
+    template <typename Key, typename IV>
+    aes256ctr(T modulus, Key& key, IV& iv)
+        : engine_(key, iv), dist_(T{0}, modulus - T{1}) { }
+
+    T operator()() {
+        return dist_(engine_);
+    }
+
+protected:
+    aes256ctr_engine<T> engine_;
+    std::uniform_int_distribution<T> dist_;
 };
 
 struct random_seeds {
@@ -104,7 +121,7 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
     using row_type = typename region_type::row_type;
     using var_type = typename region_type::ref_type;
 
-    nonbatch_context_base(reed_solomon64& encoder, random_seeds seeds, RandomDist dist = RandomDist{})
+    nonbatch_context_base(reed_solomon64& encoder, random_seeds seeds, RandomDist&& dist)
         : encoder_(encoder),
           dist_(std::move(dist)),
           region_(encoder.plain_size(), dist_),
@@ -285,8 +302,8 @@ struct nonbatch_context
 // Stage 1 (Merkle Tree)
 /* ------------------------------------------------------------ */
 template <typename LV, typename SV, typename Fp, typename Hasher = sha256>
-struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> {
-    using Base = nonbatch_context<LV, SV, Fp, null_dist>;
+struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, zero_dist> {
+    using Base = nonbatch_context<LV, SV, Fp, zero_dist>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
@@ -304,7 +321,8 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
     
     nonbatch_stage1_context(reed_solomon64& encoder, random_seeds seeds)
         // : lrs_(l), qrs_(q), builder_(l.encoded_size()) { }
-        : nonbatch_context<LV, SV, Fp, null_dist>(encoder, seeds), builder_(encoder.encoded_size()) { }
+        : nonbatch_context<LV, SV, Fp, zero_dist>(encoder, seeds, zero_dist{}),
+          builder_(encoder.encoded_size()) { }
 
     // void push_witness(const u32_type& v) override {
     //     auto p = this->encode(v);
@@ -323,7 +341,7 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
         this->encoder_.encode_with(p, this->linear_rand_);
         t.stop();
 
-        auto th = make_timer("stage1", "hash");
+        // auto th = make_timer("stage1", "hash");
         builder_ << p;
     }
 
@@ -350,7 +368,7 @@ struct nonbatch_stage1_context : public nonbatch_context<LV, SV, Fp, null_dist> 
         }
         tt.stop();
 
-        auto t = make_timer("stage1", "hash");
+        // auto t = make_timer("stage1", "hash");
         builder_ << px << py << pz;
     }
 
@@ -369,8 +387,7 @@ protected:
 
 // Stage 2 (code test, linear test, qudratic test)
 /* ------------------------------------------------------------ */
-template <typename LV, typename SV, typename Fp,
-          typename RandomDist = hash_random_dist<typename Fp::value_type, hash_random_engine<sha256>>>
+template <typename LV, typename SV, typename Fp, typename RandomDist>
 struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist> {
     using Base = nonbatch_context<LV, SV, Fp, RandomDist>;
     using field_poly = Fp;
@@ -389,9 +406,15 @@ struct nonbatch_stage2_context : public nonbatch_context<LV, SV, Fp, RandomDist>
 
     using row_type = typename Base::row_type;
     
-    nonbatch_stage2_context(reed_solomon64& encoder, random_seeds eseed, const typename RandomDist::seed_type& seed)
-        : nonbatch_context<LV, SV, Fp, RandomDist>(encoder, eseed, RandomDist{field_poly::modulus, seed}),
-          arg_(encoder, encoder.encoded_size(), seed) { }
+    nonbatch_stage2_context(reed_solomon64& encoder, random_seeds eseed, RandomDist&& dist,
+                            RandomDist&& dc, RandomDist&& dl, RandomDist&& dq)
+        : nonbatch_context<LV, SV, Fp, RandomDist>(encoder, eseed,
+                                                   std::forward<RandomDist>(dist)),
+          arg_(encoder, encoder.encoded_size(),
+               std::forward<RandomDist>(dc),
+               std::forward<RandomDist>(dl),
+               std::forward<RandomDist>(dq))
+        { }
 
     // void assert_linear(const field_poly& z, const field_poly& x, const field_poly& y) override {
     //     #pragma omp parallel sections
@@ -574,9 +597,9 @@ protected:
 
 
 template <typename LV, typename SV, typename Fp, typename SaveFunc>
-struct nonbatch_stage3_context : public nonbatch_context<LV, SV, Fp, null_dist>
+struct nonbatch_stage3_context : public nonbatch_context<LV, SV, Fp, zero_dist>
 {
-    using Base = nonbatch_context<LV, SV, Fp, null_dist>;
+    using Base = nonbatch_context<LV, SV, Fp, zero_dist>;
     using field_poly = Fp;
     using field_type = typename Fp::field_type;
     using operator_type = standard_op;
@@ -594,8 +617,7 @@ struct nonbatch_stage3_context : public nonbatch_context<LV, SV, Fp, null_dist>
     using row_type = typename Base::row_type;
 
     nonbatch_stage3_context(reed_solomon64& encoder, random_seeds seeds, const std::vector<size_t>& si, SaveFunc func)
-        : Base(encoder, seeds), sample_index_(si), func_(func)
-        { }
+        : Base(encoder, seeds, zero_dist{}), sample_index_(si), func_(func) { }
 
     void sample_row(const field_poly& p) {
         field_poly sp(sample_index_.size());
@@ -657,8 +679,8 @@ protected:
 template <typename LV, typename SV,
           typename Fp,
           typename LoadFunc,
-          typename Hasher = sha256,
-          typename RandomDist = hash_random_dist<typename Fp::value_type, hash_random_engine<sha256>>>
+          typename Hasher,
+          typename RandomDist>
 struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDist> {
     using Base = nonbatch_context<LV, SV, Fp, RandomDist>;
     using field_poly = Fp;
@@ -680,12 +702,16 @@ struct nonbatch_verifier_context : public nonbatch_context<LV, SV, Fp, RandomDis
 
     nonbatch_verifier_context(reed_solomon64& encoder,
                               random_seeds encode_seeds,
-                              const typename RandomDist::seed_type& seed,
+                              RandomDist&& dist,
+                              RandomDist&& dc, RandomDist&& dl, RandomDist&& dq,
                               const std::vector<size_t>& si,
                               LoadFunc func)
-        : Base(encoder, encode_seeds, RandomDist{field_poly::modulus, seed}), sample_index_(si),
+        : Base(encoder, encode_seeds, std::forward<RandomDist>(dist)), sample_index_(si),
           builder_(sample_index_.size()),
-          arg_(encoder, sample_index_.size(), seed),
+          arg_(encoder, sample_index_.size(),
+               std::forward<RandomDist>(dc),
+               std::forward<RandomDist>(dl),
+               std::forward<RandomDist>(dq)),
           func_(func)
         {
             // std::reverse(sampled_val_.begin(), sampled_val_.end());

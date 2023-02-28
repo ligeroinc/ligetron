@@ -23,9 +23,16 @@ struct ref_expr : ref_expr_base {
     ref_expr(Op op, Args... args) : op_(op), args_(args...) { }
 
     template <typename Evaluator>
-    auto eval(Evaluator& e) {
+    auto eval_signed(Evaluator& e) {
         return std::apply([&](auto&&... args) {
-            return e.eval(op_, args.eval(e)...);
+            return e.eval(zkp_ops::eval_signed{}, op_, args.eval_signed(e)...);
+        }, std::move(args_));
+    }
+
+    template <typename Evaluator>
+    auto eval_unsigned(Evaluator& e) {
+        return std::apply([&](auto&&... args) {
+            return e.eval(zkp_ops::eval_unsigned{}, op_, args.eval_unsigned(e)...);
         }, std::move(args_));
     }
 };
@@ -110,7 +117,10 @@ struct gc_row {
         location* loc() { return loc_; }
 
         template <typename... Args>
-        auto eval(Args&&...) { return *this; }
+        auto eval_signed(Args&&...) { return *this; }
+
+        template <typename... Args>
+        auto eval_unsigned(Args&&...) { return *this; }
 
         // auto operator[](size_t i) const {
         //     return ref_expr(zkp_ops::index_of{ i }, *this);
@@ -544,8 +554,22 @@ struct gc_managed_region {
         return refo;
     }
 
-    ref_type divide(ref_type& x, ref_type& y) {
-        auto z = x.val() / y.val();
+    ref_type divide_unsigned(ref_type& x, ref_type& y) {
+        auto z = static_cast<u32>(x.val()) / static_cast<u32>(y.val());
+        
+        auto refl = push_back_quad(quad_l_, z);
+        
+        auto refr = push_back_quad(quad_r_, y.val());
+        build_equal(refr, y);
+        
+        auto refo = push_back_quad(quad_o_, x.val());
+        build_equal(refo, x);
+
+        return refl;
+    }
+
+    ref_type divide_signed(ref_type& x, ref_type& y) {
+        auto z = static_cast<s32>(x.val()) / static_cast<s32>(y.val());
         
         auto refl = push_back_quad(quad_l_, z);
         
@@ -592,7 +616,7 @@ struct gc_managed_region {
     // }
 
     ref_type index_sign(const ref_type& x, u32 i, const std::vector<std::pair<field_type, field_type>>& randomness) {
-        auto xv = x.val();
+        u32 xv = x.val();
         u32 bit = (xv >> i) & u32{1};
         auto rl = push_back_quad(quad_l_, bit);
         auto rr = push_back_quad(quad_r_, bit);
@@ -619,7 +643,7 @@ struct gc_managed_region {
     ref_type index(const ref_type& x, u32 i, const std::vector<std::pair<field_type, field_type>>& randomness) {
         // std::cout << "index " << x.loc_->ptr << " " << x.loc_->offset << std::endl;
         // std::cout << "linear " << linear_.back().count_[x.loc_->offset]->ptr << std::endl;
-        auto xv = x.val();
+        u32 xv = x.val();
         u32 bit = (xv >> i) & u32{1};
         auto rl = push_back_quad(quad_l_, bit);
         auto rr = push_back_quad(quad_r_, bit);

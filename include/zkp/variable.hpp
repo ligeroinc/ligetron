@@ -21,6 +21,9 @@ struct mul { };
 struct div { };
 struct index_of { size_t index; };
 
+struct eval_signed { };
+struct eval_unsigned { };
+
 }  // namespace zkp_ops
 
 template <typename Op, typename... Args>

@@ -335,6 +335,7 @@ public:
 
             // ctx_.pop_frame(m);
             {
+                ctx_.pop_frame();
                 ctx_.drop_n_below(1, m);
                 // std::vector<svalue_t> ret;
                 // for (size_t i = 0; i < m; i++) {

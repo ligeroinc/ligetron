@@ -37,8 +37,6 @@ sudo make install
 ```
 
 ``` bash
-cd ../..
-cd ligerovm/external
 git clone https://github.com/WebAssembly/wabt.git
 cd wabt
 git submodule update --init
@@ -53,7 +51,6 @@ sudo make install
 To download the Ligerovm project from GitLab and build it using CMake, follow these steps:
 
 ``` bash
-cd ../../..
 git clone https://gitlab.stealthsoftwareinc.com/ruihanwang/ligerovm.git --branch non-batch
 cd ligerovm
 mkdir build && cd build

@@ -98,6 +98,8 @@ struct context_base {
         return p;
     }
 
+    void pop_frame() { frames_.pop_back(); }
+
     void block_entry(u32 param, u32 ret) {
         stack_.insert((stack_.rbegin() + param).base(), label_type{ ret });
     }

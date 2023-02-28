@@ -52,7 +52,7 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
         
-        ctx_.stack_push(ctx_.eval(x + y));
+        ctx_.stack_push(ctx_.eval_signed(x + y));
 
         // std::cout << "add ";
         // std::cout << " " << x.val() << " " << y.val() << std::endl;
@@ -66,7 +66,7 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
         
-        ctx_.stack_push(ctx_.eval(x - y));
+        ctx_.stack_push(ctx_.eval_signed(x - y));
 
         // std::cout << "sub ";
         // std::cout << " " << x.val() << " " << y.val() << std::endl;
@@ -80,7 +80,7 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
         
-        ctx_.stack_push(ctx_.eval(x * y));
+        ctx_.stack_push(ctx_.eval_signed(x * y));
         return {};
     }
 
@@ -89,8 +89,13 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
 
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
-        
-        ctx_.stack_push(ctx_.eval(x / y));
+
+        if (ins.sign == sign_kind::sign) {
+            ctx_.stack_push(ctx_.eval_signed(x / y));
+        }
+        else {
+            ctx_.stack_push(ctx_.eval_unsigned(x / y));
+        }
         return {};
     }
 
@@ -111,7 +116,7 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         for (size_t i = 0; i < 32; i++) {
             u32 idx = 1UL << i;
             var p = ctx_.make_var(idx);
-            acc = ctx_.eval(dx[i] * dy[i] * p + acc);
+            acc = ctx_.eval_unsigned(dx[i] * dy[i] * p + acc);
         }
 
         ctx_.stack_push(acc);
@@ -132,11 +137,11 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         auto dx = ctx_.template bit_decompose<32>(x);
         auto dy = ctx_.template bit_decompose<32>(y);
         for (size_t i = 0; i < 32; i++) {
-            var xi = ctx_.eval(dx[i]);
-            var yi = ctx_.eval(dy[i]);
+            var xi = dx[i];
+            var yi = dy[i];
             u32 idx = 1UL << i;
             var p = ctx_.make_var(idx);
-            acc = ctx_.eval((xi + yi - xi * yi) * p + acc);
+            acc = ctx_.eval_unsigned((xi + yi - xi * yi) * p + acc);
         }
 
         ctx_.stack_push(acc);
@@ -162,11 +167,11 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         auto dx = ctx_.template bit_decompose<32>(x);
         auto dy = ctx_.template bit_decompose<32>(y);
         for (size_t i = 0; i < 32; i++) {
-            var xi = ctx_.eval(dx[i]);
-            var yi = ctx_.eval(dy[i]);
+            var xi = dx[i];
+            var yi = dy[i];
             u32 idx = 1UL << i;
             var p = ctx_.make_var(idx);
-            acc = ctx_.eval((xi + yi - two * xi * yi) * p + acc);
+            acc = ctx_.eval_unsigned((xi + yi - two * xi * yi) * p + acc);
         }
 
         ctx_.stack_push(acc);
@@ -195,10 +200,10 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var exp = ctx_.make_var(1);
         var two = ctx_.make_var(2);
         for (size_t i = 0; i < shift.val(); i++) {
-            exp = ctx_.eval(exp * two);
+            exp = ctx_.eval_unsigned(exp * two);
         }
 
-        ctx_.stack_push(ctx_.eval(x * exp));
+        ctx_.stack_push(ctx_.eval_unsigned(x * exp));
 
         // std::cout << "shiftl ";
         // std::cout << " " << x.val() << " " << shift.val();
@@ -217,10 +222,18 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var exp = ctx_.make_var(1);
         var two = ctx_.make_var(2);
         for (size_t i = 0; i < shift.val(); i++) {
-            exp = ctx_.eval(exp * two);
+            exp = ctx_.eval_unsigned(exp * two);
         }
 
-        ctx_.stack_push(ctx_.eval(x / exp));
+        var result;
+        if (ins.sign == sign_kind::sign) {
+            result = ctx_.eval_signed(x / exp);
+        }
+        else {
+            result = ctx_.eval_unsigned(x / exp);
+        }
+        
+        ctx_.stack_push(result);
 
         // var exp = one;
         // for (size_t i = 0; i < 5; i++) {
@@ -245,14 +258,14 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var exp_right = ctx_.make_var(1);
         var two = ctx_.make_var(2);
         for (size_t i = 0; i < shift.val(); i++) {
-            exp_left = ctx_.eval(exp_left * two);
+            exp_left = ctx_.eval_unsigned(exp_left * two);
         }
 
         for (size_t i = 0; i < 32 - shift.val(); i++) {
-            exp_right = ctx_.eval(exp_right * two);
+            exp_right = ctx_.eval_unsigned(exp_right * two);
         }
 
-        ctx_.stack_push(ctx_.eval(x * exp_left + x / exp_right));
+        ctx_.stack_push(ctx_.eval_unsigned(x * exp_left + x / exp_right));
         
         return {};
     }
@@ -268,14 +281,14 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var exp_left = ctx_.make_var(1);
         var two = ctx_.make_var(2);
         for (size_t i = 0; i < shift.val(); i++) {
-            exp_right = ctx_.eval(exp_right * two);
+            exp_right = ctx_.eval_unsigned(exp_right * two);
         }
 
         for (size_t i = 0; i < 32 - shift.val(); i++) {
-            exp_left = ctx_.eval(exp_left * two);
+            exp_left = ctx_.eval_unsigned(exp_left * two);
         }
 
-        ctx_.stack_push(ctx_.eval(x / exp_right + x * exp_left));
+        ctx_.stack_push(ctx_.eval_unsigned(x / exp_right + x * exp_left));
         
         return {};
     }
@@ -289,7 +302,7 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var acc = ctx_.make_var(1);
         auto dx = ctx_.template bit_decompose<32>(x);
         for (size_t i = 0; i < 32; i++) {
-            acc = ctx_.eval(acc * (one - dx[i]));
+            acc = ctx_.eval_unsigned(acc * (one - dx[i]));
         }
 
         ctx_.stack_push(acc);
@@ -308,10 +321,10 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
 
         var one = ctx_.make_var(1);
         var acc = ctx_.make_var(1);        
-        var diff = ctx_.eval(x - y);
+        var diff = ctx_.eval_unsigned(x - y);
         auto ddiff = ctx_.template bit_decompose<32>(diff);
         for (size_t i = 0; i < 32; i++) {
-            acc = ctx_.eval(acc * (one - ddiff[i]));
+            acc = ctx_.eval_unsigned(acc * (one - ddiff[i]));
         }
 
         ctx_.stack_push(acc);
@@ -334,12 +347,12 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
 
         var one = ctx_.make_var(1);
         var acc = ctx_.make_var(1);
-        var diff = ctx_.eval(x - y);
+        var diff = ctx_.eval_unsigned(x - y);
         auto ddiff = ctx_.template bit_decompose<32>(diff);
         for (size_t i = 0; i < 32; i++) {
-            acc = ctx_.eval(acc * (one - ddiff[i]));
+            acc = ctx_.eval_unsigned(acc * (one - ddiff[i]));
         }
-        acc = ctx_.eval(one - acc);
+        acc = ctx_.eval_unsigned(one - acc);
         
         ctx_.stack_push(acc);
 
@@ -360,16 +373,16 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
 
-        var diff = ctx_.eval(y - x);
+        var diff = ctx_.eval_signed(y - x);
         auto ddiff = ctx_.template bit_decompose<32>(diff);
-        var is_pos = ctx_.eval(ctx_.make_var(1) - ddiff[31]);
+        var is_pos = ctx_.eval_signed(ctx_.make_var(1) - ddiff[31]);
 
         var acc = ctx_.make_var(0);
         for (int i = 30; i >= 0; i--) {
-            acc = ctx_.eval(acc + ddiff[i] - acc * ddiff[i]);
+            acc = ctx_.eval_signed(acc + ddiff[i] - acc * ddiff[i]);
         }
 
-        var result = ctx_.eval(is_pos * acc);
+        var result = ctx_.eval_signed(is_pos * acc);
         ctx_.stack_push(result);
 
         // std::cout << "lt_sx ";
@@ -398,17 +411,17 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
 
-        var diff = ctx_.eval(x - y);
+        var diff = ctx_.eval_signed(x - y);
 
         auto ddiff = ctx_.template bit_decompose<32>(diff);
-        var is_pos = ctx_.eval(ctx_.make_var(1) - ddiff[31]);
+        var is_pos = ctx_.eval_signed(ctx_.make_var(1) - ddiff[31]);
 
         var acc = ctx_.make_var(0);
         for (int i = 30; i >= 0; i--) {
-            acc = ctx_.eval(acc + ddiff[i] - acc * ddiff[i]);
+            acc = ctx_.eval_signed(acc + ddiff[i] - acc * ddiff[i]);
         }
 
-        var result = ctx_.eval(is_pos * acc);
+        var result = ctx_.eval_signed(is_pos * acc);
         ctx_.stack_push(result);
         return {};
     }
@@ -426,9 +439,9 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
 
-        var diff = ctx_.eval(y - x);
+        var diff = ctx_.eval_signed(y - x);
         auto ddiff = ctx_.template bit_decompose<32>(diff);
-        var result = ctx_.eval(ctx_.make_var(1) - ddiff[31]);
+        var result = ctx_.eval_signed(ctx_.make_var(1) - ddiff[31]);
 
         ctx_.stack_push(result);
         return {};
@@ -447,9 +460,9 @@ struct nonbatch_exe_numeric : virtual public NumericExecutor {
         var y = ctx_.stack_pop_var();
         var x = ctx_.stack_pop_var();
 
-        var diff = ctx_.eval(x - y);
+        var diff = ctx_.eval_signed(x - y);
         auto ddiff = ctx_.template bit_decompose<32>(diff);
-        var result = ctx_.eval(ctx_.make_var(1) - ddiff[31]);
+        var result = ctx_.eval_signed(ctx_.make_var(1) - ddiff[31]);
 
         ctx_.stack_push(result);
         return {};

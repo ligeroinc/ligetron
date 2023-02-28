@@ -252,30 +252,51 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
     }
 
     template <typename Expr>
-    auto eval(Expr&& expr) {
-        return expr.eval(*this);
-    }
+    auto eval_signed(Expr&& expr) { return expr.eval_signed(*this); }
 
-    virtual var_type eval(zkp_ops::add, var_type x, var_type y) {
-        u32_type v = x.val() + y.val();
-        auto z = make_var(static_cast<s64>(v));
+    template <typename Expr>
+    auto eval_unsigned(Expr&& expr) { return expr.eval_unsigned(*this); }
+
+    var_type eval(zkp_ops::eval_signed, zkp_ops::add, var_type x, var_type y) {
+        auto v = static_cast<s32>(x.val()) + static_cast<s32>(y.val());
+        auto z = make_var(v);
         region_.build_linear(z, x, y);
         return z;
     }
 
-    virtual var_type eval(zkp_ops::sub, var_type x, var_type y) {
-        s32 v = static_cast<s32>(x.val()) - static_cast<s32>(y.val());
+    var_type eval(zkp_ops::eval_unsigned, zkp_ops::add, var_type x, var_type y) {
+        auto v = static_cast<u32>(x.val()) + static_cast<u32>(y.val());
+        auto z = make_var(static_cast<s32>(v));    // needs c++20 to work
+        region_.build_linear(z, x, y);
+        return z;
+    }
+
+    var_type eval(zkp_ops::eval_signed, zkp_ops::sub, var_type x, var_type y) {
+        auto v = static_cast<s32>(x.val()) - static_cast<s32>(y.val());
         auto z = make_var(v);
         region_.build_linear(x, y, z);
         return z;
     }
 
-    virtual var_type eval(zkp_ops::mul, var_type x, var_type y) {
+    var_type eval(zkp_ops::eval_unsigned, zkp_ops::sub, var_type x, var_type y) {
+        auto v = static_cast<u32>(x.val()) - static_cast<u32>(y.val());
+        auto z = make_var(static_cast<s32>(v));
+        region_.build_linear(x, y, z);
+        return z;
+    }
+
+    template <typename Sign>
+    var_type eval(Sign, zkp_ops::mul, var_type x, var_type y) {
         return region_.multiply(x, y);
     }
 
-    virtual var_type eval(zkp_ops::div, var_type x, var_type y) {
-        return region_.divide(x, y);
+    
+    var_type eval(zkp_ops::eval_signed, zkp_ops::div, var_type x, var_type y) {
+        return region_.divide_signed(x, y);
+    }
+
+    var_type eval(zkp_ops::eval_unsigned, zkp_ops::div, var_type x, var_type y) {
+        return region_.divide_unsigned(x, y);
     }
 
 public:

@@ -81,7 +81,7 @@ export OMP_NUM_THREADS=4
 ```
 
 * Replace <WASM module>, <packing size>, and <args...> with the appropriate arguments for your use case.
-
+* Packing size influences the proof length. This paramter needs to be optimally chosen to minimize proof length. To run the code you can use some fixed value like 893. 
 
 ## Examples
 
@@ -94,7 +94,14 @@ To run the Edit Distance program with the `edit.wasm` module located in `wasm/ed
 ./prover ../wasm/edit.wasm 893 abcde bcdef
 ```
 
-This will run the Edit Distance program with the given packing size and arguments and produce the proof.
+To run the verifier
+
+``` bash
+./verifier ../wasm/edit.wasm 893 xxxxx xxxxx
+```
+
+
+This will run the Edit Distance program with the given packing size and arguments and produce the proof that the edit distance between the two input strings abcde and bcdef is less than 5. You can run this code with two strings of arbitrary lengths. If you try to generate a proof with strings whose edit distance >= 5, the verification will fail. 
 
 
 ### Example 2: Minimal Spanning Tree
@@ -106,7 +113,12 @@ To run the Minimal Spanning Tree program with the `mst.wasm` module located in `
 ./prover ../wasm/mst.wasm 893 003006777005003335006002649001002027000009763006000426002006211008007429002000862003007135 xxxxxxxxxx
 ```
 
-This will run the Minimal Spanning Tree program with the given arguments and produce the proof.
+``` bash
+./prover ../wasm/mst.wasm 893 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy xxxxxxxxxx
+```
+
+
+This will run the Minimal Spanning Tree program with the given arguments and produce the proof that the weight of the minimum spanning tree of the graph specified on 10 nodes is less than 15. The length of the second input encodes the number of nodes, the first input encodes the graph with weights as follows: read 3 digits at a time and group them three at time. For the string above we get (3,6,777),(5,3,335),(6,2,649,1,2,270),(0,9,763),(6,0,426),(2,6,211),(8,7,429),(2,0,862),(3,7,135). (3,6,777) implies an edge between the nodes 3 and 6 with edge weight 777.  
 
 ## Benchmarks
 

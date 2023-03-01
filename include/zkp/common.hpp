@@ -7,7 +7,7 @@ namespace ligero::vm::zkp {
 template <typename Number>
 Number modulo(const Number& x, const Number& m) {
     // auto t = make_timer(__func__);
-    return (x > m) ? (x % m) : x;
+    return (x >= m) ? (x % m) : x;
 }
 
 template <typename Number>

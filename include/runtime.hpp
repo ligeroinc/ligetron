@@ -263,10 +263,10 @@ index_t allocate_function(store_t& store,
     std::variant<function_instance::func_code, function_instance::host_code> code;
     /* A function without body is an external function */
     if (body.empty()) {
-        code = function_instance::host_code {
-            func.decl.type_var.index(),
-            import_map.at(func.name)
-        };
+        // code = function_instance::host_code {
+        //     func.decl.type_var.index(),
+        //     import_map.at(func.name)
+        // };
     }
     else {
         code = function_instance::func_code {

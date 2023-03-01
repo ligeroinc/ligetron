@@ -158,13 +158,13 @@ public:
         if (branch.type) {
             const auto& type = ctx_.module()->types[*branch.type];
             m = type.params.size();
-            n = type.params.size();
+            n = type.returns.size();
         }
 
         u32 c = ctx_.stack_pop().template as<u32_type>();
         ctx_.block_entry(m, n);
 
-        auto& ins_vec = c ? branch.then_body : branch.else_body;
+        auto& ins_vec = (c != 0) ? branch.then_body : branch.else_body;
         
         for (const instr_ptr& instr : ins_vec) {
             auto ret = instr->run(*this);
@@ -180,6 +180,7 @@ public:
             }
         }
 
+        ctx_.show_stack();
         ctx_.drop_n_below(1, n);
         return {};
     }

@@ -1,22 +1,6 @@
 // NP relation to prove weight of MST in a graph is < 15
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-
-#define LIGEROVM_EXTERN(ENV, NAME) __attribute__((import_module(#ENV), import_name(#NAME))) extern
-
 extern "C" {
-
-LIGEROVM_EXTERN(env, get_witness)
-int get_witness(int);
-LIGEROVM_EXTERN(env, get_witness_size)
-int get_witness_size();
-
-
-inline int min(int a, int b) {
-    return a <= b ? a : b;
-}
 
 inline int oblivious_if(bool cond, int t, int f) {
     int mask = static_cast<int>((1ULL << 33) - cond);

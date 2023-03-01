@@ -46,7 +46,7 @@ struct aes256ctr_engine {
             fill_buf();
             pos_ = 0;
         }
-        return buffer_[pos_++];
+        return reinterpret_cast<result_type*>(buffer_)[pos_++];
     }
 
     alignas(block_size) unsigned char buffer_[buffer_size];

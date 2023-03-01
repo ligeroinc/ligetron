@@ -39,10 +39,14 @@ template <typename Decoder, typename Poly>
 bool validate_sum(Decoder& dec, Poly p) {
     using field = typename Poly::field_type;
     dec.decode(p);
+
+    // std::cout << "poly: ";
     field acc = static_cast<typename field::value_type>(0);
     for (size_t i = 0; i < p.size(); i++) {
+        // std::cout << p[i] << " ";
         acc += field{p[i]};
     }
+    // std::cout << std::endl;
     return acc.data() == 0;
 }
 
@@ -287,21 +291,21 @@ int main(int argc, char *argv[]) {
     for (auto& code : codes)
         encoder.partial_decode(code);
 
-    {
-        std::vector<poly_t> linear_polys = prover_arg.linear();
-        std::vector<poly_t> quad_polys = prover_arg.quadratic();
-        std::cout << "Validation of linear constraints:    ";
-        for (size_t i = 0; i < params::num_linear_test; i++) {
-            std::cout << validate_sum(encoder, linear_polys[i]) << " ";
-        }
-        std::cout << std::endl;
-        std::cout << "Validation of quadratic constraints: ";
-        for (size_t i = 0; i < params::num_quadratic_test; i++) {
-            std::cout << validate(encoder, quad_polys[i]) << " ";
-        }
-        std::cout << std::endl
-                  << "----------------------------------------" << std::endl;
-    }
+    // {
+    //     std::vector<poly_t> linear_polys = prover_arg.linear();
+    //     std::vector<poly_t> quad_polys = prover_arg.quadratic();
+    //     std::cout << "Validation of linear constraints:    ";
+    //     for (size_t i = 0; i < params::num_linear_test; i++) {
+    //         std::cout << validate_sum(encoder, linear_polys[i]) << " ";
+    //     }
+    //     std::cout << std::endl;
+    //     std::cout << "Validation of quadratic constraints: ";
+    //     for (size_t i = 0; i < params::num_quadratic_test; i++) {
+    //         std::cout << validate(encoder, quad_polys[i]) << " ";
+    //     }
+    //     std::cout << std::endl
+    //               << "----------------------------------------" << std::endl;
+    // }
 
     
     oa << encoder_seed

@@ -1,6 +1,6 @@
-# Downloading and Building Ligerovm on Ubuntu Using CMake
+# Downloading and Building Ligetron on Ubuntu Using CMake
 
-This README will guide you through the process of downloading the Ligerovm project from GitLab, building its dependencies, and building it using CMake.
+This README will guide you through the process of downloading the Ligetron project from GitHub, building its dependencies, and building it using CMake.
 
 ## Prerequisites
 Before proceeding, ensure that the following prerequisites are met:
@@ -25,7 +25,7 @@ sudo apt-get install git -y
 ```
 
 ## Building Dependencies
-Before building the Ligerovm project, you need to build and install the HEXL and WABT dependencies using g++-12. Follow these steps:
+Before building the Ligetron project, you need to build and install the HEXL and WABT dependencies using g++-12. Follow these steps:
 
 ``` bash
 git clone https://github.com/intel/hexl.git
@@ -46,19 +46,18 @@ make -j
 sudo make install
 ```
 
-## Downloading and Building Ligerovm
-
-To download the Ligerovm project from GitLab and build it using CMake, follow these steps:
+## Downloading and Building Ligetron
 
 ``` bash
-git clone https://gitlab.stealthsoftwareinc.com/ruihanwang/ligerovm.git --branch non-batch
-cd ligerovm
+wget https://anonymous.4open.science/r/ligetron-8B27/ligetron.zip
+unzip ligetron.zip
+cd ligetron
 mkdir build && cd build
 cmake -DCMAKE_CXX_COMPILER=g++-12 ..
 make -j
 ```
 
-This will clone the Ligerovm project from GitLab, switch to the non-batch branch, build the dependencies, and build the project using CMake.
+This will clone the Ligetron project from GitHub, switch to the non-batch branch, build the dependencies, and build the project using CMake.
 
 ## Running the Prover/Verifier
 To run the prover/verifier, follow these steps:
@@ -113,7 +112,8 @@ This will run the Minimal Spanning Tree program with the given arguments and pro
 
 ### Space usage and Page Faults
 
-All space usage is measured with command `/usr/bin/time -v` and displayed as peak memory usage in KB.
+* All space usage is measured with command `/usr/bin/time -v` and displayed as peak memory usage in KB. 
+* Test machine: AWS `c6i.2xlarge`
 
 | Circuit Size | Ligetron - Packing | Ligetron - Space | Orion - Space | Brakedown - Space | Ligetron - Page Fault | Orion - Page Fault | Brakedown - Page Fault |
 |--------------|--------------------|------------------|---------------|-------------------|-----------------------|--------------------|------------------------|

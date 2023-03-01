@@ -292,7 +292,7 @@ index_t allocate_memory(store_t& store, const wabt::Memory& memory) {
     if (memory.page_limits.has_max)
         limit.max.emplace(memory.page_limits.max);
 
-    size_t memory_size = std::max(limit.min, 256UL) + 128; // 16MB heap + 8MB stack
+    size_t memory_size = std::max<u64>(limit.min, 256) + 128; // 16MB heap + 8MB stack
     
     return store.emplace_back<memory_instance>(memory_kind{ limit },
                                                memory_instance::page_size * memory_size);

@@ -103,22 +103,27 @@ To run the verifier
 
 This will run the Edit Distance program with the given packing size and arguments and produce the proof that the edit distance between the two input strings abcde and bcdef is less than 5. You can run this code with two strings of arbitrary lengths. If you try to generate a proof with strings whose edit distance >= 5, the verification will fail. 
 
-
-### Example 2: Minimal Spanning Tree
-To run the Minimal Spanning Tree program with the `mst.wasm` module located in `wasm/mst.wasm` and arguments `003006777005003335006002649001002027000009763006000426002006211008007429002000862003007135 xxxxxxxxxx`, follow these steps:
+### Example 2: Frequency
+To run the Frequency program with the `count.wasm` module located in `wasm/count.wasm` and arguments `abc` and `abcabcdef`, follow these steps:
 
 * Navigate to the build directory and run the following command:
 
 ``` bash
-./prover ../wasm/mst.wasm 893 003006777005003335006002649001002027000009763006000426002006211008007429002000862003007135 xxxxxxxxxx
+./prover ../wasm/count.wasm 893 abc abcabcdef
 ```
+
+To run the verifier
 
 ``` bash
-./prover ../wasm/mst.wasm 893 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy xxxxxxxxxx
+./verifier ../wasm/count.wasm 893 xxx xxxxxxxxx
 ```
 
 
-This will run the Minimal Spanning Tree program with the given arguments and produce the proof that the weight of the minimum spanning tree of the graph specified on 10 nodes is less than 15. The length of the second input encodes the number of nodes, the first input encodes the graph with weights as follows: read 3 digits at a time and group them three at time. For the string above we get (3,6,777),(5,3,335),(6,2,649,1,2,270),(0,9,763),(6,0,426),(2,6,211),(8,7,429),(2,0,862),(3,7,135). (3,6,777) implies an edge between the nodes 3 and 6 with edge weight 777.  
+This will run the Frequency program with the given packing size and arguments and produce the proof that the first string (abc) occurs at most 2 times in the second string (abcabcdef). 
+
+## Browser implementation
+
+Please check the README in the browser sub-folder to run our browser implementation. 
 
 ## Benchmarks
 
@@ -170,3 +175,5 @@ export OPENSSL_ia32cap=~0x20000000
 | Avg. speedup   | N/A     | 1.43x           | 1.33x  | 1.05x  | 1x     |
 
 All time are in milliseconds (ms).
+
+

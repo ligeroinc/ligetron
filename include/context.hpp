@@ -48,6 +48,16 @@ struct context_base {
 
     virtual void drop_n_below(size_t n, size_t pos = 0) {
         auto it = stack_.rbegin() + pos;
+        auto begin = (it + n).base();
+        auto end = it.base();
+
+        for (auto iter = begin; iter != end; ++iter) {
+            if (std::holds_alternative<frame_ptr>(iter->data())) {
+                std::cout << "pop current frame" << std::endl;
+                frames_.pop_back();
+            }
+        }
+        
         stack_.erase((it + n).base(), it.base());
     }
 
@@ -98,7 +108,7 @@ struct context_base {
         return p;
     }
 
-    void pop_frame() { frames_.pop_back(); }
+    // void pop_frame() { frames_.pop_back(); }
 
     void block_entry(u32 param, u32 ret) {
         stack_.insert((stack_.rbegin() + param).base(), label_type{ ret });

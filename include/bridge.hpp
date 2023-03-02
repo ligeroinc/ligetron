@@ -235,7 +235,19 @@ instr_ptr translate_scope(const In& expr) {
     Out block;
     block.label = expr.block.label;
     if (expr.block.decl.has_func_type) {
+        // Block has function-like type, use type index
         block.type = expr.block.decl.type_var.index();
+    }
+    else {
+        // Block may have optional valtype declaration
+        block_kind k;
+        for (size_t i = 0; i < expr.block.decl.GetNumParams(); i++) {
+            k.params.emplace_back(translate_type(expr.block.decl.GetParamType(i)));
+        }
+        for (size_t i = 0; i < expr.block.decl.GetNumResults(); i++) {
+            k.returns.emplace_back(translate_type(expr.block.decl.GetResultType(i)));
+        }
+        block.type = k;
     }
     for (const auto& ins : expr.block.exprs) {
         block.body.push_back(translate(ins));
@@ -248,6 +260,17 @@ instr_ptr translate_if(const wabt::IfExpr& expr) {
     branch.label = expr.true_.label;
     if (expr.true_.decl.has_func_type) {
         branch.type = expr.true_.decl.type_var.index();
+    }
+    else {
+        // Block may have optional valtype declaration
+        block_kind k;
+        for (size_t i = 0; i < expr.true_.decl.GetNumParams(); i++) {
+            k.params.emplace_back(translate_type(expr.true_.decl.GetParamType(i)));
+        }
+        for (size_t i = 0; i < expr.true_.decl.GetNumResults(); i++) {
+            k.returns.emplace_back(translate_type(expr.true_.decl.GetResultType(i)));
+        }
+        branch.type = k;
     }
     for (const auto& ins : expr.true_.exprs) {
         branch.then_body.push_back(translate(ins));

@@ -125,6 +125,7 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
         : encoder_(encoder),
           dist_(std::move(dist)),
           region_(encoder.plain_size(), dist_),
+          zstack_(),
           seeds_(seeds)
         {
             region_.on_linear([&](auto& row) { return on_linear_full(row); });
@@ -167,12 +168,14 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
             return std::holds_alternative<value_type>(v.data());
             // return std::holds_alternative<u32_type>(v) || std::holds_alternative<u64_type>(v);
         };
+        
         size_t zpos = std::count_if(this->stack_.rbegin(),
                                     this->stack_.rbegin() + pos,
                                     is_value);
         size_t zdrop = std::count_if(this->stack_.rbegin() + pos,
                                      this->stack_.rbegin() + pos + n,
                                      is_value);
+        
         Base::drop_n_below(n, pos);
 
         auto zit = zstack_.rbegin() + zpos;
@@ -302,11 +305,11 @@ struct nonbatch_context_base : public context_base<LocalValue, StackValue> {
 public:
     size_t linear_count = 0, quad_count = 0;
 protected:
-    std::vector<var_type> zstack_;
     reed_solomon64& encoder_;
 
     RandomDist dist_;
     gc_managed_region<field_poly, RandomDist> region_;
+    std::vector<var_type> zstack_;
     random_seeds seeds_;
     std::mt19937 linear_rand_, ql_rand_, qr_rand_, qo_rand_;
     std::mt19937 random_linear_rand_, random_ql_rand_, random_qr_rand_, random_qo_rand_;

@@ -75,6 +75,7 @@ using result_kind = std::vector<value_kind>;
 // Function Type
 /* ------------------------------------------------------------ */
 struct function_kind {
+    function_kind() = default;
     function_kind(result_kind param, result_kind ret)
         : params(std::move(param)), returns(std::move(ret)) { }
     
@@ -82,6 +83,7 @@ struct function_kind {
     result_kind returns;
 };
 
+using block_kind = function_kind;
 
 // Limits
 /* ------------------------------------------------------------ */

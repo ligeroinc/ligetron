@@ -524,21 +524,23 @@ struct unreachable : virtual instr, enable_control<unreachable> {
 
 struct block : virtual instr, enable_control<block> {
     block() = default;
-    block(index_t block_type) : type(block_type) { }
+    // block(index_t block_type) : type(block_type) { }
     std::string name() const override { return "block"; }
 
     name_t label;
-    std::optional<index_t> type;
+    // std::optional<index_t> type;
+    std::variant<index_t, block_kind> type;
     instr_vec body;
 };
 
 struct loop : virtual instr, enable_control<loop> {
     loop() = default;
-    loop(index_t block_type) : type(block_type) { }
+    // loop(index_t block_type) : type(block_type) { }
     std::string name() const override { return "loop"; }
 
     name_t label;
-    std::optional<index_t> type;
+    // std::optional<index_t> type;
+    std::variant<index_t, block_kind> type;
     instr_vec body;
 };
 
@@ -546,7 +548,7 @@ struct if_then_else : virtual instr, enable_control<if_then_else> {
     if_then_else() = default;
     std::string name() const override { return "if_then_else"; }
     name_t label;
-    std::optional<index_t> type;
+    std::variant<index_t, block_kind> type;
     instr_vec then_body;
     instr_vec else_body;
 };

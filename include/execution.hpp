@@ -69,11 +69,17 @@ public:
     result_t run(const op::block& block) override {
         /* Entering block with Label L */
         u32 m = 0, n = 0;
-        if (block.type) {
-            const auto& type = ctx_.module()->types[*block.type];
-            m = type.params.size();
-            n = type.returns.size();
-        }
+        std::visit(prelude::overloaded {
+                [&](index_t i) {
+                    const auto& type = ctx_.module()->types[i];
+                    m = type.params.size();
+                    n = type.returns.size();
+                },
+                [&m, &n](const block_kind& k) {
+                    m = k.params.size();
+                    n = k.returns.size();
+                }
+            }, block.type);
 
         // stack_.insert((stack_.rbegin() + m).base(), label{ n });
         ctx_.block_entry(m, n);
@@ -112,15 +118,20 @@ public:
     result_t run(const op::loop& block) override {
         /* Entering block with Label L */
         u32 m = 0, n = 0;
-        if (block.type) {
-            const auto& type = ctx_.module()->types[*block.type];
-            m = type.params.size();
-            n = type.returns.size();
-        }
-
+        std::visit(prelude::overloaded {
+                [&](index_t i) {
+                    const auto& type = ctx_.module()->types[i];
+                    m = type.params.size();
+                    n = type.returns.size();
+                },
+                [&m, &n](const block_kind& k) {
+                    m = k.params.size();
+                    n = k.returns.size();
+                }
+            }, block.type);
+        
     loop:
-        // stack_.insert((stack_.rbegin() + m).base(), label{ n });
-        ctx_.block_entry(m, n);
+        ctx_.block_entry(m, m);  // !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         for (const auto& instr : block.body) {
             auto ret = instr->run(*this);
@@ -155,11 +166,22 @@ public:
 
     result_t run(const op::if_then_else& branch) override {
         u32 m = 0, n = 0;
-        if (branch.type) {
-            const auto& type = ctx_.module()->types[*branch.type];
-            m = type.params.size();
-            n = type.returns.size();
-        }
+        std::visit(prelude::overloaded {
+                [&](index_t i) {
+                    const auto& type = ctx_.module()->types[i];
+                    m = type.params.size();
+                    n = type.returns.size();
+                },
+                [&m, &n](const block_kind& k) {
+                    m = k.params.size();
+                    n = k.returns.size();
+                }
+            }, branch.type);
+        // if (branch.type) {
+        //     const auto& type = ctx_.module()->types[*branch.type];
+        //     m = type.params.size();
+        //     n = type.returns.size();
+        // }
 
         u32 c = ctx_.stack_pop().template as<u32_type>();
         ctx_.block_entry(m, n);
@@ -180,7 +202,6 @@ public:
             }
         }
 
-        ctx_.show_stack();
         ctx_.drop_n_below(1, n);
         return {};
     }
@@ -189,9 +210,10 @@ public:
         const int l = b.label;
 
         /* Find L-th label */
-        auto it = prelude::find_if_n(ctx_.stack_top(), ctx_.stack_bottom(), l+1, [](const auto& v) {
-            return std::holds_alternative<label>(v.data());
-        });
+        auto it = prelude::find_if_n(ctx_.stack_top(), ctx_.stack_bottom(), l+1,
+                                     [](const auto& v) {
+                                         return std::holds_alternative<label>(v.data());
+                                     });
         assert(it != ctx_.stack_bottom());
         size_t distance = std::distance(ctx_.stack_top(), it);
 
@@ -273,8 +295,9 @@ public:
         });
         assert(frm != ctx_.stack_bottom());
         size_t distance = std::distance(ctx_.stack_top(), frm);
-        
+
         {
+            // ctx_.pop_frame();
             ctx_.drop_n_below(distance - arity + 1, arity);
             // std::vector<svalue_t> ret;
             // for (size_t i = 0; i < arity; i++) {
@@ -330,14 +353,22 @@ public:
                 auto ret = instr->run(*this);
             
                 if (int *p = std::get_if<int>(&ret)) {
-                    break;
+                    assert (*p >= 0);
+                    if (*p == 0) {
+                        return {};
+                    }
+                    else {
+                        return *p - 1;
+                    }
                 }
             }
 
+            // Clean up if no jump happend during call
+            
             // ctx_.pop_frame(m);
             {
-                ctx_.pop_frame();
-                ctx_.drop_n_below(1, m);
+                const size_t arity = ctx_.current_frame()->arity;
+                ctx_.drop_n_below(1, arity);
                 // std::vector<svalue_t> ret;
                 // for (size_t i = 0; i < m; i++) {
                 //     ret.emplace_back(ctx_.stack_pop_raw());
